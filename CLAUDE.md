@@ -33,6 +33,11 @@ HandoverOut/HandoverIn, RentalAgreement, Possession, ReservationGroup.
 ## Non-negotiable architecture rules
 - No client → database writes. Domain logic lives in Nitro server 
   routes only (D-25). The browser never declares a state transition.
+- Database access is server-side and direct-to-Postgres only — no 
+  Supabase Data API/PostgREST, no client-side supabase-js (D-25, D-31, R-09).
+- RLS is a secure-by-default second line of defence, never where 
+  domain logic lives; the service-role key bypasses RLS entirely and 
+  never reaches the client (D-31, P2).
 - A ScanEvent is an intent; the domain resolves it to HandoverOut or 
   HandoverIn from the Asset's current state (P3, FR-17). No caller 
   declares the transition.
@@ -49,7 +54,11 @@ HandoverOut/HandoverIn, RentalAgreement, Possession, ReservationGroup.
 ## Tech stack (Part 4)
 - Frontend: Nuxt 4 (PWA both sides, no native, no offline)
 - Backend: Nitro server routes only
-- DB + auth: Supabase (Postgres)
+- Node 26, pinned via .nvmrc/.node-version; migrate to the Active LTS 
+  line at or after Node 26's October 2026 LTS promotion.
+- DB + auth: Supabase — direct Postgres connection plus Auth. NOT 
+  used: Data API/PostgREST (disabled), client-side supabase-js, 
+  RLS-as-logic, Edge Functions (D-25, D-31).
 - Storage: Cloudflare R2, two buckets (evidence unbacked, conditions backed)
 - Payments: Stripe, Tenant's own account, hosted checkout
 - Email: Resend
@@ -105,7 +114,8 @@ rather than inventing a default.
 - Formatting and linting: Prettier + ESLint. The config is the 
   source of truth; do not hand-format against it.
 - Package manager: pnpm and never mix.
-- Node 22 LTS, pinned via .nvmrc. Local, CI, and Netlify must match.
+- Node 26, pinned via .nvmrc (see Tech stack). Local, CI, and Netlify 
+  must match.
 - pnpm managed via Corepack; version pinned in package.json 
   "packageManager" field.
 
