@@ -152,6 +152,9 @@ rather than inventing a default.
 - Expand/contract migrations only (D-30). Never destructive in 
   one step.
 - Conventional commit style: feat:, fix:, chore:, test:, docs:.
+- Every PR description ends with a closing keyword linking its 
+  issue: "Closes #N". This auto-closes the issue on merge to main 
+  and links PR ↔ issue for traceability.
 
 ## Implementation workflow (per issue)
 
