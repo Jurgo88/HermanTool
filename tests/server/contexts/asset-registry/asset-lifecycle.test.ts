@@ -16,9 +16,14 @@ import {
 } from '../../../../server/contexts/asset-registry/asset-lifecycle'
 import { createFakeAssetRegistryRepository, type FakeAssetRegistryRepository } from './fake-repository'
 
-const tenantA = 'tenant-a' as TenantId
-const tenantB = 'tenant-b' as TenantId
-const operatorId = 'operator-1'
+// The fake repository doesn't validate format — tenantId/operatorId are
+// real uuid columns in the migration, but the domain layer's types are
+// plain strings, so the fake correctly doesn't enforce that. These are
+// still valid-looking uuids anyway, purely so nobody copies a fixture
+// like 'operator-1' into real code assuming it's an acceptable value.
+const tenantA = '11111111-1111-1111-1111-111111111111' as TenantId
+const tenantB = '22222222-2222-2222-2222-222222222222' as TenantId
+const operatorId = '33333333-3333-3333-3333-333333333333'
 
 describe('registerAsset', () => {
   let repo: FakeAssetRegistryRepository

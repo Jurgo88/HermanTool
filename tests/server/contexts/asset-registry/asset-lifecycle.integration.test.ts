@@ -27,9 +27,15 @@ describe.skipIf(!databaseUrl)('Asset Registry migration (integration)', () => {
   let tenantA: TenantId
   let tenantB: TenantId
   let assetTypeInA: number
+  // operator_id columns are `uuid` (see the migration's D-22 TODO on the
+  // attribution columns) — a non-uuid string fails at insert against real
+  // Postgres even though the fake repository in asset-lifecycle.test.ts
+  // doesn't validate the format.
+  let operatorId: string
 
   beforeEach(async () => {
     sql = createDatabaseClient(databaseUrl)
+    operatorId = crypto.randomUUID()
 
     await sql`truncate table asset_status_events, asset_tags, assets, asset_types restart identity cascade`
 
@@ -60,12 +66,12 @@ describe.skipIf(!databaseUrl)('Asset Registry migration (integration)', () => {
     const asset = await registerAsset(repo, {
       tenantId: tenantA,
       assetTypeId: assetTypeInA,
-      operatorId: 'operator-1',
+      operatorId,
     })
 
     expect(asset.status).toBe('unavailable')
     await expect(
-      markAssetRentable(repo, { tenantId: tenantB, assetId: asset.id, operatorId: 'operator-1' }),
+      markAssetRentable(repo, { tenantId: tenantB, assetId: asset.id, operatorId }),
     ).rejects.toThrow(AssetNotFoundError)
   })
 
@@ -75,19 +81,19 @@ describe.skipIf(!databaseUrl)('Asset Registry migration (integration)', () => {
     const assetOne = await registerAsset(repo, {
       tenantId: tenantA,
       assetTypeId: assetTypeInA,
-      operatorId: 'operator-1',
+      operatorId,
     })
     const assetTwo = await registerAsset(repo, {
       tenantId: tenantA,
       assetTypeId: assetTypeInA,
-      operatorId: 'operator-1',
+      operatorId,
     })
 
     await bindAssetTag(repo, {
       tenantId: tenantA,
       assetId: assetOne.id,
       tagCode: 'TAG-DUP',
-      operatorId: 'operator-1',
+      operatorId,
     })
 
     await expect(
@@ -95,7 +101,7 @@ describe.skipIf(!databaseUrl)('Asset Registry migration (integration)', () => {
         tenantId: tenantA,
         assetId: assetTwo.id,
         tagCode: 'TAG-DUP',
-        operatorId: 'operator-1',
+        operatorId,
       }),
     ).rejects.toThrow(TagAlreadyBoundError)
   })
@@ -106,11 +112,11 @@ describe.skipIf(!databaseUrl)('Asset Registry migration (integration)', () => {
     const asset = await registerAsset(repo, {
       tenantId: tenantA,
       assetTypeId: assetTypeInA,
-      operatorId: 'operator-1',
+      operatorId,
     })
 
-    await bindAssetTag(repo, { tenantId: tenantA, assetId: asset.id, tagCode: 'TAG-OLD', operatorId: 'operator-1' })
-    await bindAssetTag(repo, { tenantId: tenantA, assetId: asset.id, tagCode: 'TAG-NEW', operatorId: 'operator-1' })
+    await bindAssetTag(repo, { tenantId: tenantA, assetId: asset.id, tagCode: 'TAG-OLD', operatorId })
+    await bindAssetTag(repo, { tenantId: tenantA, assetId: asset.id, tagCode: 'TAG-NEW', operatorId })
 
     const activeTags = await sql`
       select tag_code from asset_tags where asset_id = ${asset.id} and unbound_at is null
