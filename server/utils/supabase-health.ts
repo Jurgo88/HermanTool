@@ -40,7 +40,7 @@ export async function checkSupabaseHealth(
   if (!hasSupabaseCredentials(credentials)) {
     return {
       status: 'credentials_missing',
-      message: 'SUPABASE_URL / SUPABASE_ANON_KEY not set — see .env.example.',
+      message: 'NUXT_SUPABASE_URL / NUXT_SUPABASE_ANON_KEY not set — see .env.example.',
     }
   }
 

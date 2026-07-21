@@ -15,12 +15,20 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    // Server-only (D-31): never exposed under `public`. The service-role
-    // key bypasses RLS and must never reach the client. No live Supabase
-    // connection is required for the dev server to boot — see
-    // server/utils/supabase-client.ts.
-    supabaseUrl: process.env.SUPABASE_URL || '',
-    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
-    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    // Server-only (D-31): declared at the top level, not under `public`,
+    // so none of these ever reach the client bundle. This includes the
+    // anon key — the client never talks to Supabase directly (D-25), so
+    // it has no need for any Supabase credential, public or otherwise.
+    // The service-role key in particular bypasses RLS entirely and must
+    // never be exposed.
+    //
+    // Values come from Nuxt's runtimeConfig env mapping — NUXT_SUPABASE_URL,
+    // NUXT_SUPABASE_ANON_KEY, NUXT_SUPABASE_SERVICE_ROLE_KEY (see
+    // .env.example) — with no manual process.env wiring here (D-31). No
+    // live Supabase connection is required for the dev server to boot —
+    // see server/utils/supabase-client.ts.
+    supabaseUrl: '',
+    supabaseAnonKey: '',
+    supabaseServiceRoleKey: '',
   },
 })
