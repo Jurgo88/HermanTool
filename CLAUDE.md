@@ -97,3 +97,66 @@ rather than inventing a default.
   and PR. If you can't cite one, the change may be out of scope — ask.
 - Expand/contract migrations only. Never destructive in one step.
 - Never put business logic in RLS policies or Edge Functions.
+
+## Coding conventions
+
+### Language & tooling
+- TypeScript everywhere, strict mode on. No plain JS files.
+- Formatting and linting: Prettier + ESLint. The config is the 
+  source of truth; do not hand-format against it.
+- Package manager: pnpm and never mix.
+
+### Naming
+- Files: kebab-case (asset-registry.ts, not assetRegistry.ts).
+- Types, interfaces, classes: PascalCase.
+- Variables, functions: camelCase.
+- Domain terms follow Part 1's Ubiquitous Language EXACTLY. An 
+  AssetType is `AssetType`, never `assetKind` or `category`. The 
+  banned-terms list in CLAUDE.md applies to every identifier.
+
+### Structure
+- One bounded context = one module directory (D-02). Contexts do 
+  not import each other's internals — only their published 
+  interfaces. Dependency direction follows Part 1's context map.
+- Domain logic lives in Nitro server routes / server-side modules 
+  only (D-25). Never in Vue components, never in client code.
+
+### Errors & validation
+- Validate all input at the server boundary. Zod for schema validation.
+- Domain rule violations throw typed domain errors, not generic 
+  Error. The HTTP layer translates them to responses.
+
+### Testing
+- Every domain invariant from Part 1/3 has a test. Specifically: 
+  the D-08 overbooking invariant, the FR-20 paired-evidence rule, 
+  and the FR-33 tenant scoping MUST have tests before their 
+  feature is considered done.
+- Use Vitest
+
+### Commits & PRs
+- Every commit cites a governing identifier (FR-XX, D-XX, W-XX) 
+  and the issue number.
+- Expand/contract migrations only (D-30). Never destructive in 
+  one step.
+- Conventional commit style: feat:, fix:, chore:, test:, docs:.
+
+## Implementation workflow (per issue)
+
+When given an issue to implement:
+
+1. Read the issue and the identifiers it cites. Read the relevant 
+   parts of /docs/architecture/ before writing code.
+2. If the issue touches a KNOWN GAP (see the list above), STOP and 
+   flag it. Do not invent a default for a deferred decision.
+3. Create a feature branch: feat/<short-name> or fix/<short-name>.
+4. Propose the file structure / approach BEFORE writing files. 
+   Wait for confirmation on anything non-trivial.
+5. Implement, following the coding conventions.
+6. Write tests for any domain invariant the issue touches.
+7. Run lint, typecheck, and tests locally. Fix what breaks.
+8. Commit with a conventional message citing the issue and 
+   governing identifiers.
+9. Open a PR summarising what changed and which identifiers govern it.
+
+Never merge to main directly. Never skip the tests for the three 
+critical invariants (D-08, FR-20, FR-33).
