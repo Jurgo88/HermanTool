@@ -16,17 +16,23 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     // Server-only (D-31): declared at the top level, not under `public`,
-    // so none of these ever reach the client bundle. This includes the
-    // anon key — the client never talks to Supabase directly (D-25), so
-    // it has no need for any Supabase credential, public or otherwise.
-    // The service-role key in particular bypasses RLS entirely and must
-    // never be exposed.
+    // so none of these ever reach the client bundle.
     //
-    // Values come from Nuxt's runtimeConfig env mapping — NUXT_SUPABASE_URL,
-    // NUXT_SUPABASE_ANON_KEY, NUXT_SUPABASE_SERVICE_ROLE_KEY (see
-    // .env.example) — with no manual process.env wiring here (D-31). No
-    // live Supabase connection is required for the dev server to boot —
-    // see server/utils/supabase-client.ts.
+    // databaseUrl is the direct-to-Postgres connection string (D-25,
+    // D-31, R-09) — the only path domain code uses to reach the
+    // database. No Data API/PostgREST, no client-side supabase-js.
+    //
+    // The supabase* keys are kept for Supabase Auth only (D-22), which
+    // arrives later; they must never be used to reach the database. The
+    // service-role key in particular bypasses RLS entirely and must
+    // never be exposed to the client.
+    //
+    // Values come from Nuxt's runtimeConfig env mapping — NUXT_DATABASE_URL,
+    // NUXT_SUPABASE_URL, NUXT_SUPABASE_ANON_KEY, NUXT_SUPABASE_SERVICE_ROLE_KEY
+    // (see .env.example) — with no manual process.env wiring here (D-31).
+    // No live database connection is required for the dev server to boot —
+    // see server/utils/db.ts.
+    databaseUrl: '',
     supabaseUrl: '',
     supabaseAnonKey: '',
     supabaseServiceRoleKey: '',

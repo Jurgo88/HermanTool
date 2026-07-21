@@ -1,18 +1,15 @@
-import { checkSupabaseHealth } from '../utils/supabase-health'
+import { checkDatabaseHealth } from '../utils/db-health'
 
-// Attempts the Supabase connection and reports status instead of
-// crashing when credentials are absent — Supabase credentials are not
+// Attempts the direct Postgres connection and reports status instead of
+// crashing when the connection string is absent — no live database is
 // available yet (scaffold issue).
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
 
-  const supabase = await checkSupabaseHealth({
-    url: config.supabaseUrl,
-    anonKey: config.supabaseAnonKey,
-  })
+  const database = await checkDatabaseHealth(config.databaseUrl)
 
   return {
     status: 'ok',
-    supabase,
+    database,
   }
 })
