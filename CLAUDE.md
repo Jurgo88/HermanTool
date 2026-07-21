@@ -105,6 +105,9 @@ rather than inventing a default.
 - Formatting and linting: Prettier + ESLint. The config is the 
   source of truth; do not hand-format against it.
 - Package manager: pnpm and never mix.
+- Node 22 LTS, pinned via .nvmrc. Local, CI, and Netlify must match.
+- pnpm managed via Corepack; version pinned in package.json 
+  "packageManager" field.
 
 ### Naming
 - Files: kebab-case (asset-registry.ts, not assetRegistry.ts).
