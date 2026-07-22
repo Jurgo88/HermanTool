@@ -4,11 +4,28 @@
 //
 // Dependency direction (Part 1 §4 context map): Asset Registry is
 // upstream of Availability & Reservation and of Handover & Possession.
-// It must never import from either.
-//
-// Every Asset is an aggregate root and MUST carry `tenantId: TenantId`
-// (D-01, P2 — see ../_shared/tenant.ts).
-//
-// Scaffold only (issue: project skeleton). No domain logic yet — this
-// file is the context's published interface, currently empty.
-export {}
+// It must never import from either — this file is the only surface
+// other contexts may import from.
+export type { Asset, AssetStatus, AssetStatusEvent, AssetTag } from './types'
+
+// Error classes are exported as values (not `export type`) so callers can
+// use `instanceof` — they are thrown, not just typed, by ./asset-lifecycle.
+export {
+  AssetRegistryError,
+  AssetTypeNotFoundError,
+  AssetNotFoundError,
+  TagAlreadyBoundError,
+  AssetNotTaggedError,
+  AssetRetiredError,
+} from './types'
+
+export type { AssetRegistryRepository } from './repository'
+export { createPostgresAssetRegistryRepository } from './repository'
+
+export {
+  registerAsset,
+  bindAssetTag,
+  markAssetRentable,
+  markAssetUnavailable,
+  retireAsset,
+} from './asset-lifecycle'
