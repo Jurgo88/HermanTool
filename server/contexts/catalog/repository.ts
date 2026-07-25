@@ -12,14 +12,32 @@ export interface NewAssetType {
   description: string
   dayRate: MonetaryAmount
   depositAmount: MonetaryAmount
+  operatorId: string
+}
+
+export interface AssetTypeUpdate {
+  operatorId: string
+  name?: string
+  description?: string
+  dayRate?: MonetaryAmount
+  depositAmount?: MonetaryAmount
 }
 
 export interface CatalogRepository {
   getAssetType(tenantId: TenantId, assetTypeId: number): Promise<AssetType | null>
 
+  listAssetTypes(tenantId: TenantId): Promise<AssetType[]>
+
   insertAssetType(tenantId: TenantId, params: NewAssetType): Promise<AssetType>
 
-  updatePublicationState(tenantId: TenantId, assetTypeId: number, published: boolean): Promise<AssetType>
+  updateAssetType(tenantId: TenantId, assetTypeId: number, params: AssetTypeUpdate): Promise<AssetType>
+
+  updatePublicationState(
+    tenantId: TenantId,
+    assetTypeId: number,
+    published: boolean,
+    operatorId: string,
+  ): Promise<AssetType>
 }
 
 interface AssetTypeRow {
@@ -32,6 +50,9 @@ interface AssetTypeRow {
   deposit_amount: number
   deposit_currency: MonetaryAmount['currency']
   published: boolean
+  created_by_operator_id: string | null
+  updated_by_operator_id: string | null
+  updated_at: Date
 }
 
 function mapAssetType(row: AssetTypeRow): AssetType {
@@ -43,6 +64,9 @@ function mapAssetType(row: AssetTypeRow): AssetType {
     dayRate: { amount: row.day_rate_amount, currency: row.day_rate_currency },
     depositAmount: { amount: row.deposit_amount, currency: row.deposit_currency },
     published: row.published,
+    createdByOperatorId: row.created_by_operator_id,
+    updatedByOperatorId: row.updated_by_operator_id,
+    updatedAt: row.updated_at,
   }
 }
 
@@ -55,26 +79,53 @@ export function createPostgresCatalogRepository(sql: postgres.Sql | postgres.Tra
       return rows[0] ? mapAssetType(rows[0]) : null
     },
 
-    async insertAssetType(tenantId, { name, description, dayRate, depositAmount }) {
+    async listAssetTypes(tenantId) {
+      const rows = await sql<
+        AssetTypeRow[]
+      >`select * from asset_types where tenant_id = ${tenantId} order by name`
+      return rows.map(mapAssetType)
+    },
+
+    async insertAssetType(tenantId, { name, description, dayRate, depositAmount, operatorId }) {
       const rows = await sql<AssetTypeRow[]>`
         insert into asset_types (
           tenant_id, name, description,
           day_rate_amount, day_rate_currency,
-          deposit_amount, deposit_currency
+          deposit_amount, deposit_currency,
+          created_by_operator_id, updated_by_operator_id
         ) values (
           ${tenantId}, ${name}, ${description},
           ${dayRate.amount}, ${dayRate.currency},
-          ${depositAmount.amount}, ${depositAmount.currency}
+          ${depositAmount.amount}, ${depositAmount.currency},
+          ${operatorId}, ${operatorId}
         )
         returning *
       `
       return mapAssetType(rows[0]!)
     },
 
-    async updatePublicationState(tenantId, assetTypeId, published) {
+    async updateAssetType(tenantId, assetTypeId, { operatorId, name, description, dayRate, depositAmount }) {
       const rows = await sql<AssetTypeRow[]>`
         update asset_types
-        set published = ${published}
+        set
+          name = coalesce(${name ?? null}, name),
+          description = coalesce(${description ?? null}, description),
+          day_rate_amount = coalesce(${dayRate?.amount ?? null}, day_rate_amount),
+          day_rate_currency = coalesce(${dayRate?.currency ?? null}, day_rate_currency),
+          deposit_amount = coalesce(${depositAmount?.amount ?? null}, deposit_amount),
+          deposit_currency = coalesce(${depositAmount?.currency ?? null}, deposit_currency),
+          updated_by_operator_id = ${operatorId},
+          updated_at = now()
+        where tenant_id = ${tenantId} and id = ${assetTypeId}
+        returning *
+      `
+      return mapAssetType(rows[0]!)
+    },
+
+    async updatePublicationState(tenantId, assetTypeId, published, operatorId) {
+      const rows = await sql<AssetTypeRow[]>`
+        update asset_types
+        set published = ${published}, updated_by_operator_id = ${operatorId}, updated_at = now()
         where tenant_id = ${tenantId} and id = ${assetTypeId}
         returning *
       `

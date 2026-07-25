@@ -12,7 +12,13 @@ export type { AssetType } from './types'
 // ./asset-type.
 export { CatalogError, AssetTypeNotFoundError, AssetTypeNameRequiredError } from './types'
 
-export type { CatalogRepository, NewAssetType } from './repository'
+export type { CatalogRepository, NewAssetType, AssetTypeUpdate } from './repository'
 export { createPostgresCatalogRepository } from './repository'
 
-export { createAssetType, publishAssetType, unpublishAssetType } from './asset-type'
+export {
+  listAssetTypes,
+  createAssetType,
+  updateAssetType,
+  publishAssetType,
+  unpublishAssetType,
+} from './asset-type'
