@@ -21,29 +21,19 @@ create index if not exists operators_tenant_id_idx on operators (tenant_id);
 
 alter table operators enable row level security;
 
--- Backfills the FK the Asset Registry migration deliberately left off,
--- per its own TODO: attribution columns were plain `uuid not null` with
--- no foreign key because D-22 hadn't shipped and there were no real
--- Operator seats to reference. Now there are (or will be, once the two
--- seats below are created by hand) — expand, D-30. Safe because the
--- pilot has no production Asset Registry data predating this migration.
-alter table assets
-  add constraint assets_registered_by_operator_id_fkey
-    foreign key (registered_by_operator_id) references auth.users (id),
-  add constraint assets_status_changed_by_operator_id_fkey
-    foreign key (status_changed_by_operator_id) references auth.users (id);
-
-alter table asset_status_events
-  add constraint asset_status_events_operator_id_fkey
-    foreign key (operator_id) references auth.users (id);
-
-alter table asset_tags
-  add constraint asset_tags_bound_by_operator_id_fkey
-    foreign key (bound_by_operator_id) references auth.users (id),
-  add constraint asset_tags_unbound_by_operator_id_fkey
-    foreign key (unbound_by_operator_id) references auth.users (id);
-
 -- No RLS policies on `operators`, same reasoning as every other table in
 -- this schema: domain logic and tenant scoping live in Nitro (D-25), not
 -- in RLS. Only the service-role key (bypasses RLS, D-31) reaches this
 -- table, and it never leaves the server.
+--
+-- NOT done here, deliberately: backfilling the FK the Asset Registry
+-- migration's own TODO promised on registered_by_operator_id,
+-- status_changed_by_operator_id, operator_id and bound/unbound_by_
+-- operator_id. The two real Operator seats (owner + employee) do not
+-- exist yet in any environment, including the rehearsal database
+-- integration tests run against — adding that FK now would make every
+-- existing Asset Registry integration test's fabricated operatorId
+-- fixture (crypto.randomUUID()) fail with a foreign-key violation the
+-- moment someone points NUXT_DATABASE_URL at a real Postgres. Add that
+-- FK in its own follow-up migration once the two seats reliably exist
+-- everywhere tests run, not before.
