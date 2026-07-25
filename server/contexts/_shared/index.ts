@@ -3,3 +3,5 @@
 // small — anything context-specific belongs inside that context's own
 // module, not here.
 export type { TenantId } from './tenant'
+export type { CurrencyCode, MonetaryAmount } from './monetary-amount'
+export { createMonetaryAmount, InvalidMonetaryAmountError } from './monetary-amount'
