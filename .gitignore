@@ -8,4 +8,5 @@ dist/
 .DS_Store
 *.log
 .netlify/
-.claude/settings.local.json
+.claude/
+supabase/.temp/
