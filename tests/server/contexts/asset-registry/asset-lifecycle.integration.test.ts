@@ -8,7 +8,7 @@
 // reachable in CI today, matching the existing db-health tests). Point
 // it at the R-05 rehearsal Supabase project, never at production, before
 // running this file locally.
-import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type postgres from 'postgres'
 import { createDatabaseClient } from '../../../../server/utils/db'
 import type { TenantId } from '../../../../server/contexts/_shared'
@@ -39,12 +39,20 @@ describe.skipIf(!databaseUrl)('Asset Registry migration (integration)', () => {
 
     await sql`truncate table asset_status_events, asset_tags, assets, asset_types restart identity cascade`
 
-    const [{ id: seededTenantId }] = await sql<{ id: string }[]>`select id from tenants limit 1`
+    // order by created_at: with more than one Tenant row present (e.g. a
+    // prior run of this suite that failed before its afterEach cleanup),
+    // `limit 1` alone has no guaranteed order — the oldest row is the one
+    // the very first migration seeded (D-01: exactly one Tenant).
+    const [{ id: seededTenantId }] = await sql<
+      { id: string }[]
+    >`select id from tenants order by created_at limit 1`
     tenantA = seededTenantId as TenantId
 
     // A second Tenant row for the isolation assertion only — nothing in
     // Asset Registry's own API creates Tenants (D-01: no onboarding
     // surface); this is test setup, not a code path the app exposes.
+    // Removed in afterEach below so repeated runs against a real
+    // database don't accumulate orphan Tenant rows.
     const [{ id: secondTenantId }] = await sql<{
       id: string
     }[]>`insert into tenants default values returning id`
@@ -54,6 +62,10 @@ describe.skipIf(!databaseUrl)('Asset Registry migration (integration)', () => {
       insert into asset_types (tenant_id) values (${tenantA}) returning id
     `
     assetTypeInA = assetTypeId
+  })
+
+  afterEach(async () => {
+    await sql`delete from tenants where id = ${tenantB}`
   })
 
   afterAll(async () => {
