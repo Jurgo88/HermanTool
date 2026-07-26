@@ -4,6 +4,12 @@ import type { MonetaryAmount, TenantId } from '../_shared'
 
 // AssetType (Part 1 §5) — the bookable kind, never an instance. Catalog
 // does not own Assets and does not know how many exist (D-03).
+//
+// createdByOperatorId/updatedByOperatorId are nullable because the
+// Catalog core migration shipped before D-22 existed — a pre-existing
+// row can carry no attribution. Every write that goes through the admin
+// surface (FR-37) requires a real operatorId; the domain layer enforces
+// that, not the column (FR-34).
 export interface AssetType {
   id: number
   tenantId: TenantId
@@ -12,6 +18,9 @@ export interface AssetType {
   dayRate: MonetaryAmount
   depositAmount: MonetaryAmount
   published: boolean
+  createdByOperatorId: string | null
+  updatedByOperatorId: string | null
+  updatedAt: Date
 }
 
 export class CatalogError extends Error {

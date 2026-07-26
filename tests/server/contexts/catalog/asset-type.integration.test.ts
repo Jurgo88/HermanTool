@@ -17,6 +17,11 @@ import { AssetTypeNotFoundError } from '../../../../server/contexts/catalog/type
 
 const databaseUrl = process.env.NUXT_DATABASE_URL ?? ''
 
+// A fabricated uuid, not a real auth.users row — safe because the
+// attribution columns have no FK yet (deliberately deferred, see the
+// 20260725090000_catalog_operator_attribution migration).
+const operatorId = '55555555-5555-5555-5555-555555555555'
+
 describe.skipIf(!databaseUrl)('Catalog migration (integration)', () => {
   let sql: postgres.Sql
   let tenantA: TenantId
@@ -60,6 +65,7 @@ describe.skipIf(!databaseUrl)('Catalog migration (integration)', () => {
 
     const assetType = await createAssetType(repo, {
       tenantId: tenantA,
+      operatorId,
       name: 'Rotary hammer, 5kg',
       description: 'Bosch GBH 5-40, SDS-max',
       dayRate: createMonetaryAmount(1500),
@@ -72,9 +78,11 @@ describe.skipIf(!databaseUrl)('Catalog migration (integration)', () => {
       dayRate: { amount: 1500, currency: 'EUR' },
       depositAmount: { amount: 5000, currency: 'EUR' },
       published: false,
+      createdByOperatorId: operatorId,
+      updatedByOperatorId: operatorId,
     })
 
-    const published = await publishAssetType(repo, { tenantId: tenantA, assetTypeId: assetType.id })
+    const published = await publishAssetType(repo, { tenantId: tenantA, assetTypeId: assetType.id, operatorId })
     expect(published.published).toBe(true)
   })
 
@@ -83,6 +91,7 @@ describe.skipIf(!databaseUrl)('Catalog migration (integration)', () => {
 
     const assetType = await createAssetType(repo, {
       tenantId: tenantA,
+      operatorId,
       name: 'Rotary hammer, 5kg',
       description: '',
       dayRate: createMonetaryAmount(1500),
@@ -90,7 +99,7 @@ describe.skipIf(!databaseUrl)('Catalog migration (integration)', () => {
     })
 
     await expect(
-      publishAssetType(repo, { tenantId: tenantB, assetTypeId: assetType.id }),
+      publishAssetType(repo, { tenantId: tenantB, assetTypeId: assetType.id, operatorId }),
     ).rejects.toThrow(AssetTypeNotFoundError)
   })
 

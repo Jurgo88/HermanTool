@@ -17,7 +17,12 @@ export function createFakeCatalogRepository(): CatalogRepository {
       return assetType ? { ...assetType } : null
     },
 
+    async listAssetTypes(tenantId) {
+      return assetTypes.filter((a) => a.tenantId === tenantId).map((a) => ({ ...a }))
+    },
+
     async insertAssetType(tenantId, params: NewAssetType) {
+      const now = new Date()
       const assetType: AssetType = {
         id: nextId++,
         tenantId,
@@ -26,15 +31,32 @@ export function createFakeCatalogRepository(): CatalogRepository {
         dayRate: params.dayRate,
         depositAmount: params.depositAmount,
         published: false,
+        createdByOperatorId: params.operatorId,
+        updatedByOperatorId: params.operatorId,
+        updatedAt: now,
       }
       assetTypes.push(assetType)
       return { ...assetType }
     },
 
-    async updatePublicationState(tenantId, assetTypeId, published) {
+    async updateAssetType(tenantId, assetTypeId, params) {
+      const assetType = assetTypes.find((a) => a.tenantId === tenantId && a.id === assetTypeId)
+      if (!assetType) throw new Error('fake repository: asset type not found')
+      if (params.name !== undefined) assetType.name = params.name
+      if (params.description !== undefined) assetType.description = params.description
+      if (params.dayRate !== undefined) assetType.dayRate = params.dayRate
+      if (params.depositAmount !== undefined) assetType.depositAmount = params.depositAmount
+      assetType.updatedByOperatorId = params.operatorId
+      assetType.updatedAt = new Date()
+      return { ...assetType }
+    },
+
+    async updatePublicationState(tenantId, assetTypeId, published, operatorId) {
       const assetType = assetTypes.find((a) => a.tenantId === tenantId && a.id === assetTypeId)
       if (!assetType) throw new Error('fake repository: asset type not found')
       assetType.published = published
+      assetType.updatedByOperatorId = operatorId
+      assetType.updatedAt = new Date()
       return { ...assetType }
     },
   }
