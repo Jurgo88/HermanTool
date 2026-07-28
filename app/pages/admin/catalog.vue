@@ -13,6 +13,13 @@ interface AssetTypeView {
   published: boolean
 }
 
+// useNuxtApp()/useRequestFetch() must be called synchronously here, at
+// the top of setup, before any `await` — that's the only point where
+// Nuxt's composable context is guaranteed available. runWithContext()
+// below re-establishes it inside the nested async catch handlers.
+const nuxtApp = useNuxtApp()
+const requestFetch = useRequestFetch()
+
 const assetTypes = ref<AssetTypeView[]>([])
 const error = ref<string | null>(null)
 
@@ -33,7 +40,13 @@ function toEuros(minorUnits: number): string {
 
 async function load() {
   try {
-    assetTypes.value = await $fetch<AssetTypeView[]>('/api/catalog/asset-types')
+    // useRequestFetch(), not plain $fetch: during SSR, plain $fetch
+    // making an internal request to our own API does not forward the
+    // browser's cookies, so the session-gated route would 401 on every
+    // first load even when the Operator is genuinely signed in.
+    // useRequestFetch() forwards them; on the client (no SSR involved)
+    // it behaves like ordinary $fetch.
+    assetTypes.value = await requestFetch<AssetTypeView[]>('/api/catalog/asset-types')
   } catch (err: unknown) {
     await handleFetchError(err)
   }
@@ -42,7 +55,11 @@ async function load() {
 async function handleFetchError(err: unknown) {
   const statusCode = (err as { statusCode?: number })?.statusCode
   if (statusCode === 401) {
-    await navigateTo('/login')
+    // runWithContext: this runs inside a nested async catch handler,
+    // where Nuxt's composable context (needed by navigateTo) isn't
+    // reliably available otherwise — see the Nuxt app captured at the
+    // top of setup.
+    await nuxtApp.runWithContext(() => navigateTo('/login'))
     return
   }
   error.value = 'Something went wrong.'
