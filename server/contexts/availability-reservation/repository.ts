@@ -69,6 +69,12 @@ export interface AvailabilityReservationRepository {
     day: string,
   ): Promise<Reservation | null>
 
+  // D-25 §14.2 / Finding 3: the proactive sweep's read side. Every
+  // Pending Reservation for the Tenant whose window has already lapsed —
+  // across all AssetTypes and days, not just one contended day. Real
+  // Postgres `now()`, same reasoning as findStalePendingReservationForDay.
+  findStalePendingReservations(tenantId: TenantId): Promise<Reservation[]>
+
   // FR-03's read-side availability — independent of the D-33 holds
   // counter (see ./index.ts's module doc for why these are two distinct
   // computations). Lazy expiry (D-25): a Pending row whose
@@ -222,6 +228,15 @@ export function createPostgresAvailabilityReservationRepository(
       return rows[0] ? mapReservation(rows[0]) : null
     },
 
+    async findStalePendingReservations(tenantId) {
+      const rows = await sql<ReservationRow[]>`
+        select * from reservations
+        where tenant_id = ${tenantId} and state = 'pending' and pending_expires_at < now()
+        order by id
+      `
+      return rows.map(mapReservation)
+    },
+
     async countActiveReservations(tenantId, assetTypeId, day) {
       const rows = await sql<{ count: string }[]>`
         select count(*)::text as count from reservations
@@ -232,12 +247,27 @@ export function createPostgresAvailabilityReservationRepository(
       return Number(rows[0]!.count)
     },
 
-    async transaction(fn) {
+    async transaction<T>(
+      fn: (repo: AvailabilityReservationRepository, getRentableCount: CapacitySource) => Promise<T>,
+    ) {
+      // See Asset Registry's repository for why this guard exists:
+      // `TransactionSql` has no `.begin()` (nested transactions use
+      // `savepoint()`), and nothing here ever calls `.transaction()` on
+      // an already-transaction-bound repo — this makes that a checked
+      // invariant instead of a silent runtime failure.
+      if (!('begin' in sql)) {
+        throw new Error('Nested transactions are not supported — this repository is already bound to one.')
+      }
+      // See Asset Registry's repository for why the cast is needed:
+      // postgres.js's begin<T> returns Promise<UnwrapPromiseArray<T>>,
+      // which is the same type as Promise<T> for every actual callback
+      // here (none return arrays) but not provably so for an arbitrary
+      // generic T.
       return sql.begin((trx) => {
         const getRentableCount: CapacitySource = (tenantId, assetTypeId) =>
           createPostgresAssetRegistryRepository(trx).getRentableCount(tenantId, assetTypeId)
         return fn(createPostgresAvailabilityReservationRepository(trx), getRentableCount)
-      })
+      }) as Promise<T>
     },
   }
 }

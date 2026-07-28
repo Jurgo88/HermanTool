@@ -36,5 +36,10 @@ export default defineNuxtConfig({
     supabaseUrl: '',
     supabaseAnonKey: '',
     supabaseServiceRoleKey: '',
+
+    // Shared secret for machine-to-machine internal endpoints scheduled
+    // by GitHub Actions (D-25 §14.2), e.g. the expiry sweep. Not an
+    // Operator credential (D-22) — see server/utils/internal-job-auth.ts.
+    internalJobSecret: '',
   },
 })

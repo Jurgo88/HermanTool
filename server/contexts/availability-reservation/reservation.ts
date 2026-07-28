@@ -80,21 +80,24 @@ async function acquireDayHold(
 // Idempotent by construction: transitionReservationState's guard means
 // only the first caller to reach this for a given Reservation actually
 // releases anything; if it's already Expired or Cancelled (e.g. reaped by
-// a concurrent contender, or already handled), this is a no-op.
+// a concurrent contender, or already handled), this is a no-op and
+// returns null — the caller decides whether that matters.
 async function reapReservation(
   repo: AvailabilityReservationRepository,
   params: { tenantId: TenantId; reservation: Reservation },
-): Promise<void> {
+): Promise<Reservation | null> {
   const { tenantId, reservation } = params
   const transitioned = await repo.transitionReservationState(tenantId, reservation.id, {
     from: 'pending',
     to: 'expired',
   })
-  if (!transitioned) return
+  if (!transitioned) return null
 
   for (const day of eachDayOfPeriod(reservation.period)) {
     await repo.decrementHold(tenantId, reservation.assetTypeId, day)
   }
+
+  return transitioned
 }
 
 // W1, D-13, FR-06: a checkout covering n AssetTypes produces one
@@ -262,6 +265,36 @@ export async function cancelReservation(
 
     return transitioned
   })
+}
+
+// D-25 §14.2, Finding 3, FR-08: the proactive expiry sweep. Reap-on-
+// contention (above) already guarantees D-08's invariant never depends
+// on this running promptly — this exists for the general case: an
+// abandoned Pending on an AssetType nobody else wants right now would
+// otherwise sit unswept indefinitely (no reap-on-contention call would
+// ever trigger for it), and Part 2's event catalogue is explicit that
+// `ReservationExpired` is recorded by "the Platform sweep process," not
+// left as an implicit read-time condition. Called on a schedule via an
+// authenticated Nitro endpoint (D-25 §14.2 — GitHub Actions, not a
+// long-lived process); each stale Reservation is reaped in its OWN
+// transaction, not one transaction for the whole sweep, since — unlike a
+// single checkout — different Reservations expiring have no atomicity
+// relationship with each other, and a failure reaping one must not
+// block the rest (R-08).
+export async function sweepExpiredReservations(
+  repo: AvailabilityReservationRepository,
+  params: { tenantId: TenantId },
+): Promise<Reservation[]> {
+  const { tenantId } = params
+  const stale = await repo.findStalePendingReservations(tenantId)
+  const expired: Reservation[] = []
+
+  for (const reservation of stale) {
+    const result = await repo.transaction((trx) => reapReservation(trx, { tenantId, reservation }))
+    if (result) expired.push(result)
+  }
+
+  return expired
 }
 
 // FR-03: Availability is computed per AssetType per RentalDay from

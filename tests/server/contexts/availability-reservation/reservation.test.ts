@@ -14,6 +14,7 @@ import {
   checkoutReservationGroup,
   confirmReservationGroup,
   getAvailableCount,
+  sweepExpiredReservations,
 } from '../../../../server/contexts/availability-reservation/reservation'
 import {
   createFakeAvailabilityReservationRepository,
@@ -317,5 +318,95 @@ describe('getAvailableCount (FR-03, read-side — independent of the D-33 holds 
     // The stale Pending's state column hasn't been swept — still
     // 'pending' in the record — but lazy evaluation excludes it anyway.
     expect(available).toBe(3)
+  })
+})
+
+describe('sweepExpiredReservations (D-25 §14.2, Finding 3, FR-08 — the proactive sweep)', () => {
+  let repo: FakeAvailabilityReservationRepository
+
+  beforeEach(() => {
+    repo = createFakeAvailabilityReservationRepository()
+    repo.seedCapacity(HAMMER, 1)
+    repo.seedCapacity(SCAFFOLD, 1)
+  })
+
+  it('expires a lapsed Pending Reservation and releases every day it held', async () => {
+    const past = new Date(Date.now() - 45 * 60_000)
+    const { reservations } = await checkoutReservationGroup(repo, {
+      tenantId: tenantA,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: '2026-03-05', endDay: '2026-03-07' } }],
+      now: past,
+    })
+
+    const swept = await sweepExpiredReservations(repo, { tenantId: tenantA })
+
+    expect(swept.map((r) => r.id)).toEqual([reservations[0]!.id])
+    expect(swept[0]!.state).toBe('expired')
+    expect(repo.getHeldCount(tenantA, HAMMER, '2026-03-05')).toBe(0)
+    expect(repo.getHeldCount(tenantA, HAMMER, '2026-03-06')).toBe(0)
+    expect(repo.getHeldCount(tenantA, HAMMER, '2026-03-07')).toBe(0)
+  })
+
+  it('leaves a Pending Reservation whose window has not lapsed untouched', async () => {
+    const { reservations } = await checkoutReservationGroup(repo, {
+      tenantId: tenantA,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+    })
+
+    const swept = await sweepExpiredReservations(repo, { tenantId: tenantA })
+
+    expect(swept).toHaveLength(0)
+    const stillPending = await repo.getReservation(tenantA, reservations[0]!.id)
+    expect(stillPending!.state).toBe('pending')
+    expect(repo.getHeldCount(tenantA, HAMMER, '2026-03-05')).toBe(1)
+  })
+
+  it('leaves Confirmed Reservations untouched, even ones long past their RentalPeriod', async () => {
+    const past = new Date(Date.now() - 45 * 60_000)
+    const { group, reservations } = await checkoutReservationGroup(repo, {
+      tenantId: tenantA,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+      now: past,
+    })
+    await confirmReservationGroup(repo, { tenantId: tenantA, reservationGroupId: group.id })
+
+    const swept = await sweepExpiredReservations(repo, { tenantId: tenantA })
+
+    expect(swept).toHaveLength(0)
+    const stillConfirmed = await repo.getReservation(tenantA, reservations[0]!.id)
+    expect(stillConfirmed!.state).toBe('confirmed')
+  })
+
+  it('sweeps every lapsed Pending Reservation across different AssetTypes in one call', async () => {
+    const past = new Date(Date.now() - 45 * 60_000)
+    const hammerCheckout = await checkoutReservationGroup(repo, {
+      tenantId: tenantA,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+      now: past,
+    })
+    const scaffoldCheckout = await checkoutReservationGroup(repo, {
+      tenantId: tenantA,
+      lines: [{ assetTypeId: SCAFFOLD, period: { startDay: '2026-03-10', endDay: '2026-03-10' } }],
+      now: past,
+    })
+
+    const swept = await sweepExpiredReservations(repo, { tenantId: tenantA })
+
+    expect(swept.map((r) => r.id).sort()).toEqual(
+      [hammerCheckout.reservations[0]!.id, scaffoldCheckout.reservations[0]!.id].sort(),
+    )
+  })
+
+  it('never sweeps another Tenant\'s lapsed Pending Reservations (FR-33)', async () => {
+    const past = new Date(Date.now() - 45 * 60_000)
+    await checkoutReservationGroup(repo, {
+      tenantId: tenantB,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+      now: past,
+    })
+
+    const swept = await sweepExpiredReservations(repo, { tenantId: tenantA })
+
+    expect(swept).toHaveLength(0)
   })
 })
