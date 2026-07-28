@@ -12,7 +12,11 @@ import type postgres from 'postgres'
 import { createDatabaseClient } from '../../../../server/utils/db'
 import { createMonetaryAmount, type TenantId } from '../../../../server/contexts/_shared'
 import { createPostgresCatalogRepository } from '../../../../server/contexts/catalog/repository'
-import { createAssetType, publishAssetType } from '../../../../server/contexts/catalog/asset-type'
+import {
+  createAssetType,
+  listPublishedAssetTypes,
+  publishAssetType,
+} from '../../../../server/contexts/catalog/asset-type'
 import { AssetTypeNotFoundError } from '../../../../server/contexts/catalog/types'
 
 const databaseUrl = process.env.NUXT_DATABASE_URL ?? ''
@@ -110,6 +114,33 @@ describe.skipIf(!databaseUrl)('Catalog migration (integration)', () => {
         values (${tenantA}, 'Bad currency', 'CZK')
       `,
     ).rejects.toThrow()
+  })
+
+  it('excludes unpublished AssetTypes from the public listing query (FR-02)', async () => {
+    const repo = createPostgresCatalogRepository(sql)
+
+    const unpublished = await createAssetType(repo, {
+      tenantId: tenantA,
+      operatorId,
+      name: 'Unpublished tool',
+      description: '',
+      dayRate: createMonetaryAmount(1500),
+      depositAmount: createMonetaryAmount(5000),
+    })
+    const published = await createAssetType(repo, {
+      tenantId: tenantA,
+      operatorId,
+      name: 'Published tool',
+      description: '',
+      dayRate: createMonetaryAmount(1500),
+      depositAmount: createMonetaryAmount(5000),
+    })
+    await publishAssetType(repo, { tenantId: tenantA, assetTypeId: published.id, operatorId })
+
+    const listed = await listPublishedAssetTypes(repo, { tenantId: tenantA })
+
+    expect(listed.map((a) => a.id)).toContain(published.id)
+    expect(listed.map((a) => a.id)).not.toContain(unpublished.id)
   })
 
   it('has RLS enabled with no policies, so anon/authenticated have no access', async () => {

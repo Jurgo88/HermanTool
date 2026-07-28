@@ -28,6 +28,10 @@ export interface CatalogRepository {
 
   listAssetTypes(tenantId: TenantId): Promise<AssetType[]>
 
+  // FR-02: what a Visitor may browse — published AssetTypes only, never
+  // the admin's full list.
+  listPublishedAssetTypes(tenantId: TenantId): Promise<AssetType[]>
+
   insertAssetType(tenantId: TenantId, params: NewAssetType): Promise<AssetType>
 
   updateAssetType(tenantId: TenantId, assetTypeId: number, params: AssetTypeUpdate): Promise<AssetType>
@@ -83,6 +87,13 @@ export function createPostgresCatalogRepository(sql: postgres.Sql | postgres.Tra
       const rows = await sql<
         AssetTypeRow[]
       >`select * from asset_types where tenant_id = ${tenantId} order by name`
+      return rows.map(mapAssetType)
+    },
+
+    async listPublishedAssetTypes(tenantId) {
+      const rows = await sql<AssetTypeRow[]>`
+        select * from asset_types where tenant_id = ${tenantId} and published = true order by name
+      `
       return rows.map(mapAssetType)
     },
 

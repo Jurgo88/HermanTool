@@ -4,6 +4,7 @@ import { AssetTypeNameRequiredError, AssetTypeNotFoundError } from '../../../../
 import {
   createAssetType,
   listAssetTypes,
+  listPublishedAssetTypes,
   publishAssetType,
   unpublishAssetType,
   updateAssetType,
@@ -110,6 +111,61 @@ describe('listAssetTypes', () => {
 
     expect(assetTypes).toHaveLength(1)
     expect(assetTypes[0]?.name).toBe('Rotary hammer, 5kg')
+  })
+})
+
+describe('listPublishedAssetTypes', () => {
+  it('excludes unpublished AssetTypes (FR-02: a Visitor sees published only)', async () => {
+    const repo = createFakeCatalogRepository()
+    const unpublished = await createAssetType(repo, {
+      tenantId: tenantA,
+      operatorId,
+      name: 'Rotary hammer, 5kg',
+      description: '',
+      dayRate,
+      depositAmount,
+    })
+    const published = await createAssetType(repo, {
+      tenantId: tenantA,
+      operatorId,
+      name: 'Circular saw',
+      description: '',
+      dayRate,
+      depositAmount,
+    })
+    await publishAssetType(repo, { tenantId: tenantA, assetTypeId: published.id, operatorId })
+
+    const assetTypes = await listPublishedAssetTypes(repo, { tenantId: tenantA })
+
+    expect(assetTypes.map((a) => a.id)).toEqual([published.id])
+    expect(assetTypes.map((a) => a.id)).not.toContain(unpublished.id)
+  })
+
+  it('only lists published AssetTypes belonging to the given Tenant (FR-33)', async () => {
+    const repo = createFakeCatalogRepository()
+    const assetTypeInA = await createAssetType(repo, {
+      tenantId: tenantA,
+      operatorId,
+      name: 'Rotary hammer, 5kg',
+      description: '',
+      dayRate,
+      depositAmount,
+    })
+    await publishAssetType(repo, { tenantId: tenantA, assetTypeId: assetTypeInA.id, operatorId })
+
+    const assetTypeInB = await createAssetType(repo, {
+      tenantId: tenantB,
+      operatorId,
+      name: 'Circular saw',
+      description: '',
+      dayRate,
+      depositAmount,
+    })
+    await publishAssetType(repo, { tenantId: tenantB, assetTypeId: assetTypeInB.id, operatorId })
+
+    const assetTypes = await listPublishedAssetTypes(repo, { tenantId: tenantA })
+
+    expect(assetTypes.map((a) => a.id)).toEqual([assetTypeInA.id])
   })
 })
 

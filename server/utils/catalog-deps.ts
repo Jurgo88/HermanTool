@@ -4,6 +4,7 @@
 // ./db-health.ts (NFR-04: no pooling apparatus at pilot load).
 import { createError, getRouterParam, type H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
+import type postgres from 'postgres'
 import { createDatabaseClient } from './db'
 import {
   AssetTypeNameRequiredError,
@@ -12,11 +13,14 @@ import {
   type CatalogRepository,
 } from '../contexts/catalog'
 
-export function createCatalogDeps(event: H3Event): { repo: CatalogRepository; close: () => Promise<void> } {
+export function createCatalogDeps(
+  event: H3Event,
+): { repo: CatalogRepository; sql: postgres.Sql; close: () => Promise<void> } {
   const config = useRuntimeConfig(event)
   const sql = createDatabaseClient(config.databaseUrl)
   return {
     repo: createPostgresCatalogRepository(sql),
+    sql,
     close: () => sql.end(),
   }
 }
