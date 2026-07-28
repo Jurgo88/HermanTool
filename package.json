@@ -20,13 +20,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@nuxt/eslint": "^1.16.0",
     "@supabase/supabase-js": "^2.110.7",
     "nuxt": "^4.5.0",
     "postgres": "^3.4.9",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@nuxt/eslint": "^1.16.0",
     "@types/node": "^26.1.1",
     "eslint": "^10.7.0",
     "eslint-config-prettier": "^10.1.8",
