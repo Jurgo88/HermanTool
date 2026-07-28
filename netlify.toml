@@ -1,0 +1,13 @@
+# Netlify build configuration (Part 4 §14.0, D-25 §14.2).
+#
+# Explicit rather than relying on Netlify's zero-config framework
+# auto-detection: a deploy log showed "Detected 1 framework(s): nuxt...
+# No build steps found, continuing to publishing" — detection recognised
+# Nuxt but never invoked a build, so nothing was ever built or deployed
+# (0 files, 0 functions uploaded), producing a 404 on every route.
+#
+# Node version is NOT set here — .nvmrc already pins it (D-25's Node 26
+# pin) and the build log confirms Netlify reads it correctly on its own.
+[build]
+  command = "pnpm build"
+  publish = ".output/public"
