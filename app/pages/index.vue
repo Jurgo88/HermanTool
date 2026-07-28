@@ -7,6 +7,8 @@
 // No availability shown yet: it belongs to Availability & Reservation
 // (Milestone 4), not built yet — see issue #11's own scope note. This
 // page is the read surface; the per-day numbers arrive later.
+import { sk } from '~/i18n/sk'
+
 interface AssetTypeView {
   id: number
   name: string
@@ -24,17 +26,17 @@ const { data: assetTypes } = await useFetch<AssetTypeView[]>('/api/public/asset-
 
 <template>
   <main>
-    <h1>HermanTool</h1>
+    <h1>{{ sk.publicCatalog.title }}</h1>
     <ul>
       <li v-for="assetType in assetTypes" :key="assetType.id">
         <h2>{{ assetType.name }}</h2>
         <p>{{ assetType.description }}</p>
         <p>
-          {{ toEuros(assetType.dayRate.amount) }} {{ assetType.dayRate.currency }} / deň, depozit
+          {{ toEuros(assetType.dayRate.amount) }} {{ assetType.dayRate.currency }} {{ sk.publicCatalog.dayRateSuffix }}
           {{ toEuros(assetType.depositAmount.amount) }} {{ assetType.depositAmount.currency }}
         </p>
       </li>
     </ul>
-    <p v-if="assetTypes && assetTypes.length === 0">Zatiaľ nie je publikované žiadne náradie.</p>
+    <p v-if="assetTypes && assetTypes.length === 0">{{ sk.publicCatalog.empty }}</p>
   </main>
 </template>
