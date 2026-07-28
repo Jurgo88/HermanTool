@@ -16,6 +16,7 @@ async function submit() {
       method: 'POST',
       body: { email: email.value, password: password.value },
     })
+    await navigateTo('/admin/catalog')
   } catch {
     error.value = 'Email or password is incorrect.'
   } finally {
