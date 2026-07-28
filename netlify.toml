@@ -8,6 +8,15 @@
 #
 # Node version is NOT set here — .nvmrc already pins it (D-25's Node 26
 # pin) and the build log confirms Netlify reads it correctly on its own.
+#
+# publish = "dist", not ".output/public": that's Nitro's output path for
+# other presets (e.g. node-server, used by a plain local `pnpm build`),
+# but the `netlify` preset — auto-selected when NETLIFY=true is set,
+# which Netlify's own build environment does automatically — puts static
+# assets in `dist/` and the server function in
+# `.netlify/functions-internal/`. Verified locally by building with
+# NETLIFY=true set and inspecting the actual output directories, not
+# just trusting Netlify's own suggested fix.
 [build]
   command = "pnpm build"
-  publish = ".output/public"
+  publish = "dist"
