@@ -21,6 +21,10 @@ export function createFakeCatalogRepository(): CatalogRepository {
       return assetTypes.filter((a) => a.tenantId === tenantId).map((a) => ({ ...a }))
     },
 
+    async listPublishedAssetTypes(tenantId) {
+      return assetTypes.filter((a) => a.tenantId === tenantId && a.published).map((a) => ({ ...a }))
+    },
+
     async insertAssetType(tenantId, params: NewAssetType) {
       const now = new Date()
       const assetType: AssetType = {

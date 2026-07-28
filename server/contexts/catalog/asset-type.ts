@@ -28,6 +28,15 @@ export async function listAssetTypes(
   return repo.listAssetTypes(params.tenantId)
 }
 
+// FR-02, W1: what a Visitor may browse — published AssetTypes only, no
+// identification required and no record created for the caller (P2 §7).
+export async function listPublishedAssetTypes(
+  repo: CatalogRepository,
+  params: { tenantId: TenantId },
+): Promise<AssetType[]> {
+  return repo.listPublishedAssetTypes(params.tenantId)
+}
+
 export async function createAssetType(
   repo: CatalogRepository,
   params: {

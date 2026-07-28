@@ -17,6 +17,7 @@ export { createPostgresCatalogRepository } from './repository'
 
 export {
   listAssetTypes,
+  listPublishedAssetTypes,
   createAssetType,
   updateAssetType,
   publishAssetType,
