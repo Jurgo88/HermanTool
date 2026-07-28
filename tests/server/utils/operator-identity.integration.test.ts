@@ -6,10 +6,11 @@
 // Does not attempt to create real auth.users rows (that requires the
 // Supabase Auth admin API, not a migration test) or exercise the login
 // flow end-to-end — that needs a real provisioned Operator seat, which
-// is created by hand per D-22's scope, not by this suite. Also does not
-// assert an FK backfill on Asset Registry's attribution columns — that
-// is deliberately deferred to its own migration once real Operator
-// seats exist everywhere tests run (see the migration's comment).
+// is created by hand per D-22's scope, not by this suite. The Asset
+// Registry attribution FK backfill, once deferred pending the two real
+// seats, now has its own migration (20260728100000) and is exercised
+// implicitly by the Asset Registry integration suite, which inserts
+// against a real seeded operator id.
 //
 // Self-skips when NUXT_DATABASE_URL is not set, matching every other
 // integration suite in this repo.
