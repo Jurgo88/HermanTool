@@ -3,6 +3,8 @@
 // the high-frequency counter interaction). Posts to /api/auth/login,
 // which sets an httpOnly session cookie — this page never handles a
 // Supabase token directly (D-25, D-31: no client-side supabase-js).
+import { sk } from '~/i18n/sk'
+
 const email = ref('')
 const password = ref('')
 const error = ref<string | null>(null)
@@ -17,7 +19,7 @@ async function submit() {
       body: { email: email.value, password: password.value },
     })
   } catch {
-    error.value = 'Email or password is incorrect.'
+    error.value = sk.login.invalidCredentials
   } finally {
     submitting.value = false
   }
@@ -26,17 +28,17 @@ async function submit() {
 
 <template>
   <main>
-    <h1>Operator login</h1>
+    <h1>{{ sk.login.title }}</h1>
     <form @submit.prevent="submit">
       <label>
-        Email
+        {{ sk.login.email }}
         <input v-model="email" type="email" autocomplete="username" required />
       </label>
       <label>
-        Password
+        {{ sk.login.password }}
         <input v-model="password" type="password" autocomplete="current-password" required />
       </label>
-      <button type="submit" :disabled="submitting">Log in</button>
+      <button type="submit" :disabled="submitting">{{ sk.login.submit }}</button>
     </form>
     <p v-if="error" role="alert">{{ error }}</p>
   </main>

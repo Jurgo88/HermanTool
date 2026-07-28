@@ -4,6 +4,8 @@
 // under server/api/catalog/asset-types/*, which gate on requireOperator
 // — a 401 here means the session is missing or expired, so this page
 // sends the Operator back to /login rather than showing an error.
+import { sk } from '~/i18n/sk'
+
 interface AssetTypeView {
   id: number
   name: string
@@ -45,7 +47,7 @@ async function handleFetchError(err: unknown) {
     await navigateTo('/login')
     return
   }
-  error.value = 'Something went wrong.'
+  error.value = sk.common.somethingWentWrong
 }
 
 async function createAssetType() {
@@ -86,18 +88,18 @@ await load()
 
 <template>
   <main>
-    <h1>Catalog admin</h1>
+    <h1>{{ sk.adminCatalog.title }}</h1>
     <p v-if="error" role="alert">{{ error }}</p>
 
     <section>
-      <h2>AssetTypes</h2>
+      <h2>{{ sk.adminCatalog.assetTypesHeading }}</h2>
       <table>
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Day rate</th>
-            <th>Deposit</th>
-            <th>Published</th>
+            <th>{{ sk.adminCatalog.columnName }}</th>
+            <th>{{ sk.adminCatalog.columnDayRate }}</th>
+            <th>{{ sk.adminCatalog.columnDeposit }}</th>
+            <th>{{ sk.adminCatalog.columnPublished }}</th>
             <th></th>
           </tr>
         </thead>
@@ -106,10 +108,10 @@ await load()
             <td>{{ assetType.name }}</td>
             <td>{{ toEuros(assetType.dayRate.amount) }} {{ assetType.dayRate.currency }}</td>
             <td>{{ toEuros(assetType.depositAmount.amount) }} {{ assetType.depositAmount.currency }}</td>
-            <td>{{ assetType.published ? 'Published' : 'Unpublished' }}</td>
+            <td>{{ assetType.published ? sk.adminCatalog.published : sk.adminCatalog.unpublished }}</td>
             <td>
               <button type="button" @click="togglePublished(assetType)">
-                {{ assetType.published ? 'Unpublish' : 'Publish' }}
+                {{ assetType.published ? sk.adminCatalog.unpublishAction : sk.adminCatalog.publishAction }}
               </button>
             </td>
           </tr>
@@ -118,25 +120,25 @@ await load()
     </section>
 
     <section>
-      <h2>New AssetType</h2>
+      <h2>{{ sk.adminCatalog.newHeading }}</h2>
       <form @submit.prevent="createAssetType">
         <label>
-          Name
+          {{ sk.adminCatalog.fieldName }}
           <input v-model="form.name" type="text" required />
         </label>
         <label>
-          Description
+          {{ sk.adminCatalog.fieldDescription }}
           <input v-model="form.description" type="text" />
         </label>
         <label>
-          Day rate (EUR)
+          {{ sk.adminCatalog.fieldDayRate }}
           <input v-model="form.dayRateEuros" type="number" min="0" step="0.01" required />
         </label>
         <label>
-          Deposit (EUR)
+          {{ sk.adminCatalog.fieldDeposit }}
           <input v-model="form.depositEuros" type="number" min="0" step="0.01" required />
         </label>
-        <button type="submit">Create</button>
+        <button type="submit">{{ sk.adminCatalog.createAction }}</button>
       </form>
     </section>
   </main>
