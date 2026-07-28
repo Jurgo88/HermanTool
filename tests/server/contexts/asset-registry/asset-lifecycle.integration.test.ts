@@ -27,17 +27,21 @@ describe.skipIf(!databaseUrl)('Asset Registry migration (integration)', () => {
   let tenantA: TenantId
   let tenantB: TenantId
   let assetTypeInA: number
-  // operator_id columns are `uuid` (see the migration's D-22 TODO on the
-  // attribution columns) — a non-uuid string fails at insert against real
-  // Postgres even though the fake repository in asset-lifecycle.test.ts
-  // doesn't validate the format.
+  // The attribution FK to auth.users (20260728100000, backfilling D-22's
+  // TODO now that the two real Operator seats exist) means a fabricated
+  // crypto.randomUUID() no longer satisfies referential integrity — this
+  // must be one of the two real seeded operator ids.
   let operatorId: string
 
   beforeEach(async () => {
     sql = createDatabaseClient(databaseUrl)
-    operatorId = crypto.randomUUID()
 
     await sql`truncate table asset_status_events, asset_tags, assets, asset_types restart identity cascade`
+
+    const [{ id: seededOperatorId }] = await sql<
+      { id: string }[]
+    >`select id from operators order by created_at limit 1`
+    operatorId = seededOperatorId
 
     // order by created_at: with more than one Tenant row present (e.g. a
     // prior run of this suite that failed before its afterEach cleanup),
