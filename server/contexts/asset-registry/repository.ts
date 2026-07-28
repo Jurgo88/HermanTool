@@ -19,6 +19,15 @@ export interface NewAssetStatusEvent {
 export interface AssetRegistryRepository {
   assetTypeExists(tenantId: TenantId, assetTypeId: number): Promise<boolean>
 
+  // Availability & Reservation's D-33 holds mechanism reads this as the
+  // capacity bound for its per-(AssetType, day) atomic hold increment —
+  // it must be called with a repository bound to that same transaction
+  // (see this factory's `sql` parameter) so the capacity read and the
+  // hold increment share one transaction (Part 4 §16 D-33). This is the
+  // published-interface seam D-02 requires: Availability & Reservation
+  // calls this method, never `select ... from assets` directly.
+  getRentableCount(tenantId: TenantId, assetTypeId: number): Promise<number>
+
   getAsset(tenantId: TenantId, assetId: number): Promise<Asset | null>
 
   insertAsset(
@@ -136,6 +145,14 @@ export function createPostgresAssetRegistryRepository(
         { id: number }[]
       >`select id from asset_types where tenant_id = ${tenantId} and id = ${assetTypeId}`
       return rows.length > 0
+    },
+
+    async getRentableCount(tenantId, assetTypeId) {
+      const rows = await sql<{ count: string }[]>`
+        select count(*)::text as count from assets
+        where tenant_id = ${tenantId} and asset_type_id = ${assetTypeId} and status = 'rentable'
+      `
+      return Number(rows[0]!.count)
     },
 
     async getAsset(tenantId, assetId) {

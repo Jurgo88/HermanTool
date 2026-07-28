@@ -73,6 +73,12 @@ export function createFakeAssetRegistryRepository(): FakeAssetRegistryRepository
         return target.assetTypes.some((t) => t.tenantId === tenantId && t.id === assetTypeId)
       },
 
+      async getRentableCount(tenantId, assetTypeId) {
+        return target.assets.filter(
+          (a) => a.tenantId === tenantId && a.assetTypeId === assetTypeId && a.status === 'rentable',
+        ).length
+      },
+
       async getAsset(tenantId, assetId) {
         const asset = target.assets.find((a) => a.tenantId === tenantId && a.id === assetId)
         return asset ? { ...asset } : null
