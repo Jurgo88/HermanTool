@@ -15,10 +15,20 @@ export type ReservationState = 'pending' | 'confirmed' | 'cancelled' | 'expired'
 // D-13: the set of Reservations created in one checkout and the single
 // Payment covering them, and nothing else. No status, no RentalPeriod,
 // no availability invariant of its own — each Reservation carries those.
+//
+// termsVersion/termsAcceptedAt (D-35, F1 KNOWN GAP): mechanics only.
+// termsVersion is an opaque, versioned identifier referencing wherever
+// the terms document actually lives — never the terms text itself, and
+// never invented here (no legal counsel has reviewed the actual content
+// or the pre-contractual information catalogue yet). Both null until
+// recordTermsAcceptance is called; both set together, never one without
+// the other (see the migration's paired-presence check).
 export interface ReservationGroup {
   id: number
   tenantId: TenantId
   createdAt: Date
+  termsVersion: string | null
+  termsAcceptedAt: Date | null
 }
 
 // D-04: binds to an AssetType, never to an Asset — instance choice is
@@ -57,6 +67,21 @@ export class ReservationNotFoundError extends AvailabilityReservationError {
 export class EmptyReservationGroupError extends AvailabilityReservationError {
   constructor() {
     super('A ReservationGroup must contain at least one Reservation line (D-13).')
+  }
+}
+
+export class InvalidTermsVersionError extends AvailabilityReservationError {
+  constructor() {
+    super('termsVersion must be a non-empty identifier (D-35).')
+  }
+}
+
+// FR-09: payment may start only after terms acceptance is recorded.
+// Thrown by assertTermsAccepted — a guard for a future Payments-side
+// caller (Milestone 5, not built here) to use before starting a charge.
+export class TermsNotAcceptedError extends AvailabilityReservationError {
+  constructor(reservationGroupId: number) {
+    super(`ReservationGroup ${reservationGroupId} has no recorded terms acceptance (D-35, FR-09).`)
   }
 }
 
