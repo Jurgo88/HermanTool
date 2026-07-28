@@ -235,8 +235,28 @@ export function createPostgresAssetRegistryRepository(
       `
     },
 
-    async transaction(fn) {
-      return sql.begin((trx) => fn(createPostgresAssetRegistryRepository(trx)))
+    async transaction<T>(fn: (repo: AssetRegistryRepository) => Promise<T>) {
+      // `sql` is typed `postgres.Sql | postgres.TransactionSql` because
+      // this same factory recursively constructs a repo bound to `trx`
+      // inside the callback below — but `TransactionSql` has no
+      // `.begin()` (nested transactions use `savepoint()` instead;
+      // postgres.js's own types reflect this). Nothing in this codebase
+      // calls `.transaction()` on an already-transaction-bound repo, so
+      // this is unreachable in practice, but the guard makes that a
+      // checked invariant instead of a silent `sql.begin is not a
+      // function` at runtime.
+      if (!('begin' in sql)) {
+        throw new Error('Nested transactions are not supported — this repository is already bound to one.')
+      }
+      // postgres.js's begin<T> returns Promise<UnwrapPromiseArray<T>> —
+      // its own utility type for the case where T is itself an array of
+      // promises. Our callback always returns a plain value (never an
+      // array), so UnwrapPromiseArray<T> and T are the same type in
+      // every actual use here; TypeScript just can't prove that for an
+      // arbitrary generic T, hence the explicit assertion rather than a
+      // structural mismatch TypeScript would otherwise (correctly, in
+      // general) refuse.
+      return sql.begin((trx) => fn(createPostgresAssetRegistryRepository(trx))) as Promise<T>
     },
   }
 }

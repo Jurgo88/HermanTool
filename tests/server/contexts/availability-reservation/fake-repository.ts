@@ -152,6 +152,13 @@ export function createFakeAvailabilityReservationRepository(): FakeAvailabilityR
         return reservation ? { ...reservation } : null
       },
 
+      async findStalePendingReservations(tenantId) {
+        const now = Date.now()
+        return target.reservations
+          .filter((r) => r.tenantId === tenantId && r.state === 'pending' && r.pendingExpiresAt.getTime() < now)
+          .map((r) => ({ ...r }))
+      },
+
       async countActiveReservations(tenantId, assetTypeId, day) {
         const now = Date.now()
         return target.reservations.filter(

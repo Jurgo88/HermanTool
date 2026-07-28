@@ -24,11 +24,17 @@
 //     no row for Postgres to lock — see the module docs on
 //     ./repository.ts and ./reservation.ts for the full reasoning.
 //
-// Scope note: this phase ships the domain layer (types, repository,
-// checkout/confirm/cancel logic) and its tests only. No server/api route
-// wires any of this up yet — that is a separate, later piece of work.
-// Cancellation is mechanics only (release-on-cancel); the cancellation
-// WORKFLOW (W11) stays unbuilt pending OQ #1 (CLAUDE.md KNOWN GAPS).
+// sweepExpiredReservations (D-25 §14.2, Finding 3, FR-08) is the
+// proactive counterpart to reap-on-contention: it never affects D-08's
+// correctness (that never depended on sweep timeliness), but without it
+// an abandoned Pending on an AssetType nobody else contests would sit
+// unswept indefinitely. Wired to server/api/internal/reservations/
+// sweep-expired.post.ts, called on a schedule by GitHub Actions.
+//
+// Scope note: checkout/confirm/cancel have no server/api route yet —
+// that is a separate, later piece of work. Cancellation is mechanics
+// only (release-on-cancel); the cancellation WORKFLOW (W11) stays
+// unbuilt pending OQ #1 (CLAUDE.md KNOWN GAPS).
 export type { RentalPeriod } from './rental-period'
 export { InvalidRentalPeriodError, eachDayOfPeriod, rentalPeriodLengthInDays } from './rental-period'
 
@@ -57,4 +63,5 @@ export {
   checkoutReservationGroup,
   confirmReservationGroup,
   getAvailableCount,
+  sweepExpiredReservations,
 } from './reservation'

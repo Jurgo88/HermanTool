@@ -1,0 +1,39 @@
+# Proactive expiry sweep (D-25 §14.2, Finding 3, FR-08). Scheduling by
+# GitHub Actions calling an authenticated Nitro endpoint — not a
+# long-lived process, matching D-25's chosen backend runtime. D-08's
+# correctness never depends on this running promptly (reap-on-contention
+# already guarantees it) — this exists for the general case, so an
+# abandoned Pending on an AssetType nobody else contests doesn't sit
+# unswept indefinitely.
+#
+# Requires two repo-level configuration values, set once by the Tenant/
+# developer (not by this workflow):
+#   - vars.SWEEP_SITE_URL   — the deployed site origin, e.g.
+#                             https://hermantool.netlify.app
+#   - secrets.SWEEP_JOB_SECRET — must match NUXT_INTERNAL_JOB_SECRET set
+#                             in Netlify's environment variables (D-31:
+#                             never in this repo).
+name: Sweep expired reservations
+
+on:
+  schedule:
+    # Every 10 minutes. Platform-scoped mechanic (Part 3 §12(e) treats
+    # the Pending expiry window the same way) — tune here, not per Tenant.
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the sweep-expired-reservations endpoint
+        run: |
+          http_status=$(curl -sS -o /tmp/sweep-response.json -w "%{http_code}" \
+            -X POST "${{ vars.SWEEP_SITE_URL }}/api/internal/reservations/sweep-expired" \
+            -H "Authorization: Bearer ${{ secrets.SWEEP_JOB_SECRET }}")
+          echo "HTTP status: $http_status"
+          cat /tmp/sweep-response.json
+          if [ "$http_status" -ge 400 ]; then
+            echo "::error::Sweep endpoint returned HTTP $http_status"
+            exit 1
+          fi

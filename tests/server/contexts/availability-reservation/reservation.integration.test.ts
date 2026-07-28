@@ -28,6 +28,7 @@ import {
   cancelReservation,
   checkoutReservationGroup,
   confirmReservationGroup,
+  sweepExpiredReservations,
 } from '../../../../server/contexts/availability-reservation/reservation'
 import { AssetTypeUnavailableError } from '../../../../server/contexts/availability-reservation/types'
 
@@ -278,5 +279,55 @@ describe.skipIf(!databaseUrl)('Availability & Reservation migration (integration
       where tenant_id = ${tenantId} and asset_type_id = ${hammerTypeId} and rental_day = ${day}
     `
     expect(holds[0]?.held_count).toBe(1)
+  })
+
+  it('sweepExpiredReservations expires lapsed Pending rows and releases their holds, against real Postgres (D-25 §14.2, FR-08)', async () => {
+    await seedRentableAssets(hammerTypeId, 1)
+    const day = '2026-03-05'
+    const repo = createPostgresAvailabilityReservationRepository(sql)
+
+    const past = new Date(Date.now() - 45 * 60_000)
+    const { reservations: stale } = await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: day, endDay: day } }],
+      now: past,
+    })
+
+    const swept = await sweepExpiredReservations(repo, { tenantId })
+
+    expect(swept.map((r) => r.id)).toEqual([stale[0]!.id])
+    expect(swept[0]!.state).toBe('expired')
+
+    const holds = await sql<{ held_count: number }[]>`
+      select held_count from asset_type_day_holds
+      where tenant_id = ${tenantId} and asset_type_id = ${hammerTypeId} and rental_day = ${day}
+    `
+    expect(holds[0]?.held_count).toBe(0)
+
+    // The day is genuinely free again afterwards, not just marked so.
+    const { reservations: rebooked } = await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: day, endDay: day } }],
+    })
+    expect(rebooked[0]!.state).toBe('pending')
+  })
+
+  it('sweepExpiredReservations leaves a Pending Reservation whose window has not lapsed untouched', async () => {
+    await seedRentableAssets(hammerTypeId, 1)
+    const day = '2026-03-05'
+    const repo = createPostgresAvailabilityReservationRepository(sql)
+
+    const { reservations } = await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: day, endDay: day } }],
+    })
+
+    const swept = await sweepExpiredReservations(repo, { tenantId })
+
+    expect(swept).toHaveLength(0)
+    const stillPending = await sql<{ state: string }[]>`
+      select state from reservations where id = ${reservations[0]!.id}
+    `
+    expect(stillPending[0]?.state).toBe('pending')
   })
 })
