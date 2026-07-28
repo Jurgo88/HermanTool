@@ -28,6 +28,7 @@ import {
   cancelReservation,
   checkoutReservationGroup,
   confirmReservationGroup,
+  recordTermsAcceptance,
   sweepExpiredReservations,
 } from '../../../../server/contexts/availability-reservation/reservation'
 import { AssetTypeUnavailableError } from '../../../../server/contexts/availability-reservation/types'
@@ -329,5 +330,46 @@ describe.skipIf(!databaseUrl)('Availability & Reservation migration (integration
       select state from reservations where id = ${reservations[0]!.id}
     `
     expect(stillPending[0]?.state).toBe('pending')
+  })
+
+  it('enforces paired presence of terms_version and terms_accepted_at at the database level (D-35)', async () => {
+    await expect(
+      sql`
+        insert into reservation_groups (tenant_id, terms_version)
+        values (${tenantId}, 'draft-1')
+      `,
+    ).rejects.toThrow()
+
+    await expect(
+      sql`
+        insert into reservation_groups (tenant_id, terms_accepted_at)
+        values (${tenantId}, now())
+      `,
+    ).rejects.toThrow()
+  })
+
+  it('recordTermsAcceptance persists the version and timestamp, against real Postgres (D-35)', async () => {
+    await seedRentableAssets(hammerTypeId, 1)
+    const repo = createPostgresAvailabilityReservationRepository(sql)
+
+    const { group } = await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+    })
+
+    const accepted = await recordTermsAcceptance(repo, {
+      tenantId,
+      reservationGroupId: group.id,
+      termsVersion: 'draft-1',
+    })
+
+    expect(accepted.termsVersion).toBe('draft-1')
+    expect(accepted.termsAcceptedAt).toBeInstanceOf(Date)
+
+    const row = await sql<{ terms_version: string; terms_accepted_at: Date }[]>`
+      select terms_version, terms_accepted_at from reservation_groups where id = ${group.id}
+    `
+    expect(row[0]?.terms_version).toBe('draft-1')
+    expect(row[0]?.terms_accepted_at).toBeInstanceOf(Date)
   })
 })

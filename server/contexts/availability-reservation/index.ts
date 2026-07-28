@@ -31,10 +31,18 @@
 // unswept indefinitely. Wired to server/api/internal/reservations/
 // sweep-expired.post.ts, called on a schedule by GitHub Actions.
 //
-// Scope note: checkout/confirm/cancel have no server/api route yet —
-// that is a separate, later piece of work. Cancellation is mechanics
-// only (release-on-cancel); the cancellation WORKFLOW (W11) stays
-// unbuilt pending OQ #1 (CLAUDE.md KNOWN GAPS).
+// recordTermsAcceptance / assertTermsAccepted (D-35, F1 KNOWN GAP, Part
+// 5 Finding 1) are mechanics only, same posture as cancellation: no
+// legal counsel has reviewed the actual terms content or the
+// pre-contractual information catalogue, and the withdrawal-right
+// section can't be written until OQ #1 (cancellation policy) resolves.
+// termsVersion is an opaque reference to wherever that content actually
+// lives — never modelled here.
+//
+// Scope note: checkout/confirm/cancel/terms-acceptance have no
+// server/api route yet — that is a separate, later piece of work.
+// Cancellation is mechanics only (release-on-cancel); the cancellation
+// WORKFLOW (W11) stays unbuilt pending OQ #1 (CLAUDE.md KNOWN GAPS).
 export type { RentalPeriod } from './rental-period'
 export { InvalidRentalPeriodError, eachDayOfPeriod, rentalPeriodLengthInDays } from './rental-period'
 
@@ -47,10 +55,12 @@ export {
   AvailabilityReservationError,
   AssetTypeUnavailableError,
   EmptyReservationGroupError,
+  InvalidTermsVersionError,
   ReservationGroupNotFoundError,
   ReservationGroupReacquireFailedError,
   ReservationNotActiveError,
   ReservationNotFoundError,
+  TermsNotAcceptedError,
 } from './types'
 
 export type { AvailabilityReservationRepository, CapacitySource, NewReservation } from './repository'
@@ -59,9 +69,11 @@ export { createPostgresAvailabilityReservationRepository } from './repository'
 export type { AcquisitionHooks, ReservationLine } from './reservation'
 export {
   PENDING_EXPIRY_MINUTES,
+  assertTermsAccepted,
   cancelReservation,
   checkoutReservationGroup,
   confirmReservationGroup,
   getAvailableCount,
+  recordTermsAcceptance,
   sweepExpiredReservations,
 } from './reservation'

@@ -22,10 +22,12 @@ import { eachDayOfPeriod, validateRentalPeriod, type RentalPeriod } from './rent
 import {
   AssetTypeUnavailableError,
   EmptyReservationGroupError,
+  InvalidTermsVersionError,
   ReservationGroupNotFoundError,
   ReservationGroupReacquireFailedError,
   ReservationNotActiveError,
   ReservationNotFoundError,
+  TermsNotAcceptedError,
   type Reservation,
   type ReservationGroup,
 } from './types'
@@ -138,6 +140,36 @@ export async function checkoutReservationGroup(
 
     return { group, reservations }
   })
+}
+
+// D-35, F1 KNOWN GAP (Part 5 Finding 1): records that `termsVersion` was
+// accepted, now. Mechanics only — no legal counsel has reviewed the
+// actual terms content or the pre-contractual information catalogue yet
+// (trader identity, total price, duration, withdrawal information), and
+// the withdrawal-right section specifically cannot be written until
+// OQ #1 (cancellation policy) is resolved. This function does not know
+// or care what `termsVersion` refers to — that is a future content/
+// frontend concern — it only records that a specific, versioned
+// reference was accepted at a specific time, which is what FR-09/FR-10
+// and D-35 actually require of the domain layer.
+export async function recordTermsAcceptance(
+  repo: AvailabilityReservationRepository,
+  params: { tenantId: TenantId; reservationGroupId: number; termsVersion: string },
+): Promise<ReservationGroup> {
+  const { tenantId, reservationGroupId, termsVersion } = params
+  if (!termsVersion.trim()) throw new InvalidTermsVersionError()
+
+  const group = await repo.recordTermsAcceptance(tenantId, reservationGroupId, termsVersion)
+  if (!group) throw new ReservationGroupNotFoundError(reservationGroupId)
+  return group
+}
+
+// FR-09: "Payment may start only after terms acceptance is recorded on
+// the ReservationGroup." A guard for a future Payments-side caller
+// (Milestone 5, not built here) to call before starting a charge —
+// there is no checkout/payment HTTP flow yet for this to gate.
+export function assertTermsAccepted(group: ReservationGroup): void {
+  if (!group.termsAcceptedAt) throw new TermsNotAcceptedError(group.id)
 }
 
 // W2, FR-10, D-37: PaymentReceived confirms every Reservation in the

@@ -76,7 +76,13 @@ export function createFakeAvailabilityReservationRepository(): FakeAvailabilityR
       },
 
       async insertReservationGroup(tenantId) {
-        const group: ReservationGroup = { id: target.nextGroupId++, tenantId, createdAt: new Date() }
+        const group: ReservationGroup = {
+          id: target.nextGroupId++,
+          tenantId,
+          createdAt: new Date(),
+          termsVersion: null,
+          termsAcceptedAt: null,
+        }
         target.reservationGroups.push(group)
         return { ...group }
       },
@@ -84,6 +90,14 @@ export function createFakeAvailabilityReservationRepository(): FakeAvailabilityR
       async getReservationGroup(tenantId, id) {
         const group = target.reservationGroups.find((g) => g.tenantId === tenantId && g.id === id)
         return group ? { ...group } : null
+      },
+
+      async recordTermsAcceptance(tenantId, reservationGroupId, termsVersion) {
+        const group = target.reservationGroups.find((g) => g.tenantId === tenantId && g.id === reservationGroupId)
+        if (!group) return null
+        group.termsVersion = termsVersion
+        group.termsAcceptedAt = new Date()
+        return { ...group }
       },
 
       async listReservationsForGroup(tenantId, reservationGroupId) {

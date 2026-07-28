@@ -29,6 +29,20 @@ export interface AvailabilityReservationRepository {
   getReservationGroup(tenantId: TenantId, id: number): Promise<ReservationGroup | null>
   listReservationsForGroup(tenantId: TenantId, reservationGroupId: number): Promise<Reservation[]>
 
+  // D-35, F1 KNOWN GAP: records that `termsVersion` was accepted now.
+  // Overwrites any prior acceptance on the same group (re-accepting a
+  // changed version) rather than keeping a history — ReservationGroup
+  // has "no status of its own" (D-13) and this is a current-state fact,
+  // not an append-only evidentiary record like Handover & Possession's
+  // attestations (D-10 scopes append-only history to Possession/
+  // condition/attestation facts specifically). Returns null if no
+  // ReservationGroup exists for this Tenant with this id.
+  recordTermsAcceptance(
+    tenantId: TenantId,
+    reservationGroupId: number,
+    termsVersion: string,
+  ): Promise<ReservationGroup | null>
+
   getReservation(tenantId: TenantId, id: number): Promise<Reservation | null>
   insertReservation(tenantId: TenantId, params: NewReservation): Promise<Reservation>
 
@@ -98,10 +112,18 @@ interface ReservationGroupRow {
   id: number
   tenant_id: string
   created_at: Date
+  terms_version: string | null
+  terms_accepted_at: Date | null
 }
 
 function mapReservationGroup(row: ReservationGroupRow): ReservationGroup {
-  return { id: row.id, tenantId: row.tenant_id as TenantId, createdAt: row.created_at }
+  return {
+    id: row.id,
+    tenantId: row.tenant_id as TenantId,
+    createdAt: row.created_at,
+    termsVersion: row.terms_version,
+    termsAcceptedAt: row.terms_accepted_at,
+  }
 }
 
 interface ReservationRow {
@@ -145,6 +167,16 @@ export function createPostgresAvailabilityReservationRepository(
     async getReservationGroup(tenantId, id) {
       const rows = await sql<ReservationGroupRow[]>`
         select * from reservation_groups where tenant_id = ${tenantId} and id = ${id}
+      `
+      return rows[0] ? mapReservationGroup(rows[0]) : null
+    },
+
+    async recordTermsAcceptance(tenantId, reservationGroupId, termsVersion) {
+      const rows = await sql<ReservationGroupRow[]>`
+        update reservation_groups
+        set terms_version = ${termsVersion}, terms_accepted_at = now()
+        where tenant_id = ${tenantId} and id = ${reservationGroupId}
+        returning *
       `
       return rows[0] ? mapReservationGroup(rows[0]) : null
     },

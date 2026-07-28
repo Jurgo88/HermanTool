@@ -3,17 +3,21 @@ import type { TenantId } from '../../../../server/contexts/_shared'
 import {
   AssetTypeUnavailableError,
   EmptyReservationGroupError,
+  InvalidTermsVersionError,
   ReservationGroupNotFoundError,
   ReservationGroupReacquireFailedError,
   ReservationNotActiveError,
   ReservationNotFoundError,
+  TermsNotAcceptedError,
 } from '../../../../server/contexts/availability-reservation/types'
 import { InvalidRentalPeriodError } from '../../../../server/contexts/availability-reservation/rental-period'
 import {
+  assertTermsAccepted,
   cancelReservation,
   checkoutReservationGroup,
   confirmReservationGroup,
   getAvailableCount,
+  recordTermsAcceptance,
   sweepExpiredReservations,
 } from '../../../../server/contexts/availability-reservation/reservation'
 import {
@@ -408,5 +412,81 @@ describe('sweepExpiredReservations (D-25 §14.2, Finding 3, FR-08 — the proact
     const swept = await sweepExpiredReservations(repo, { tenantId: tenantA })
 
     expect(swept).toHaveLength(0)
+  })
+})
+
+describe('recordTermsAcceptance / assertTermsAccepted (D-35, F1 KNOWN GAP — mechanics only)', () => {
+  let repo: FakeAvailabilityReservationRepository
+
+  beforeEach(() => {
+    repo = createFakeAvailabilityReservationRepository()
+    repo.seedCapacity(HAMMER, 1)
+  })
+
+  it('records the termsVersion and an acceptance timestamp on the group', async () => {
+    const { group } = await checkoutReservationGroup(repo, {
+      tenantId: tenantA,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+    })
+
+    const updated = await recordTermsAcceptance(repo, {
+      tenantId: tenantA,
+      reservationGroupId: group.id,
+      termsVersion: 'draft-1',
+    })
+
+    expect(updated.termsVersion).toBe('draft-1')
+    expect(updated.termsAcceptedAt).toBeInstanceOf(Date)
+  })
+
+  it('rejects an empty or whitespace-only termsVersion', async () => {
+    const { group } = await checkoutReservationGroup(repo, {
+      tenantId: tenantA,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+    })
+
+    await expect(
+      recordTermsAcceptance(repo, { tenantId: tenantA, reservationGroupId: group.id, termsVersion: '   ' }),
+    ).rejects.toThrow(InvalidTermsVersionError)
+  })
+
+  it('rejects a ReservationGroup that does not exist for the Tenant', async () => {
+    await expect(
+      recordTermsAcceptance(repo, { tenantId: tenantA, reservationGroupId: 999, termsVersion: 'draft-1' }),
+    ).rejects.toThrow(ReservationGroupNotFoundError)
+  })
+
+  it('never lets one Tenant record acceptance on another Tenant\'s ReservationGroup (FR-33)', async () => {
+    const { group } = await checkoutReservationGroup(repo, {
+      tenantId: tenantA,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+    })
+
+    await expect(
+      recordTermsAcceptance(repo, { tenantId: tenantB, reservationGroupId: group.id, termsVersion: 'draft-1' }),
+    ).rejects.toThrow(ReservationGroupNotFoundError)
+  })
+
+  it('assertTermsAccepted rejects a group with no recorded acceptance (FR-09)', async () => {
+    const { group } = await checkoutReservationGroup(repo, {
+      tenantId: tenantA,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+    })
+
+    expect(() => assertTermsAccepted(group)).toThrow(TermsNotAcceptedError)
+  })
+
+  it('assertTermsAccepted passes once acceptance has been recorded', async () => {
+    const { group } = await checkoutReservationGroup(repo, {
+      tenantId: tenantA,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+    })
+    const accepted = await recordTermsAcceptance(repo, {
+      tenantId: tenantA,
+      reservationGroupId: group.id,
+      termsVersion: 'draft-1',
+    })
+
+    expect(() => assertTermsAccepted(accepted)).not.toThrow()
   })
 })
