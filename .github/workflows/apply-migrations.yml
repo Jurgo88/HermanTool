@@ -1,0 +1,38 @@
+# Apply database migrations on merge to main (D-30). Migrations are files
+# in this repo, reviewed in the diff, applied by GitHub Actions — never
+# from a developer's laptop, never typed into the Supabase dashboard
+# (Part 4 §14.7). Expand/contract only (CLAUDE.md) — no single migration
+# in this repo is destructive in one step.
+#
+# Requires one repo-level secret, set once by the Tenant/developer (not
+# by this workflow):
+#   - secrets.SUPABASE_DB_URL — the Postgres connection string for the
+#     TARGET project, in session mode (port 5432, `postgres.<ref>` user),
+#     from the Supabase dashboard's Database settings. Deliberately NOT
+#     the same value as NUXT_DATABASE_URL set in Netlify: that one is the
+#     transaction-pooler connection the application's own queries use
+#     (D-25 §14.2, `prepare: false`), which is the wrong mode for the
+#     Supabase CLI's own DDL/advisory-lock usage during a migration push.
+#
+# Runs only when migration files actually change, and only on `main` — a
+# migration is never applied speculatively from a feature branch. R-05's
+# rehearsal-project practice (a second free Supabase project, exercised
+# before merge) is a separate manual step this workflow does not replace.
+name: Apply database migrations
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+  workflow_dispatch: {}
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply pending migrations
+        run: |
+          npx --yes supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}" --include-all
