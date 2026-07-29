@@ -3,7 +3,7 @@
 // database (Part 4 §14.2).
 import type { TenantId } from '../../../server/contexts/_shared'
 import type { AuthDeps, SupabaseAuthClient } from '../../../server/utils/auth'
-import type { Operator, OperatorRepository } from '../../../server/utils/operators'
+import type { Operator, OperatorRepository, OperatorWithPin } from '../../../server/utils/operators'
 
 interface FakeAuthUser {
   id: string
@@ -84,9 +84,24 @@ export function createFakeSupabaseAuthClient(): FakeSupabaseAuthClient {
 }
 
 export function createFakeOperatorRepository(operators: Operator[] = []): OperatorRepository {
+  const withPins: OperatorWithPin[] = operators.map((o) => ({ ...o, pinSalt: null, pinHash: null }))
+
   return {
     async findByAuthUserId(authUserId) {
-      return operators.find((o) => o.id === authUserId) ?? null
+      const operator = withPins.find((o) => o.id === authUserId)
+      if (!operator) return null
+      return { id: operator.id, tenantId: operator.tenantId, displayName: operator.displayName }
+    },
+
+    async listForTenant(tenantId) {
+      return withPins.filter((o) => o.tenantId === tenantId).map((o) => ({ ...o }))
+    },
+
+    async setPin(operatorId, { pinSalt, pinHash }) {
+      const operator = withPins.find((o) => o.id === operatorId)
+      if (!operator) return
+      operator.pinSalt = pinSalt
+      operator.pinHash = pinHash
     },
   }
 }

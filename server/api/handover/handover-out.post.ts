@@ -5,6 +5,8 @@ import { createAvailabilityReservationDeps } from '../../utils/availability-rese
 import { createCatalogDeps } from '../../utils/catalog-deps'
 import { createCustomerIdentityComplianceDeps } from '../../utils/customer-identity-compliance-deps'
 import { createHandoverPossessionDeps, translateHandoverPossessionError } from '../../utils/handover-possession-deps'
+import { InvalidPinError, verifyOperatorPin } from '../../utils/operator-pin'
+import { createOperatorsDeps } from '../../utils/operators-deps'
 import { requireOperator } from '../../utils/operator-session'
 
 // D-10, FR-24, Finding 9: omit for an ordinary live scan (occurredAt
@@ -17,6 +19,12 @@ const bodySchema = z.object({
   reservationId: z.number().int().positive(),
   customerId: z.number().int().positive(),
   conditionPhotoContentTypes: z.array(z.string().min(1)).min(1),
+  // F8/D-22/FR-36: reconfirms WHICH Operator is physically attesting the
+  // bundled ConditionReport/DepositTaken — see server/utils/operator-pin.ts.
+  // Not necessarily the same Operator as the session (requireOperator
+  // below), which is exactly the shared-counter-phone problem this
+  // guards against.
+  pin: z.string().min(1),
   backdate: backdateSchema.optional(),
 })
 
@@ -37,8 +45,11 @@ export default defineEventHandler(async (event) => {
   const catalog = createCatalogDeps(event)
   const customerIdentity = createCustomerIdentityComplianceDeps(event)
   const handover = createHandoverPossessionDeps(event)
+  const operators = createOperatorsDeps(event)
 
   try {
+    const attestingOperator = await verifyOperatorPin(operators.repo, operator.tenantId, body.pin)
+
     const reservation = await availability.repo.getReservation(operator.tenantId, body.reservationId)
     if (!reservation) throw new ReservationNotConfirmedError(body.reservationId)
 
@@ -57,18 +68,21 @@ export default defineEventHandler(async (event) => {
         tagCode: body.tagCode,
         reservationId: body.reservationId,
         customerId: body.customerId,
-        operatorId: operator.id,
+        operatorId: attestingOperator.id,
         depositAmount: assetType.depositAmount,
         conditionPhotoContentTypes: body.conditionPhotoContentTypes,
         backdate: body.backdate,
       },
     )
   } catch (err) {
+    if (err instanceof InvalidPinError) {
+      throw createError({ statusCode: 401, statusMessage: err.message })
+    }
     if (err instanceof AssetTypeNotFoundError) {
       throw createError({ statusCode: 404, statusMessage: err.message })
     }
     translateHandoverPossessionError(err)
   } finally {
-    await Promise.all([availability.close(), catalog.close(), customerIdentity.close(), handover.close()])
+    await Promise.all([availability.close(), catalog.close(), customerIdentity.close(), handover.close(), operators.close()])
   }
 })

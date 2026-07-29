@@ -41,7 +41,17 @@ export function createR2IdentityEvidenceGateway(params: {
     },
 
     async generateReadUrl(objectKey) {
-      const command = new GetObjectCommand({ Bucket: bucket, Key: objectKey })
+      // F8/NFR-06: the counter phone is shared, and mobile browsers cache
+      // fetched images by default — a leaked/forwarded read URL must not
+      // leave a cached passport photo sitting in the shared device's
+      // browser cache after the tab closes. ResponseCacheControl
+      // overrides the response header for THIS presigned request only;
+      // it does not touch the object's own stored metadata.
+      const command = new GetObjectCommand({
+        Bucket: bucket,
+        Key: objectKey,
+        ResponseCacheControl: 'no-store',
+      })
       const readUrl = await getSignedUrl(client, command, { expiresIn: READ_URL_TTL_SECONDS })
       return { readUrl, expiresAt: new Date(Date.now() + READ_URL_TTL_SECONDS * 1000) }
     },

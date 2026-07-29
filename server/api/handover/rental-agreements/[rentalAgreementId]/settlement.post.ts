@@ -5,6 +5,8 @@ import {
   getRentalAgreementIdParam,
   translateHandoverPossessionError,
 } from '../../../../utils/handover-possession-deps'
+import { InvalidPinError, verifyOperatorPin } from '../../../../utils/operator-pin'
+import { createOperatorsDeps } from '../../../../utils/operators-deps'
 import { requireOperator } from '../../../../utils/operator-session'
 
 // D-21: EUR only in the pilot, matching every other MonetaryAmount
@@ -12,6 +14,9 @@ import { requireOperator } from '../../../../utils/operator-session'
 const bodySchema = z.object({
   returnedAmount: z.object({ amount: z.number().int().nonnegative(), currency: z.literal('EUR') }),
   deductionReason: z.string().min(1).optional(),
+  // F8/D-22/FR-36: resolves WHICH Operator is attesting DepositReturned —
+  // see server/utils/operator-pin.ts.
+  pin: z.string().min(1),
 })
 
 // D-07, FR-20, FR-21, W5, W8: resolves the deposit. A deduction (returned
@@ -24,18 +29,24 @@ export default defineEventHandler(async (event) => {
   const rentalAgreementId = getRentalAgreementIdParam(event)
   const body = await readValidatedBody(event, bodySchema.parse)
   const { repo, close } = createHandoverPossessionDeps(event)
+  const operators = createOperatorsDeps(event)
 
   try {
+    const attestingOperator = await verifyOperatorPin(operators.repo, operator.tenantId, body.pin)
+
     return await completeSettlement(repo, {
       tenantId: operator.tenantId,
       rentalAgreementId,
-      operatorId: operator.id,
+      operatorId: attestingOperator.id,
       returnedAmount: body.returnedAmount,
       deductionReason: body.deductionReason,
     })
   } catch (err) {
+    if (err instanceof InvalidPinError) {
+      throw createError({ statusCode: 401, statusMessage: err.message })
+    }
     translateHandoverPossessionError(err)
   } finally {
-    await close()
+    await Promise.all([close(), operators.close()])
   }
 })
