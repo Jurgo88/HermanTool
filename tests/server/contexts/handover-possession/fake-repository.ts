@@ -1,6 +1,7 @@
 // In-memory stand-in for HandoverPossessionRepository, used by
-// scan-resolution.test.ts and handover-out.test.ts so the domain logic
-// in server/contexts/handover-possession/{scan-resolution,handover-out}.ts
+// scan-resolution.test.ts, handover-out.test.ts and handover-in.test.ts
+// so the domain logic in
+// server/contexts/handover-possession/{scan-resolution,handover-out,handover-in}.ts
 // is exercised without a database (Part 4 §14.2), mirroring every other
 // context's fake-repository.ts.
 //
@@ -14,12 +15,14 @@ import type { TenantId } from '../../../../server/contexts/_shared'
 import type {
   HandoverPossessionRepository,
   NewConditionReport,
+  NewDepositReturned,
   NewDepositTaken,
   NewRentalAgreement,
   NewScanEvent,
 } from '../../../../server/contexts/handover-possession/repository'
 import type {
   ConditionReport,
+  DepositReturned,
   DepositTaken,
   RentalAgreement,
   ScanEvent,
@@ -30,10 +33,12 @@ interface State {
   rentalAgreements: RentalAgreement[]
   conditionReports: ConditionReport[]
   depositsTaken: DepositTaken[]
+  depositsReturned: DepositReturned[]
   nextScanEventId: number
   nextRentalAgreementId: number
   nextConditionReportId: number
   nextDepositTakenId: number
+  nextDepositReturnedId: number
 }
 
 export interface FakeHandoverPossessionRepository extends HandoverPossessionRepository {
@@ -41,6 +46,7 @@ export interface FakeHandoverPossessionRepository extends HandoverPossessionRepo
   allRentalAgreements(): RentalAgreement[]
   allConditionReports(): ConditionReport[]
   allDepositsTaken(): DepositTaken[]
+  allDepositsReturned(): DepositReturned[]
 }
 
 export function createFakeHandoverPossessionRepository(
@@ -51,10 +57,12 @@ export function createFakeHandoverPossessionRepository(
     rentalAgreements: [],
     conditionReports: [],
     depositsTaken: [],
+    depositsReturned: [],
     nextScanEventId: 1,
     nextRentalAgreementId: 1,
     nextConditionReportId: 1,
     nextDepositTakenId: 1,
+    nextDepositReturnedId: 1,
   }
 
   function build(): FakeHandoverPossessionRepository {
@@ -70,6 +78,9 @@ export function createFakeHandoverPossessionRepository(
       },
       allDepositsTaken() {
         return state.depositsTaken.map((d) => ({ ...d }))
+      },
+      allDepositsReturned() {
+        return state.depositsReturned.map((d) => ({ ...d }))
       },
 
       async insertScanEvent(tenantId: TenantId, { assetId, operatorId }: NewScanEvent) {
@@ -92,6 +103,8 @@ export function createFakeHandoverPossessionRepository(
           termsVersion,
           handoverOutAt: new Date(),
           handoverInAt: null,
+          settlementCompletedAt: null,
+          returnedToPoolAt: null,
         }
         state.rentalAgreements.push(agreement)
         return { ...agreement }
@@ -100,6 +113,40 @@ export function createFakeHandoverPossessionRepository(
       async getRentalAgreement(tenantId, id) {
         const agreement = state.rentalAgreements.find((a) => a.tenantId === tenantId && a.id === id)
         return agreement ? { ...agreement } : null
+      },
+
+      async getOpenRentalAgreementForAsset(tenantId, assetId) {
+        const agreement = [...state.rentalAgreements]
+          .reverse()
+          .find((a) => a.tenantId === tenantId && a.assetId === assetId && a.handoverInAt === null)
+        return agreement ? { ...agreement } : null
+      },
+
+      async setHandoverInAt(tenantId, rentalAgreementId, at) {
+        const agreement = state.rentalAgreements.find(
+          (a) => a.tenantId === tenantId && a.id === rentalAgreementId && a.handoverInAt === null,
+        )
+        if (!agreement) return null
+        agreement.handoverInAt = at
+        return { ...agreement }
+      },
+
+      async setSettlementCompletedAt(tenantId, rentalAgreementId, at) {
+        const agreement = state.rentalAgreements.find(
+          (a) => a.tenantId === tenantId && a.id === rentalAgreementId && a.settlementCompletedAt === null,
+        )
+        if (!agreement) return null
+        agreement.settlementCompletedAt = at
+        return { ...agreement }
+      },
+
+      async markReturnedToPool(tenantId, rentalAgreementId, at) {
+        const agreement = state.rentalAgreements.find(
+          (a) => a.tenantId === tenantId && a.id === rentalAgreementId && a.returnedToPoolAt === null,
+        )
+        if (!agreement) return null
+        agreement.returnedToPoolAt = at
+        return { ...agreement }
       },
 
       async insertConditionReport(
@@ -119,6 +166,12 @@ export function createFakeHandoverPossessionRepository(
         return { ...report }
       },
 
+      async listConditionReportsForAgreement(tenantId, rentalAgreementId) {
+        return state.conditionReports
+          .filter((r) => r.tenantId === tenantId && r.rentalAgreementId === rentalAgreementId)
+          .map((r) => ({ ...r }))
+      },
+
       async insertDepositTaken(tenantId: TenantId, { rentalAgreementId, amount, operatorId }: NewDepositTaken) {
         const deposit: DepositTaken = {
           id: state.nextDepositTakenId++,
@@ -130,6 +183,36 @@ export function createFakeHandoverPossessionRepository(
         }
         state.depositsTaken.push(deposit)
         return { ...deposit }
+      },
+
+      async getDepositTakenForAgreement(tenantId, rentalAgreementId) {
+        const deposit = state.depositsTaken.find(
+          (d) => d.tenantId === tenantId && d.rentalAgreementId === rentalAgreementId,
+        )
+        return deposit ? { ...deposit } : null
+      },
+
+      async insertDepositReturned(
+        tenantId: TenantId,
+        { rentalAgreementId, amount, deductionReason, operatorId }: NewDepositReturned,
+      ) {
+        const deposit: DepositReturned = {
+          id: state.nextDepositReturnedId++,
+          tenantId,
+          rentalAgreementId,
+          amount: { ...amount },
+          deductionReason,
+          operatorId,
+          returnedAt: new Date(),
+        }
+        state.depositsReturned.push(deposit)
+        return { ...deposit }
+      },
+
+      async listSettledRentalAgreementsPendingPoolReturn(tenantId) {
+        return state.rentalAgreements
+          .filter((a) => a.tenantId === tenantId && a.settlementCompletedAt !== null && a.returnedToPoolAt === null)
+          .map((a) => ({ ...a }))
       },
 
       async transaction(fn) {
