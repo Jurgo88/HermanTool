@@ -50,6 +50,17 @@ export default defineNuxtConfig({
     stripeSecretKey: '',
     stripeWebhookSecret: '',
 
+    // Cloudflare R2 (D-27, S3-compatible) — see
+    // server/contexts/customer-identity-compliance/r2-gateway.ts, the one
+    // file permitted to use the AWS S3 SDK against these. `evidenceBucket`
+    // is the `evidence` bucket only (unbacked, D-27) — the `conditions`
+    // bucket belongs to Handover & Possession's ConditionReport work, not
+    // this context.
+    r2AccessKeyId: '',
+    r2SecretAccessKey: '',
+    r2Endpoint: '',
+    r2BucketEvidence: '',
+
     public: {
       // Used only to build Stripe Checkout's success_url/cancel_url
       // server-side (server/api/payments/checkout-session.post.ts) —
