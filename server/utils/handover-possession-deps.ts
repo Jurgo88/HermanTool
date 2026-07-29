@@ -5,21 +5,30 @@
 // ConditionReportStorageGateway, from runtime config, plus a `close()` to
 // end the connection afterwards — same per-request create/end convention
 // as ./catalog-deps.ts (NFR-04: no pooling apparatus at pilot load).
-import { createError, type H3Event } from 'h3'
+import { createError, getRouterParam, type H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import type postgres from 'postgres'
 import { createDatabaseClient } from './db'
 import { AssetNotFoundError, createPostgresAssetRegistryRepository, type AssetRegistryRepository } from '../contexts/asset-registry'
 import {
+  AssetNotYetReturnableError,
   AssetTypeMismatchError,
   createPostgresHandoverPossessionRepository,
   createR2ConditionReportGateway,
   CustomerReservationMismatchError,
+  DeductionReasonRequiredError,
+  DeductionRequiresPairedConditionReportsError,
+  DepositReturnExceedsTakenError,
   EmptyConditionReportError,
   HandoverPossessionError,
   IdentityVerificationRequiredError,
+  NoOpenRentalAgreementError,
+  RentalAgreementAlreadySettledError,
+  RentalAgreementNotFoundError,
+  RentalAgreementNotHandedInError,
   ReservationNotConfirmedError,
   ScanEventTagNotBoundError,
+  SettlementNotCompleteError,
   UnexpectedScanResolutionError,
   type ConditionReportStorageGateway,
   type HandoverPossessionRepository,
@@ -48,12 +57,31 @@ export function createHandoverPossessionDeps(event: H3Event): {
   }
 }
 
+// RentalAgreement ids are the `integer generated always as identity`
+// primary key, same reasoning as ./catalog-deps.ts's getAssetTypeIdParam.
+export function getRentalAgreementIdParam(event: H3Event): number {
+  const raw = getRouterParam(event, 'rentalAgreementId')
+  const id = Number(raw)
+  if (!raw || !Number.isInteger(id) || id <= 0) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid RentalAgreement id.' })
+  }
+  return id
+}
+
 // The HTTP layer translates typed domain errors into responses (CLAUDE.md).
 export function translateHandoverPossessionError(err: unknown): never {
-  if (err instanceof ScanEventTagNotBoundError || err instanceof AssetNotFoundError) {
+  if (
+    err instanceof ScanEventTagNotBoundError ||
+    err instanceof AssetNotFoundError ||
+    err instanceof RentalAgreementNotFoundError
+  ) {
     throw createError({ statusCode: 404, statusMessage: err.message })
   }
-  if (err instanceof EmptyConditionReportError) {
+  if (
+    err instanceof EmptyConditionReportError ||
+    err instanceof DeductionReasonRequiredError ||
+    err instanceof DepositReturnExceedsTakenError
+  ) {
     throw createError({ statusCode: 400, statusMessage: err.message })
   }
   if (
@@ -61,7 +89,13 @@ export function translateHandoverPossessionError(err: unknown): never {
     err instanceof CustomerReservationMismatchError ||
     err instanceof IdentityVerificationRequiredError ||
     err instanceof UnexpectedScanResolutionError ||
-    err instanceof AssetTypeMismatchError
+    err instanceof AssetTypeMismatchError ||
+    err instanceof NoOpenRentalAgreementError ||
+    err instanceof RentalAgreementNotHandedInError ||
+    err instanceof RentalAgreementAlreadySettledError ||
+    err instanceof DeductionRequiresPairedConditionReportsError ||
+    err instanceof SettlementNotCompleteError ||
+    err instanceof AssetNotYetReturnableError
   ) {
     throw createError({ statusCode: 409, statusMessage: err.message })
   }

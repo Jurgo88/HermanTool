@@ -72,6 +72,18 @@ export interface RentalAgreement {
   termsVersion: string
   handoverOutAt: Date
   handoverInAt: Date | null
+  // FR-23/D-19: the SettlementCompleted "event" is this timestamp, not a
+  // dispatched message — there is no second consumer yet (Customer
+  // Identity & Compliance's retention re-anchoring is #32's job), so
+  // there is nothing to publish to. A future #32 reads this field
+  // directly rather than this context maintaining an event bus nobody
+  // listens to.
+  settlementCompletedAt: Date | null
+  // D-09: distinct from settlement — an Asset can be settled (deposit
+  // resolved) same-day, but must not rejoin the pool until the day
+  // after its RentalPeriod's final day. Null until
+  // markAssetReturnedToPool succeeds.
+  returnedToPoolAt: Date | null
 }
 
 export type ConditionReportStage = 'handover_out' | 'handover_in'
@@ -98,6 +110,23 @@ export interface DepositTaken {
   amount: MonetaryAmount
   operatorId: string
   takenAt: Date
+}
+
+// D-07/FR-21/W5/W8: the counterpart attestation at Settlement.
+// `deductionReason` is null for a full return; non-null iff `amount` is
+// less than what DepositTaken recorded (FR-20's "deduction" — enforced
+// in ./handover-in.ts's completeSettlement, backed by the migration's
+// check constraint). No dispute workflow, no case, no escalation (W8) —
+// this attestation plus attribution is the product's entire
+// contribution to a disagreement.
+export interface DepositReturned {
+  id: number
+  tenantId: TenantId
+  rentalAgreementId: number
+  amount: MonetaryAmount
+  deductionReason: string | null
+  operatorId: string
+  returnedAt: Date
 }
 
 // FR-14: "HandoverOut is refused without a successful IdentityVerification."
@@ -151,5 +180,82 @@ export class AssetTypeMismatchError extends HandoverPossessionError {
 export class EmptyConditionReportError extends HandoverPossessionError {
   constructor() {
     super('A ConditionReport requires at least one photograph (FR-19).')
+  }
+}
+
+export class RentalAgreementNotFoundError extends HandoverPossessionError {
+  constructor(identifier: number) {
+    super(`RentalAgreement ${identifier} does not exist for this Tenant.`)
+  }
+}
+
+// HandoverIn's own guard: the scanned Asset has no currently open
+// RentalAgreement (handoverInAt still null) — either it was never
+// handed out, or it already came back once (D-04/D-13: an Asset holds
+// at most one open Agreement at a time).
+export class NoOpenRentalAgreementError extends HandoverPossessionError {
+  constructor(assetId: number) {
+    super(`Asset ${assetId} has no open RentalAgreement — nothing to hand in.`)
+  }
+}
+
+// Settlement's own guard: HandoverIn must have happened first — there is
+// no settling a Possession that never closed.
+export class RentalAgreementNotHandedInError extends HandoverPossessionError {
+  constructor(rentalAgreementId: number) {
+    super(`RentalAgreement ${rentalAgreementId} has not been handed in yet — nothing to settle.`)
+  }
+}
+
+export class RentalAgreementAlreadySettledError extends HandoverPossessionError {
+  constructor(rentalAgreementId: number) {
+    super(`RentalAgreement ${rentalAgreementId} has already been settled.`)
+  }
+}
+
+// A returned amount greater than what DepositTaken recorded is not a
+// deduction, it is a data error — there is nothing to attest to here.
+export class DepositReturnExceedsTakenError extends HandoverPossessionError {
+  constructor(rentalAgreementId: number) {
+    super(`DepositReturned amount exceeds the DepositTaken amount for RentalAgreement ${rentalAgreementId}.`)
+  }
+}
+
+// FR-20, P1 corollary: "A DepositReturned carrying a deduction is
+// rejected unless both ConditionReports exist for that Asset and
+// RentalAgreement." No exceptions — the outbound report protects the
+// Customer, the inbound report protects the Operator, and a deduction
+// backed by only one of them is an assertion, not a case.
+export class DeductionRequiresPairedConditionReportsError extends HandoverPossessionError {
+  constructor(rentalAgreementId: number) {
+    super(
+      `RentalAgreement ${rentalAgreementId} is missing a HandoverOut or HandoverIn ConditionReport — ` +
+        'a deduction cannot be recorded without both (FR-20).',
+    )
+  }
+}
+
+// FR-15-style guard, extended to DepositReturned: a deduction without a
+// reason is an amount with no explanation attached to it.
+export class DeductionReasonRequiredError extends HandoverPossessionError {
+  constructor() {
+    super('A DepositReturned carrying a deduction must record a reason.')
+  }
+}
+
+// D-09: "the RentalPeriod's final day is consumed and the Asset rejoins
+// the pool on X+1." Thrown by markAssetReturnedToPool when called before
+// that day has arrived — the Asset stays UnderInspection regardless of
+// whether Settlement has already completed; the two are deliberately
+// independent (Settlement can happen same-day, the pool return cannot).
+export class AssetNotYetReturnableError extends HandoverPossessionError {
+  constructor(assetId: number, readyDay: string) {
+    super(`Asset ${assetId} cannot rejoin the pool until ${readyDay} (D-09).`)
+  }
+}
+
+export class SettlementNotCompleteError extends HandoverPossessionError {
+  constructor(rentalAgreementId: number) {
+    super(`RentalAgreement ${rentalAgreementId} has not been settled yet — the Asset cannot rejoin the pool.`)
   }
 }
