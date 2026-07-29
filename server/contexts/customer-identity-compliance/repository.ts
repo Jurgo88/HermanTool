@@ -5,7 +5,13 @@
 // shape. Every method takes `tenantId` as its first parameter (FR-33).
 import type postgres from 'postgres'
 import type { TenantId } from '../_shared'
-import type { Customer, IdentityEvidence, IdentityEvidenceAccessEvent } from './types'
+import type {
+  Customer,
+  IdentityEvidence,
+  IdentityEvidenceAccessEvent,
+  IdentityVerification,
+  IdentityVerificationOutcome,
+} from './types'
 
 export interface NewCustomer {
   reservationGroupId: number
@@ -20,6 +26,10 @@ export interface NewIdentityEvidence {
   retentionDeadline: Date
 }
 
+export type NewIdentityVerification =
+  | { customerId: number; identityEvidenceId: number; operatorId: string; outcome: 'verified'; reason: null }
+  | { customerId: number; identityEvidenceId: number; operatorId: string; outcome: 'rejected'; reason: string }
+
 export interface CustomerIdentityComplianceRepository {
   insertCustomer(tenantId: TenantId, params: NewCustomer): Promise<Customer>
   getCustomer(tenantId: TenantId, id: number): Promise<Customer | null>
@@ -32,6 +42,15 @@ export interface CustomerIdentityComplianceRepository {
     tenantId: TenantId,
     params: { identityEvidenceId: number; operatorId: string },
   ): Promise<IdentityEvidenceAccessEvent>
+
+  insertIdentityVerification(tenantId: TenantId, params: NewIdentityVerification): Promise<IdentityVerification>
+
+  // FR-14's precondition query: has this Customer EVER had a 'verified'
+  // IdentityVerification recorded? Read across every row rather than
+  // "the latest one" — a Customer rejected once and verified later on a
+  // second document (D-15's append-only attestation model) must still
+  // pass, and nothing here assumes exactly one row exists per Customer.
+  hasSuccessfulIdentityVerification(tenantId: TenantId, customerId: number): Promise<boolean>
 }
 
 interface CustomerRow {
@@ -94,6 +113,34 @@ function mapAccessEvent(row: AccessEventRow): IdentityEvidenceAccessEvent {
   }
 }
 
+interface IdentityVerificationRow {
+  id: number
+  tenant_id: string
+  customer_id: number
+  identity_evidence_id: number
+  operator_id: string
+  outcome: IdentityVerificationOutcome
+  reason: string | null
+  occurred_at: Date
+}
+
+function mapIdentityVerification(row: IdentityVerificationRow): IdentityVerification {
+  const base = {
+    id: row.id,
+    tenantId: row.tenant_id as TenantId,
+    customerId: row.customer_id,
+    identityEvidenceId: row.identity_evidence_id,
+    operatorId: row.operator_id,
+    occurredAt: row.occurred_at,
+  }
+  // The migration's check constraint guarantees reason is non-null iff
+  // outcome is 'rejected' — this cast makes that fact visible to
+  // TypeScript instead of widening back to `string | null` here.
+  return row.outcome === 'rejected'
+    ? { ...base, outcome: 'rejected', reason: row.reason! }
+    : { ...base, outcome: 'verified', reason: null }
+}
+
 export function createPostgresCustomerIdentityComplianceRepository(
   sql: postgres.Sql | postgres.TransactionSql,
 ): CustomerIdentityComplianceRepository {
@@ -142,6 +189,27 @@ export function createPostgresCustomerIdentityComplianceRepository(
         returning *
       `
       return mapAccessEvent(rows[0]!)
+    },
+
+    async insertIdentityVerification(tenantId, { customerId, identityEvidenceId, operatorId, outcome, reason }) {
+      const rows = await sql<IdentityVerificationRow[]>`
+        insert into identity_verifications (
+          tenant_id, customer_id, identity_evidence_id, operator_id, outcome, reason
+        ) values (
+          ${tenantId}, ${customerId}, ${identityEvidenceId}, ${operatorId}, ${outcome}, ${reason}
+        )
+        returning *
+      `
+      return mapIdentityVerification(rows[0]!)
+    },
+
+    async hasSuccessfulIdentityVerification(tenantId, customerId) {
+      const rows = await sql<{ id: number }[]>`
+        select id from identity_verifications
+        where tenant_id = ${tenantId} and customer_id = ${customerId} and outcome = 'verified'
+        limit 1
+      `
+      return rows.length > 0
     },
   }
 }

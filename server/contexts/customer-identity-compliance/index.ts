@@ -18,20 +18,29 @@
 // RetentionWindowNotConfiguredError rather than a placeholder value
 // (OQ #2, still unresolved and launch-blocking per CLAUDE.md).
 //
-// Currently implements ONLY Customer creation (D-14) and IdentityEvidence
-// submission mechanics (D-06, D-27, NFR-06, FR-11; issue #29).
-// IdentityVerification at the counter (#30), the tokenised self-service
-// link (#31), and the scheduled retention/erasure job (#32) are separate,
-// later issues — re-read CLAUDE.md KNOWN GAPS F6 (Customer-record
-// retention has no RetentionDeadline of its own — issue #34, not
-// resolved here either) before extending this context further.
-export type { Customer, IdentityEvidence, IdentityEvidenceAccessEvent } from './types'
+// Currently implements Customer creation (D-14), IdentityEvidence
+// submission mechanics (D-06, D-27, NFR-06, FR-11; issue #29), and
+// IdentityVerification at the counter (D-15, FR-14, FR-15, W3; issue
+// #30). The tokenised self-service link (#31) and the scheduled
+// retention/erasure job (#32) are separate, later issues — re-read
+// CLAUDE.md KNOWN GAPS F6 (Customer-record retention has no
+// RetentionDeadline of its own — issue #34, not resolved here either)
+// before extending this context further.
+export type {
+  Customer,
+  IdentityEvidence,
+  IdentityEvidenceAccessEvent,
+  IdentityVerification,
+  IdentityVerificationOutcome,
+} from './types'
 
 export {
   CustomerAlreadyExistsForGroupError,
   CustomerIdentityComplianceError,
   CustomerNotFoundError,
+  IdentityEvidenceCustomerMismatchError,
   IdentityEvidenceNotFoundError,
+  IdentityVerificationReasonRequiredError,
   InvalidCustomerDetailsError,
   ReservationGroupNotConfirmedError,
   RetentionWindowNotConfiguredError,
@@ -41,6 +50,7 @@ export type {
   CustomerIdentityComplianceRepository,
   NewCustomer,
   NewIdentityEvidence,
+  NewIdentityVerification,
 } from './repository'
 export { createPostgresCustomerIdentityComplianceRepository } from './repository'
 
@@ -54,3 +64,4 @@ export {
   requestIdentityEvidenceUpload,
   RETENTION_WINDOW_DAYS,
 } from './identity-evidence'
+export { hasSuccessfulIdentityVerification, recordIdentityVerification } from './identity-verification'
