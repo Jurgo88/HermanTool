@@ -16,7 +16,7 @@ describe('resolveScanEvent', () => {
 
   beforeEach(() => {
     assetRegistry = createFakeAssetRegistryRepository()
-    repo = createFakeHandoverPossessionRepository()
+    repo = createFakeHandoverPossessionRepository(assetRegistry)
     assetRegistry.seedAssetType(tenantA, 1)
   })
 
