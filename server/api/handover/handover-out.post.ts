@@ -7,11 +7,17 @@ import { createCustomerIdentityComplianceDeps } from '../../utils/customer-ident
 import { createHandoverPossessionDeps, translateHandoverPossessionError } from '../../utils/handover-possession-deps'
 import { requireOperator } from '../../utils/operator-session'
 
+// D-10, FR-24, Finding 9: omit for an ordinary live scan (occurredAt
+// defaults to now() in the domain layer). Supply to record the "Operator
+// forgot to scan" repair — occurredAt is backdated, reason is mandatory.
+const backdateSchema = z.object({ occurredAt: z.coerce.date(), reason: z.string().min(1) })
+
 const bodySchema = z.object({
   tagCode: z.string().min(1),
   reservationId: z.number().int().positive(),
   customerId: z.number().int().positive(),
   conditionPhotoContentTypes: z.array(z.string().min(1)).min(1),
+  backdate: backdateSchema.optional(),
 })
 
 // D-04, D-05, FR-14, FR-15, FR-18, FR-19, FR-21, FR-22, W4: "the thirty
@@ -54,6 +60,7 @@ export default defineEventHandler(async (event) => {
         operatorId: operator.id,
         depositAmount: assetType.depositAmount,
         conditionPhotoContentTypes: body.conditionPhotoContentTypes,
+        backdate: body.backdate,
       },
     )
   } catch (err) {

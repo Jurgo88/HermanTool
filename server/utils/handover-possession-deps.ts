@@ -13,6 +13,7 @@ import { AssetNotFoundError, createPostgresAssetRegistryRepository, type AssetRe
 import {
   AssetNotYetReturnableError,
   AssetTypeMismatchError,
+  BackdateReasonRequiredError,
   createPostgresHandoverPossessionRepository,
   createR2ConditionReportGateway,
   CustomerReservationMismatchError,
@@ -80,7 +81,8 @@ export function translateHandoverPossessionError(err: unknown): never {
   if (
     err instanceof EmptyConditionReportError ||
     err instanceof DeductionReasonRequiredError ||
-    err instanceof DepositReturnExceedsTakenError
+    err instanceof DepositReturnExceedsTakenError ||
+    err instanceof BackdateReasonRequiredError
   ) {
     throw createError({ statusCode: 400, statusMessage: err.message })
   }

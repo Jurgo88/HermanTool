@@ -94,12 +94,16 @@ describe.skipIf(!databaseUrl)('HandoverIn & Settlement migration (integration)',
       phone: '+421900000000',
     })
     const handoverRepo = createPostgresHandoverPossessionRepository(sql)
+    const now = new Date()
     const agreement = await handoverRepo.insertRentalAgreement(tenantId, {
       reservationId: reservations[0]!.id,
       customerId: customer.id,
       assetId: asset.id,
       operatorId,
       termsVersion: 'v1',
+      handoverOutAt: now,
+      handoverOutRecordedAt: now,
+      handoverOutBackdateReason: null,
     })
 
     await expect(
@@ -125,18 +129,24 @@ describe.skipIf(!databaseUrl)('HandoverIn & Settlement migration (integration)',
       phone: '+421900000000',
     })
     const handoverRepo = createPostgresHandoverPossessionRepository(sql)
+    const now = new Date()
     const agreement = await handoverRepo.insertRentalAgreement(tenantId, {
       reservationId: reservations[0]!.id,
       customerId: customer.id,
       assetId: asset.id,
       operatorId,
       termsVersion: 'v1',
+      handoverOutAt: now,
+      handoverOutRecordedAt: now,
+      handoverOutBackdateReason: null,
     })
     await handoverRepo.insertDepositReturned(tenantId, {
       rentalAgreementId: agreement.id,
       amount: { amount: 5000, currency: 'EUR' },
       deductionReason: null,
       operatorId,
+      returnedAt: now,
+      recordedAt: now,
     })
 
     await expect(
@@ -145,6 +155,8 @@ describe.skipIf(!databaseUrl)('HandoverIn & Settlement migration (integration)',
         amount: { amount: 5000, currency: 'EUR' },
         deductionReason: null,
         operatorId,
+        returnedAt: now,
+        recordedAt: now,
       }),
     ).rejects.toThrow()
   })

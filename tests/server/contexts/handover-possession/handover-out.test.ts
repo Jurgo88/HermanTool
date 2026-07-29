@@ -9,6 +9,7 @@ import { createCustomer } from '../../../../server/contexts/customer-identity-co
 import { performHandoverOut } from '../../../../server/contexts/handover-possession/handover-out'
 import {
   AssetTypeMismatchError,
+  BackdateReasonRequiredError,
   CustomerReservationMismatchError,
   EmptyConditionReportError,
   IdentityVerificationRequiredError,
@@ -121,6 +122,51 @@ describe('performHandoverOut', () => {
 
     const asset = await assetRegistry.getAsset(tenantA, result.rentalAgreement.assetId)
     expect(asset?.status).toBe('in_possession')
+
+    // D-10/Finding 9: an ordinary live scan has occurred-at and
+    // recorded-at equal, and no backdate reason.
+    expect(result.rentalAgreement.handoverOutAt).toEqual(result.rentalAgreement.handoverOutRecordedAt)
+    expect(result.rentalAgreement.handoverOutBackdateReason).toBeNull()
+  })
+
+  it('records a backdated HandoverOut with occurred-at distinct from recorded-at (D-10, FR-24, Finding 9)', async () => {
+    const occurredAt = new Date('2026-03-05T09:00:00.000Z')
+
+    const result = await performHandoverOut(deps(), {
+      tenantId: tenantA,
+      tagCode,
+      reservationId,
+      customerId,
+      operatorId,
+      depositAmount,
+      conditionPhotoContentTypes: ['image/jpeg'],
+      backdate: { occurredAt, reason: 'Forgot to scan at pickup' },
+    })
+
+    expect(result.rentalAgreement.handoverOutAt).toEqual(occurredAt)
+    expect(result.rentalAgreement.handoverOutBackdateReason).toBe('Forgot to scan at pickup')
+    // recordedAt is real — strictly after the backdated occurredAt.
+    expect(result.rentalAgreement.handoverOutRecordedAt.getTime()).toBeGreaterThan(occurredAt.getTime())
+
+    // The bundled attestations inherit the same occurred-at (Finding 9:
+    // one corrected event, not three independently-timed ones).
+    expect(result.conditionReport.capturedAt).toEqual(occurredAt)
+    expect(result.depositTaken.takenAt).toEqual(occurredAt)
+  })
+
+  it('refuses a backdated HandoverOut with no reason', async () => {
+    await expect(
+      performHandoverOut(deps(), {
+        tenantId: tenantA,
+        tagCode,
+        reservationId,
+        customerId,
+        operatorId,
+        depositAmount,
+        conditionPhotoContentTypes: ['image/jpeg'],
+        backdate: { occurredAt: new Date('2026-03-05T09:00:00.000Z'), reason: '   ' },
+      }),
+    ).rejects.toThrow(BackdateReasonRequiredError)
   })
 
   it('refuses when the Reservation is not Confirmed', async () => {

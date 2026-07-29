@@ -111,18 +111,22 @@ describe.skipIf(!databaseUrl)('HandoverOut workflow migration (integration)', ()
     })
 
     const handoverRepo = createPostgresHandoverPossessionRepository(sql)
+    const now = new Date()
     const agreement = await handoverRepo.insertRentalAgreement(tenantId, {
       reservationId: reservations[0]!.id,
       customerId: customer.id,
       assetId: asset.id,
       operatorId,
       termsVersion: 'v1',
+      handoverOutAt: now,
+      handoverOutRecordedAt: now,
+      handoverOutBackdateReason: null,
     })
 
     await expect(
       sql`
-        insert into condition_reports (tenant_id, rental_agreement_id, stage, photo_object_keys, operator_id)
-        values (${tenantId}, ${agreement.id}, 'handover_out', '{}', ${operatorId})
+        insert into condition_reports (tenant_id, rental_agreement_id, stage, photo_object_keys, operator_id, captured_at, recorded_at)
+        values (${tenantId}, ${agreement.id}, 'handover_out', '{}', ${operatorId}, now(), now())
       `,
     ).rejects.toThrow()
   })
@@ -147,12 +151,16 @@ describe.skipIf(!databaseUrl)('HandoverOut workflow migration (integration)', ()
     })
 
     const handoverRepo = createPostgresHandoverPossessionRepository(sql)
+    const now = new Date()
     await handoverRepo.insertRentalAgreement(tenantId, {
       reservationId: reservations[0]!.id,
       customerId: customer.id,
       assetId: assetA.id,
       operatorId,
       termsVersion: 'v1',
+      handoverOutAt: now,
+      handoverOutRecordedAt: now,
+      handoverOutBackdateReason: null,
     })
 
     await expect(
@@ -162,6 +170,9 @@ describe.skipIf(!databaseUrl)('HandoverOut workflow migration (integration)', ()
         assetId: assetB.id,
         operatorId,
         termsVersion: 'v1',
+        handoverOutAt: now,
+        handoverOutRecordedAt: now,
+        handoverOutBackdateReason: null,
       }),
     ).rejects.toThrow()
   })
@@ -226,6 +237,70 @@ describe.skipIf(!databaseUrl)('HandoverOut workflow migration (integration)', ()
     const reservation = await availabilityRepo.getReservation(tenantId, reservations[0]!.id)
     expect(reservation?.state).toBe('confirmed')
   })
+
+  it('round-trips a backdated HandoverOut through real Postgres (D-10, FR-24, Finding 9)', async () => {
+    // Explicit timeout: this test alone makes ~10 sequential network round
+    // trips to the rehearsal database, and the default 5000ms is
+    // occasionally too tight for that over a real connection.
+    const assetRegistryRepo = createPostgresAssetRegistryRepository(sql)
+    const asset = await assetRegistryRepo.insertAsset(tenantId, { assetTypeId: hammerTypeId, status: 'rentable', operatorId })
+    await assetRegistryRepo.insertAssetTag(tenantId, { assetId: asset.id, tagCode: 'TAG-INT-BACKDATE', operatorId })
+
+    const availabilityRepo = createPostgresAvailabilityReservationRepository(sql)
+    const { group, reservations } = await checkoutReservationGroup(availabilityRepo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: '2026-03-05', endDay: '2026-03-07' } }],
+    })
+    await recordTermsAcceptance(availabilityRepo, { tenantId, reservationGroupId: group.id, termsVersion: 'v1' })
+    await confirmReservationGroup(availabilityRepo, { tenantId, reservationGroupId: group.id })
+
+    const identityRepo = createPostgresCustomerIdentityComplianceRepository(sql)
+    const customer = await createCustomer(identityRepo, {
+      tenantId,
+      reservationGroupId: group.id,
+      name: 'Jana Nováková',
+      email: 'jana@example.sk',
+      phone: '+421900000000',
+    })
+    const evidence = await identityRepo.insertIdentityEvidence(tenantId, {
+      customerId: customer.id,
+      objectKey: 'obj-1',
+      retentionDeadline: new Date(Date.now() + 86_400_000),
+    })
+    await identityRepo.insertIdentityVerification(tenantId, {
+      customerId: customer.id,
+      identityEvidenceId: evidence.id,
+      operatorId,
+      outcome: 'verified',
+      reason: null,
+    })
+
+    const handoverRepo = createPostgresHandoverPossessionRepository(sql)
+    const gateway = createFakeConditionReportStorageGateway()
+    const occurredAt = new Date('2026-03-05T09:00:00.000Z')
+
+    const result = await performHandoverOut(
+      { repo: handoverRepo, availabilityRepo, identityRepo, conditionsGateway: gateway },
+      {
+        tenantId,
+        tagCode: 'TAG-INT-BACKDATE',
+        reservationId: reservations[0]!.id,
+        customerId: customer.id,
+        operatorId,
+        depositAmount: { amount: 5000, currency: 'EUR' },
+        conditionPhotoContentTypes: ['image/jpeg'],
+        backdate: { occurredAt, reason: 'Forgot to scan at pickup' },
+      },
+    )
+
+    expect(result.rentalAgreement.handoverOutAt).toEqual(occurredAt)
+    expect(result.rentalAgreement.handoverOutBackdateReason).toBe('Forgot to scan at pickup')
+    expect(result.rentalAgreement.handoverOutRecordedAt.getTime()).toBeGreaterThan(occurredAt.getTime())
+
+    const reloaded = await handoverRepo.getRentalAgreement(tenantId, result.rentalAgreement.id)
+    expect(reloaded?.handoverOutAt).toEqual(occurredAt)
+    expect(reloaded?.handoverOutBackdateReason).toBe('Forgot to scan at pickup')
+  }, 15000)
 
   it('rolls back the whole transaction when the scanned Asset does not match the Reservation\'s AssetType (FR-18)', async () => {
     const assetRegistryRepo = createPostgresAssetRegistryRepository(sql)

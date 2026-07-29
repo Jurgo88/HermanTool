@@ -1,7 +1,7 @@
-// HandoverIn & Settlement [MVP · CORE] (D-09, FR-19, FR-20, FR-21, W5,
-// W8; issue #24). Closes the Possession opened by ./handover-out.ts,
-// resolves the deposit, and returns the Asset to the pool — but not
-// before D-09's day-after rule allows it.
+// HandoverIn & Settlement [MVP · CORE] (D-09, D-10, FR-19, FR-20, FR-21,
+// FR-24, W5, W8; issues #24, #25). Closes the Possession opened by
+// ./handover-out.ts, resolves the deposit, and returns the Asset to the
+// pool — but not before D-09's day-after rule allows it.
 //
 // Composes Asset Registry's and Availability & Reservation's published
 // interfaces directly (permitted — this context is downstream of both,
@@ -10,6 +10,14 @@
 // recorded as a timestamp on the RentalAgreement, not dispatched as a
 // message — there is no second consumer yet (D-19), and #32 (not built)
 // is expected to read this field directly when it exists.
+//
+// `params.backdate` on performHandoverIn (D-10, FR-24, Finding 9) is the
+// "return went unscanned" repair — the mirror of ./handover-out.ts's own
+// backdate parameter. The Operator still scans the tag now; the
+// RentalAgreement's handoverInAt and its HandoverIn-stage ConditionReport
+// both carry the backdated occurred-at instead of real-time now().
+// completeSettlement/markAssetReturnedToPool have no backdate parameter —
+// only HandoverOut and HandoverIn are the two named repairs (Finding 9).
 import { randomUUID } from 'node:crypto'
 import { markAssetRentable, type AssetRegistryRepository } from '../asset-registry'
 import type { AvailabilityReservationRepository } from '../availability-reservation'
@@ -19,6 +27,7 @@ import { resolveScanEvent } from './scan-resolution'
 import type { HandoverPossessionRepository } from './repository'
 import {
   AssetNotYetReturnableError,
+  BackdateReasonRequiredError,
   DeductionReasonRequiredError,
   DeductionRequiresPairedConditionReportsError,
   DepositReturnExceedsTakenError,
@@ -29,6 +38,7 @@ import {
   RentalAgreementNotHandedInError,
   SettlementNotCompleteError,
   UnexpectedScanResolutionError,
+  type AttestationBackdate,
   type ConditionReport,
   type DepositReturned,
   type RentalAgreement,
@@ -58,6 +68,7 @@ export interface PerformHandoverInParams {
   tagCode: string
   operatorId: string
   conditionPhotoContentTypes: string[]
+  backdate?: AttestationBackdate
 }
 
 export interface PerformHandoverInResult {
@@ -75,9 +86,14 @@ export async function performHandoverIn(
   params: PerformHandoverInParams,
 ): Promise<PerformHandoverInResult> {
   const { repo, conditionsGateway } = deps
-  const { tenantId, tagCode, operatorId, conditionPhotoContentTypes } = params
+  const { tenantId, tagCode, operatorId, conditionPhotoContentTypes, backdate } = params
 
   if (conditionPhotoContentTypes.length === 0) throw new EmptyConditionReportError()
+  if (backdate && !backdate.reason.trim()) throw new BackdateReasonRequiredError('handover_in')
+
+  const recordedAt = new Date()
+  const occurredAt = backdate?.occurredAt ?? recordedAt
+  const backdateReason = backdate?.reason ?? null
 
   const photoObjectKeys = conditionPhotoContentTypes.map(() => `${tenantId}/handover-in/${randomUUID()}`)
   const uploads = await Promise.all(
@@ -94,7 +110,11 @@ export async function performHandoverIn(
     const agreement = await trx.getOpenRentalAgreementForAsset(tenantId, asset.id)
     if (!agreement) throw new NoOpenRentalAgreementError(asset.id)
 
-    const updated = await trx.setHandoverInAt(tenantId, agreement.id, new Date())
+    const updated = await trx.setHandoverInAt(tenantId, agreement.id, {
+      handoverInAt: occurredAt,
+      handoverInRecordedAt: recordedAt,
+      handoverInBackdateReason: backdateReason,
+    })
     // Guard miss is unreachable in practice (resolveScanEvent already
     // proved the Asset was InPossession, and only one open Agreement can
     // exist per Asset) — kept as a checked invariant, not a silent `!`.
@@ -105,6 +125,8 @@ export async function performHandoverIn(
       stage: 'handover_in',
       photoObjectKeys,
       operatorId,
+      capturedAt: occurredAt,
+      recordedAt,
     })
 
     await assetRegistryRepo.updateAssetStatus(tenantId, asset.id, {
@@ -140,7 +162,10 @@ export interface CompleteSettlementResult {
 // FR-20/P1 corollary, FR-21, W8: resolves the deposit. Deliberately
 // independent of the Asset's own status — Settlement can complete the
 // same day the Asset came back; D-09's pool-return rule is
-// markAssetReturnedToPool's concern, not this one's.
+// markAssetReturnedToPool's concern, not this one's. No backdate
+// parameter here (Finding 9): only HandoverOut and HandoverIn are the
+// two named repairs — Settlement's occurred-at and recorded-at are
+// always equal for now.
 export async function completeSettlement(
   repo: HandoverPossessionRepository,
   params: CompleteSettlementParams,
@@ -170,14 +195,17 @@ export async function completeSettlement(
     }
   }
 
+  const now = new Date()
   const depositReturned = await repo.insertDepositReturned(tenantId, {
     rentalAgreementId,
     amount: returnedAmount,
     deductionReason: isDeduction ? deductionReason!.trim() : null,
     operatorId,
+    returnedAt: now,
+    recordedAt: now,
   })
 
-  const settled = await repo.setSettlementCompletedAt(tenantId, rentalAgreementId, new Date())
+  const settled = await repo.setSettlementCompletedAt(tenantId, rentalAgreementId, now)
   if (!settled) throw new RentalAgreementAlreadySettledError(rentalAgreementId)
 
   return { rentalAgreement: settled, depositReturned }
