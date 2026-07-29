@@ -85,6 +85,9 @@ export { resolveScanEvent } from './scan-resolution'
 export type { PerformHandoverOutDeps, PerformHandoverOutParams, PerformHandoverOutResult } from './handover-out'
 export { performHandoverOut } from './handover-out'
 
+export type { AssetAttestationHistoryEntry } from './attestation-history'
+export { getAssetAttestationHistory } from './attestation-history'
+
 export type {
   CompleteSettlementParams,
   CompleteSettlementResult,

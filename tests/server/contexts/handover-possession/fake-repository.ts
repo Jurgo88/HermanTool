@@ -136,6 +136,20 @@ export function createFakeHandoverPossessionRepository(
         return agreement ? { ...agreement } : null
       },
 
+      async getRentalAgreementByReservation(tenantId, reservationId) {
+        const agreement = state.rentalAgreements.find(
+          (a) => a.tenantId === tenantId && a.reservationId === reservationId,
+        )
+        return agreement ? { ...agreement } : null
+      },
+
+      async listRentalAgreementsForAsset(tenantId, assetId) {
+        return state.rentalAgreements
+          .filter((a) => a.tenantId === tenantId && a.assetId === assetId)
+          .sort((a, b) => a.handoverOutAt.getTime() - b.handoverOutAt.getTime())
+          .map((a) => ({ ...a }))
+      },
+
       async setHandoverInAt(
         tenantId,
         rentalAgreementId,
@@ -233,6 +247,13 @@ export function createFakeHandoverPossessionRepository(
         }
         state.depositsReturned.push(deposit)
         return { ...deposit }
+      },
+
+      async getDepositReturnedForAgreement(tenantId, rentalAgreementId) {
+        const deposit = state.depositsReturned.find(
+          (d) => d.tenantId === tenantId && d.rentalAgreementId === rentalAgreementId,
+        )
+        return deposit ? { ...deposit } : null
       },
 
       async listSettledRentalAgreementsPendingPoolReturn(tenantId) {

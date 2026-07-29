@@ -371,4 +371,64 @@ describe.skipIf(!databaseUrl)('HandoverOut workflow migration (integration)', ()
     const stillRentable = await assetRegistryRepo.getAsset(tenantId, wrongAsset.id)
     expect(stillRentable?.status).toBe('rentable')
   })
+
+  it('FR-42/FR-43: getRentalAgreementByReservation and listRentalAgreementsForAsset find the real row', async () => {
+    const assetRegistryRepo = createPostgresAssetRegistryRepository(sql)
+    const asset = await assetRegistryRepo.insertAsset(tenantId, { assetTypeId: hammerTypeId, status: 'rentable', operatorId })
+    await assetRegistryRepo.insertAssetTag(tenantId, { assetId: asset.id, tagCode: 'TAG-INT-VIEWS', operatorId })
+
+    const availabilityRepo = createPostgresAvailabilityReservationRepository(sql)
+    const { group, reservations } = await checkoutReservationGroup(availabilityRepo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+    })
+    await recordTermsAcceptance(availabilityRepo, { tenantId, reservationGroupId: group.id, termsVersion: 'v1' })
+    await confirmReservationGroup(availabilityRepo, { tenantId, reservationGroupId: group.id })
+
+    const identityRepo = createPostgresCustomerIdentityComplianceRepository(sql)
+    const customer = await createCustomer(identityRepo, {
+      tenantId,
+      reservationGroupId: group.id,
+      name: 'Jana Nováková',
+      email: 'jana@example.sk',
+      phone: '+421900000000',
+    })
+    const evidence = await identityRepo.insertIdentityEvidence(tenantId, {
+      customerId: customer.id,
+      objectKey: 'obj-1',
+      retentionDeadline: new Date(Date.now() + 86_400_000),
+    })
+    await identityRepo.insertIdentityVerification(tenantId, {
+      customerId: customer.id,
+      identityEvidenceId: evidence.id,
+      operatorId,
+      outcome: 'verified',
+      reason: null,
+    })
+
+    const handoverRepo = createPostgresHandoverPossessionRepository(sql)
+    const gateway = createFakeConditionReportStorageGateway()
+
+    expect(await handoverRepo.getRentalAgreementByReservation(tenantId, reservations[0]!.id)).toBeNull()
+    expect(await handoverRepo.listRentalAgreementsForAsset(tenantId, asset.id)).toEqual([])
+
+    const { rentalAgreement } = await performHandoverOut(
+      { repo: handoverRepo, availabilityRepo, identityRepo, conditionsGateway: gateway },
+      {
+        tenantId,
+        tagCode: 'TAG-INT-VIEWS',
+        reservationId: reservations[0]!.id,
+        customerId: customer.id,
+        operatorId,
+        depositAmount: { amount: 5000, currency: 'EUR' },
+        conditionPhotoContentTypes: ['image/jpeg'],
+      },
+    )
+
+    const byReservation = await handoverRepo.getRentalAgreementByReservation(tenantId, reservations[0]!.id)
+    expect(byReservation?.id).toBe(rentalAgreement.id)
+
+    const forAsset = await handoverRepo.listRentalAgreementsForAsset(tenantId, asset.id)
+    expect(forAsset.map((a) => a.id)).toEqual([rentalAgreement.id])
+  })
 })
