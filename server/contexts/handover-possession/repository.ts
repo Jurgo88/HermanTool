@@ -20,12 +20,26 @@ export interface NewScanEvent {
   operatorId: string
 }
 
+// D-10/Finding 9: handoverOutAt/handoverOutRecordedAt/handoverOutBackdateReason
+// are always supplied explicitly by the domain layer (./handover-out.ts) —
+// never DB-defaulted — since a backdated correction and an ordinary live
+// scan differ only in what values get passed in, not in which code path
+// runs.
 export interface NewRentalAgreement {
   reservationId: number
   customerId: number
   assetId: number
   operatorId: string
   termsVersion: string
+  handoverOutAt: Date
+  handoverOutRecordedAt: Date
+  handoverOutBackdateReason: string | null
+}
+
+export interface SetHandoverInParams {
+  handoverInAt: Date
+  handoverInRecordedAt: Date
+  handoverInBackdateReason: string | null
 }
 
 export interface NewConditionReport {
@@ -33,12 +47,16 @@ export interface NewConditionReport {
   stage: ConditionReportStage
   photoObjectKeys: string[]
   operatorId: string
+  capturedAt: Date
+  recordedAt: Date
 }
 
 export interface NewDepositTaken {
   rentalAgreementId: number
   amount: MonetaryAmount
   operatorId: string
+  takenAt: Date
+  recordedAt: Date
 }
 
 export interface NewDepositReturned {
@@ -46,6 +64,8 @@ export interface NewDepositReturned {
   amount: MonetaryAmount
   deductionReason: string | null
   operatorId: string
+  returnedAt: Date
+  recordedAt: Date
 }
 
 export interface HandoverPossessionRepository {
@@ -62,7 +82,11 @@ export interface HandoverPossessionRepository {
   // Guarded transition: succeeds only if handover_in_at is currently
   // null, mirroring every other guarded-transition method in this
   // codebase (e.g. Availability & Reservation's transitionReservationState).
-  setHandoverInAt(tenantId: TenantId, rentalAgreementId: number, at: Date): Promise<RentalAgreement | null>
+  setHandoverInAt(
+    tenantId: TenantId,
+    rentalAgreementId: number,
+    params: SetHandoverInParams,
+  ): Promise<RentalAgreement | null>
 
   setSettlementCompletedAt(tenantId: TenantId, rentalAgreementId: number, at: Date): Promise<RentalAgreement | null>
 
@@ -126,7 +150,11 @@ interface RentalAgreementRow {
   operator_id: string
   terms_version: string
   handover_out_at: Date
+  handover_out_recorded_at: Date
+  handover_out_backdate_reason: string | null
   handover_in_at: Date | null
+  handover_in_recorded_at: Date | null
+  handover_in_backdate_reason: string | null
   settlement_completed_at: Date | null
   returned_to_pool_at: Date | null
 }
@@ -141,7 +169,11 @@ function mapRentalAgreement(row: RentalAgreementRow): RentalAgreement {
     operatorId: row.operator_id,
     termsVersion: row.terms_version,
     handoverOutAt: row.handover_out_at,
+    handoverOutRecordedAt: row.handover_out_recorded_at,
+    handoverOutBackdateReason: row.handover_out_backdate_reason,
     handoverInAt: row.handover_in_at,
+    handoverInRecordedAt: row.handover_in_recorded_at,
+    handoverInBackdateReason: row.handover_in_backdate_reason,
     settlementCompletedAt: row.settlement_completed_at,
     returnedToPoolAt: row.returned_to_pool_at,
   }
@@ -155,6 +187,7 @@ interface ConditionReportRow {
   photo_object_keys: string[]
   operator_id: string
   captured_at: Date
+  recorded_at: Date
 }
 
 function mapConditionReport(row: ConditionReportRow): ConditionReport {
@@ -166,6 +199,7 @@ function mapConditionReport(row: ConditionReportRow): ConditionReport {
     photoObjectKeys: row.photo_object_keys,
     operatorId: row.operator_id,
     capturedAt: row.captured_at,
+    recordedAt: row.recorded_at,
   }
 }
 
@@ -177,6 +211,7 @@ interface DepositTakenRow {
   currency: CurrencyCode
   operator_id: string
   taken_at: Date
+  recorded_at: Date
 }
 
 function mapDepositTaken(row: DepositTakenRow): DepositTaken {
@@ -187,6 +222,7 @@ function mapDepositTaken(row: DepositTakenRow): DepositTaken {
     amount: { amount: row.amount_cents, currency: row.currency },
     operatorId: row.operator_id,
     takenAt: row.taken_at,
+    recordedAt: row.recorded_at,
   }
 }
 
@@ -199,6 +235,7 @@ interface DepositReturnedRow {
   deduction_reason: string | null
   operator_id: string
   returned_at: Date
+  recorded_at: Date
 }
 
 function mapDepositReturned(row: DepositReturnedRow): DepositReturned {
@@ -210,6 +247,7 @@ function mapDepositReturned(row: DepositReturnedRow): DepositReturned {
     deductionReason: row.deduction_reason,
     operatorId: row.operator_id,
     returnedAt: row.returned_at,
+    recordedAt: row.recorded_at,
   }
 }
 
@@ -226,12 +264,17 @@ export function createPostgresHandoverPossessionRepository(
       return mapScanEvent(rows[0]!)
     },
 
-    async insertRentalAgreement(tenantId, { reservationId, customerId, assetId, operatorId, termsVersion }) {
+    async insertRentalAgreement(
+      tenantId,
+      { reservationId, customerId, assetId, operatorId, termsVersion, handoverOutAt, handoverOutRecordedAt, handoverOutBackdateReason },
+    ) {
       const rows = await sql<RentalAgreementRow[]>`
         insert into rental_agreements (
-          tenant_id, reservation_id, customer_id, asset_id, operator_id, terms_version
+          tenant_id, reservation_id, customer_id, asset_id, operator_id, terms_version,
+          handover_out_at, handover_out_recorded_at, handover_out_backdate_reason
         ) values (
-          ${tenantId}, ${reservationId}, ${customerId}, ${assetId}, ${operatorId}, ${termsVersion}
+          ${tenantId}, ${reservationId}, ${customerId}, ${assetId}, ${operatorId}, ${termsVersion},
+          ${handoverOutAt}, ${handoverOutRecordedAt}, ${handoverOutBackdateReason}
         )
         returning *
       `
@@ -255,10 +298,12 @@ export function createPostgresHandoverPossessionRepository(
       return rows[0] ? mapRentalAgreement(rows[0]) : null
     },
 
-    async setHandoverInAt(tenantId, rentalAgreementId, at) {
+    async setHandoverInAt(tenantId, rentalAgreementId, { handoverInAt, handoverInRecordedAt, handoverInBackdateReason }) {
       const rows = await sql<RentalAgreementRow[]>`
         update rental_agreements
-        set handover_in_at = ${at}
+        set handover_in_at = ${handoverInAt},
+            handover_in_recorded_at = ${handoverInRecordedAt},
+            handover_in_backdate_reason = ${handoverInBackdateReason}
         where tenant_id = ${tenantId} and id = ${rentalAgreementId} and handover_in_at is null
         returning *
       `
@@ -285,10 +330,14 @@ export function createPostgresHandoverPossessionRepository(
       return rows[0] ? mapRentalAgreement(rows[0]) : null
     },
 
-    async insertConditionReport(tenantId, { rentalAgreementId, stage, photoObjectKeys, operatorId }) {
+    async insertConditionReport(tenantId, { rentalAgreementId, stage, photoObjectKeys, operatorId, capturedAt, recordedAt }) {
       const rows = await sql<ConditionReportRow[]>`
-        insert into condition_reports (tenant_id, rental_agreement_id, stage, photo_object_keys, operator_id)
-        values (${tenantId}, ${rentalAgreementId}, ${stage}, ${sql.array(photoObjectKeys)}, ${operatorId})
+        insert into condition_reports (
+          tenant_id, rental_agreement_id, stage, photo_object_keys, operator_id, captured_at, recorded_at
+        ) values (
+          ${tenantId}, ${rentalAgreementId}, ${stage}, ${sql.array(photoObjectKeys)}, ${operatorId},
+          ${capturedAt}, ${recordedAt}
+        )
         returning *
       `
       return mapConditionReport(rows[0]!)
@@ -303,10 +352,10 @@ export function createPostgresHandoverPossessionRepository(
       return rows.map(mapConditionReport)
     },
 
-    async insertDepositTaken(tenantId, { rentalAgreementId, amount, operatorId }) {
+    async insertDepositTaken(tenantId, { rentalAgreementId, amount, operatorId, takenAt, recordedAt }) {
       const rows = await sql<DepositTakenRow[]>`
-        insert into deposit_taken (tenant_id, rental_agreement_id, amount_cents, currency, operator_id)
-        values (${tenantId}, ${rentalAgreementId}, ${amount.amount}, ${amount.currency}, ${operatorId})
+        insert into deposit_taken (tenant_id, rental_agreement_id, amount_cents, currency, operator_id, taken_at, recorded_at)
+        values (${tenantId}, ${rentalAgreementId}, ${amount.amount}, ${amount.currency}, ${operatorId}, ${takenAt}, ${recordedAt})
         returning *
       `
       return mapDepositTaken(rows[0]!)
@@ -319,12 +368,13 @@ export function createPostgresHandoverPossessionRepository(
       return rows[0] ? mapDepositTaken(rows[0]) : null
     },
 
-    async insertDepositReturned(tenantId, { rentalAgreementId, amount, deductionReason, operatorId }) {
+    async insertDepositReturned(tenantId, { rentalAgreementId, amount, deductionReason, operatorId, returnedAt, recordedAt }) {
       const rows = await sql<DepositReturnedRow[]>`
         insert into deposit_returned (
-          tenant_id, rental_agreement_id, amount_cents, currency, deduction_reason, operator_id
+          tenant_id, rental_agreement_id, amount_cents, currency, deduction_reason, operator_id, returned_at, recorded_at
         ) values (
-          ${tenantId}, ${rentalAgreementId}, ${amount.amount}, ${amount.currency}, ${deductionReason}, ${operatorId}
+          ${tenantId}, ${rentalAgreementId}, ${amount.amount}, ${amount.currency}, ${deductionReason}, ${operatorId},
+          ${returnedAt}, ${recordedAt}
         )
         returning *
       `

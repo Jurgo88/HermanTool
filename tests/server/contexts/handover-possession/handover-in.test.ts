@@ -14,6 +14,7 @@ import {
 } from '../../../../server/contexts/handover-possession/handover-in'
 import {
   AssetNotYetReturnableError,
+  BackdateReasonRequiredError,
   DeductionReasonRequiredError,
   DeductionRequiresPairedConditionReportsError,
   DepositReturnExceedsTakenError,
@@ -115,6 +116,46 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
 
       const asset = await assetRegistry.getAsset(tenantA, result.rentalAgreement.assetId)
       expect(asset?.status).toBe('under_inspection')
+
+      // D-10/Finding 9: an ordinary live scan has occurred-at and
+      // recorded-at equal, and no backdate reason.
+      expect(result.rentalAgreement.handoverInAt).toEqual(result.rentalAgreement.handoverInRecordedAt)
+      expect(result.rentalAgreement.handoverInBackdateReason).toBeNull()
+    })
+
+    it('records a backdated HandoverIn — the "return went unscanned" repair (D-10, FR-24, Finding 9)', async () => {
+      const occurredAt = new Date('2026-03-07T18:00:00.000Z')
+
+      const result = await performHandoverIn(
+        { repo: handoverRepo, conditionsGateway: gateway },
+        {
+          tenantId: tenantA,
+          tagCode,
+          operatorId,
+          conditionPhotoContentTypes: ['image/jpeg'],
+          backdate: { occurredAt, reason: 'Return was placed on the shelf unscanned' },
+        },
+      )
+
+      expect(result.rentalAgreement.handoverInAt).toEqual(occurredAt)
+      expect(result.rentalAgreement.handoverInBackdateReason).toBe('Return was placed on the shelf unscanned')
+      expect(result.rentalAgreement.handoverInRecordedAt!.getTime()).toBeGreaterThan(occurredAt.getTime())
+      expect(result.conditionReport.capturedAt).toEqual(occurredAt)
+    })
+
+    it('refuses a backdated HandoverIn with no reason', async () => {
+      await expect(
+        performHandoverIn(
+          { repo: handoverRepo, conditionsGateway: gateway },
+          {
+            tenantId: tenantA,
+            tagCode,
+            operatorId,
+            conditionPhotoContentTypes: ['image/jpeg'],
+            backdate: { occurredAt: new Date('2026-03-07T18:00:00.000Z'), reason: '' },
+          },
+        ),
+      ).rejects.toThrow(BackdateReasonRequiredError)
     })
 
     it('refuses when the Asset has no open RentalAgreement (already handed in)', async () => {
@@ -235,21 +276,37 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
       // completeSettlement's own defensive guard, not an end-to-end path
       // this codebase's flows can currently reach.
       const asset = await assetRegistry.insertAsset(tenantA, { assetTypeId: HAMMER, status: 'in_possession', operatorId })
+      const now = new Date()
       const bareAgreement = await handoverRepo.insertRentalAgreement(tenantA, {
         reservationId,
         customerId: 1,
         assetId: asset.id,
         operatorId,
         termsVersion: 'v1',
+        handoverOutAt: now,
+        handoverOutRecordedAt: now,
+        handoverOutBackdateReason: null,
       })
-      await handoverRepo.insertDepositTaken(tenantA, { rentalAgreementId: bareAgreement.id, amount: depositAmount, operatorId })
-      await handoverRepo.setHandoverInAt(tenantA, bareAgreement.id, new Date())
+      await handoverRepo.insertDepositTaken(tenantA, {
+        rentalAgreementId: bareAgreement.id,
+        amount: depositAmount,
+        operatorId,
+        takenAt: now,
+        recordedAt: now,
+      })
+      await handoverRepo.setHandoverInAt(tenantA, bareAgreement.id, {
+        handoverInAt: now,
+        handoverInRecordedAt: now,
+        handoverInBackdateReason: null,
+      })
       // Only a HandoverOut-stage report — no HandoverIn-stage one.
       await handoverRepo.insertConditionReport(tenantA, {
         rentalAgreementId: bareAgreement.id,
         stage: 'handover_out',
         photoObjectKeys: ['obj-1'],
         operatorId,
+        capturedAt: now,
+        recordedAt: now,
       })
 
       await expect(

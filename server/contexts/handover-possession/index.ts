@@ -35,6 +35,7 @@
 // notices, a human acts) rather than inventing a system identity to
 // attest an automated Asset status change.
 export type {
+  AttestationBackdate,
   ConditionReport,
   ConditionReportStage,
   DepositReturned,
@@ -47,6 +48,7 @@ export type {
 export {
   AssetNotYetReturnableError,
   AssetTypeMismatchError,
+  BackdateReasonRequiredError,
   CustomerReservationMismatchError,
   DeductionReasonRequiredError,
   DeductionRequiresPairedConditionReportsError,
@@ -71,6 +73,7 @@ export type {
   NewDepositTaken,
   NewRentalAgreement,
   NewScanEvent,
+  SetHandoverInParams,
 } from './repository'
 export { createPostgresHandoverPossessionRepository } from './repository'
 

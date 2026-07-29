@@ -19,6 +19,7 @@ import type {
   NewDepositTaken,
   NewRentalAgreement,
   NewScanEvent,
+  SetHandoverInParams,
 } from '../../../../server/contexts/handover-possession/repository'
 import type {
   ConditionReport,
@@ -91,7 +92,16 @@ export function createFakeHandoverPossessionRepository(
 
       async insertRentalAgreement(
         tenantId: TenantId,
-        { reservationId, customerId, assetId, operatorId, termsVersion }: NewRentalAgreement,
+        {
+          reservationId,
+          customerId,
+          assetId,
+          operatorId,
+          termsVersion,
+          handoverOutAt,
+          handoverOutRecordedAt,
+          handoverOutBackdateReason,
+        }: NewRentalAgreement,
       ) {
         const agreement: RentalAgreement = {
           id: state.nextRentalAgreementId++,
@@ -101,8 +111,12 @@ export function createFakeHandoverPossessionRepository(
           assetId,
           operatorId,
           termsVersion,
-          handoverOutAt: new Date(),
+          handoverOutAt,
+          handoverOutRecordedAt,
+          handoverOutBackdateReason,
           handoverInAt: null,
+          handoverInRecordedAt: null,
+          handoverInBackdateReason: null,
           settlementCompletedAt: null,
           returnedToPoolAt: null,
         }
@@ -122,12 +136,18 @@ export function createFakeHandoverPossessionRepository(
         return agreement ? { ...agreement } : null
       },
 
-      async setHandoverInAt(tenantId, rentalAgreementId, at) {
+      async setHandoverInAt(
+        tenantId,
+        rentalAgreementId,
+        { handoverInAt, handoverInRecordedAt, handoverInBackdateReason }: SetHandoverInParams,
+      ) {
         const agreement = state.rentalAgreements.find(
           (a) => a.tenantId === tenantId && a.id === rentalAgreementId && a.handoverInAt === null,
         )
         if (!agreement) return null
-        agreement.handoverInAt = at
+        agreement.handoverInAt = handoverInAt
+        agreement.handoverInRecordedAt = handoverInRecordedAt
+        agreement.handoverInBackdateReason = handoverInBackdateReason
         return { ...agreement }
       },
 
@@ -151,7 +171,7 @@ export function createFakeHandoverPossessionRepository(
 
       async insertConditionReport(
         tenantId: TenantId,
-        { rentalAgreementId, stage, photoObjectKeys, operatorId }: NewConditionReport,
+        { rentalAgreementId, stage, photoObjectKeys, operatorId, capturedAt, recordedAt }: NewConditionReport,
       ) {
         const report: ConditionReport = {
           id: state.nextConditionReportId++,
@@ -160,7 +180,8 @@ export function createFakeHandoverPossessionRepository(
           stage,
           photoObjectKeys: [...photoObjectKeys],
           operatorId,
-          capturedAt: new Date(),
+          capturedAt,
+          recordedAt,
         }
         state.conditionReports.push(report)
         return { ...report }
@@ -172,14 +193,18 @@ export function createFakeHandoverPossessionRepository(
           .map((r) => ({ ...r }))
       },
 
-      async insertDepositTaken(tenantId: TenantId, { rentalAgreementId, amount, operatorId }: NewDepositTaken) {
+      async insertDepositTaken(
+        tenantId: TenantId,
+        { rentalAgreementId, amount, operatorId, takenAt, recordedAt }: NewDepositTaken,
+      ) {
         const deposit: DepositTaken = {
           id: state.nextDepositTakenId++,
           tenantId,
           rentalAgreementId,
           amount: { ...amount },
           operatorId,
-          takenAt: new Date(),
+          takenAt,
+          recordedAt,
         }
         state.depositsTaken.push(deposit)
         return { ...deposit }
@@ -194,7 +219,7 @@ export function createFakeHandoverPossessionRepository(
 
       async insertDepositReturned(
         tenantId: TenantId,
-        { rentalAgreementId, amount, deductionReason, operatorId }: NewDepositReturned,
+        { rentalAgreementId, amount, deductionReason, operatorId, returnedAt, recordedAt }: NewDepositReturned,
       ) {
         const deposit: DepositReturned = {
           id: state.nextDepositReturnedId++,
@@ -203,7 +228,8 @@ export function createFakeHandoverPossessionRepository(
           amount: { ...amount },
           deductionReason,
           operatorId,
-          returnedAt: new Date(),
+          returnedAt,
+          recordedAt,
         }
         state.depositsReturned.push(deposit)
         return { ...deposit }

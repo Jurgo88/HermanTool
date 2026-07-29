@@ -32,6 +32,15 @@ export type ScanResolution =
   | { kind: 'handover_in'; asset: Asset; scanEvent: ScanEvent }
   | { kind: 'asset_lookup'; asset: Asset; scanEvent: ScanEvent }
 
+// D-10, FR-24, Finding 9: the shape of a backdated correction — supplied
+// instead of letting occurredAt default to now(). `reason` is mandatory
+// at the type level, matching FR-15/FR-20's established "a reason is not
+// optional once you're claiming an exception" pattern in this context.
+export interface AttestationBackdate {
+  occurredAt: Date
+  reason: string
+}
+
 export class HandoverPossessionError extends Error {
   constructor(message: string) {
     super(message)
@@ -62,6 +71,17 @@ export class ScanEventTagNotBoundError extends HandoverPossessionError {
 // never stored" extended to this context's own physical clock: it is
 // the period between handoverOutAt and a nullable handoverInAt. A null
 // handoverInAt means Possession is still open.
+// D-10, FR-24, Finding 9: every attestation carries both an occurred-at
+// time (when the fact was physically true — backdatable, for the
+// "Operator forgot to scan" repair) and a recorded-at time (when the
+// system actually learned about it — always real, never backdated).
+// Derivations (Availability, Overdue, NoShow, D-09's pool-return day
+// math) are always computed over occurred-at, never recorded-at.
+// `handoverOutAt`/`handoverInAt` ARE the occurred-at times — unchanged
+// in name and meaning for every existing reader of this type — with a
+// recordedAt/backdateReason companion added alongside each. A non-null
+// backdateReason is what distinguishes a corrected entry from an
+// ordinary live scan (recordedAt === occurredAt, backdateReason null).
 export interface RentalAgreement {
   id: number
   tenantId: TenantId
@@ -71,7 +91,11 @@ export interface RentalAgreement {
   operatorId: string
   termsVersion: string
   handoverOutAt: Date
+  handoverOutRecordedAt: Date
+  handoverOutBackdateReason: string | null
   handoverInAt: Date | null
+  handoverInRecordedAt: Date | null
+  handoverInBackdateReason: string | null
   // FR-23/D-19: the SettlementCompleted "event" is this timestamp, not a
   // dispatched message — there is no second consumer yet (Customer
   // Identity & Compliance's retention re-anchoring is #32's job), so
@@ -97,7 +121,11 @@ export interface ConditionReport {
   stage: ConditionReportStage
   photoObjectKeys: string[]
   operatorId: string
+  // D-10/Finding 9: capturedAt is the occurred-at time (backdated to
+  // match a corrected HandoverOut/HandoverIn's own occurredAt when this
+  // report belongs to one); recordedAt is always real.
   capturedAt: Date
+  recordedAt: Date
 }
 
 // D-07/FR-21: an attestation that cash changed hands. The platform moves
@@ -109,7 +137,10 @@ export interface DepositTaken {
   rentalAgreementId: number
   amount: MonetaryAmount
   operatorId: string
+  // D-10/Finding 9: takenAt is the occurred-at time (backdated alongside
+  // a corrected HandoverOut); recordedAt is always real.
   takenAt: Date
+  recordedAt: Date
 }
 
 // D-07/FR-21/W5/W8: the counterpart attestation at Settlement.
@@ -126,7 +157,12 @@ export interface DepositReturned {
   amount: MonetaryAmount
   deductionReason: string | null
   operatorId: string
+  // D-10/Finding 9: structural parity with every other attestation in
+  // this context. No backdating action is wired up for Settlement in
+  // this issue (only HandoverOut/HandoverIn are the two named repairs) —
+  // returnedAt and recordedAt are always equal for now.
   returnedAt: Date
+  recordedAt: Date
 }
 
 // FR-14: "HandoverOut is refused without a successful IdentityVerification."
@@ -257,5 +293,15 @@ export class AssetNotYetReturnableError extends HandoverPossessionError {
 export class SettlementNotCompleteError extends HandoverPossessionError {
   constructor(rentalAgreementId: number) {
     super(`RentalAgreement ${rentalAgreementId} has not been settled yet — the Asset cannot rejoin the pool.`)
+  }
+}
+
+// D-10, FR-24, Finding 9: "every attestation is correctable... with a
+// reason and attribution." A backdated HandoverOut/HandoverIn — the two
+// named repairs — requires the reason; there is no such thing as a
+// silent correction.
+export class BackdateReasonRequiredError extends HandoverPossessionError {
+  constructor(kind: 'handover_out' | 'handover_in') {
+    super(`A backdated ${kind === 'handover_out' ? 'HandoverOut' : 'HandoverIn'} correction must record a reason (FR-24).`)
   }
 }
