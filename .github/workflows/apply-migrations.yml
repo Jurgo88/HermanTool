@@ -7,17 +7,20 @@
 # Requires one repo-level secret, set once by the Tenant/developer (not
 # by this workflow):
 #   - secrets.SUPABASE_DB_URL — the Postgres connection string for the
-#     TARGET project, in session mode (port 5432, `postgres.<ref>` user),
-#     from the Supabase dashboard's Database settings. Deliberately NOT
-#     the same value as NUXT_DATABASE_URL set in Netlify: that one is the
-#     transaction-pooler connection the application's own queries use
-#     (D-25 §14.2, `prepare: false`), which is the wrong mode for the
-#     Supabase CLI's own DDL/advisory-lock usage during a migration push.
+#     TARGET project. Currently the same transaction-pooler connection
+#     string as NUXT_DATABASE_URL (Netlify, D-25 §14.2) — verified
+#     directly (`supabase db push --db-url`, run by hand against this
+#     project) that the pooler connection works fine for the CLI's
+#     migration push; no separate session-mode string turned out to be
+#     necessary. Only one Supabase project exists at the time of writing
+#     (no rehearsal project yet, R-05) — this secret therefore points at
+#     the same database the application itself runs against, so every
+#     migration merged to main takes effect immediately, not on a delay.
 #
 # Runs only when migration files actually change, and only on `main` — a
-# migration is never applied speculatively from a feature branch. R-05's
-# rehearsal-project practice (a second free Supabase project, exercised
-# before merge) is a separate manual step this workflow does not replace.
+# migration is never applied speculatively from a feature branch. Once a
+# second (rehearsal) Supabase project exists, rehearse there first — a
+# separate, not-yet-built step this workflow does not perform.
 name: Apply database migrations
 
 on:
