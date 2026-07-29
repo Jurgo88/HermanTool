@@ -22,6 +22,7 @@ describe.skipIf(!databaseUrl)('Customer Identity & Compliance migration (integra
   beforeEach(async () => {
     sql = createDatabaseClient(databaseUrl)
 
+    await sql`truncate table identity_verifications restart identity cascade`
     await sql`truncate table identity_evidence_access_events, identity_evidence, customers restart identity cascade`
     await sql`truncate table reservations, reservation_groups, asset_type_day_holds restart identity cascade`
 
@@ -45,17 +46,17 @@ describe.skipIf(!databaseUrl)('Customer Identity & Compliance migration (integra
     await sql?.end()
   })
 
-  it('has RLS enabled with no policies on all three new tables', async () => {
+  it('has RLS enabled with no policies on all four tables', async () => {
     const rows = await sql<{ relname: string; relrowsecurity: boolean }[]>`
       select relname, relrowsecurity from pg_class
-      where relname in ('customers', 'identity_evidence', 'identity_evidence_access_events')
+      where relname in ('customers', 'identity_evidence', 'identity_evidence_access_events', 'identity_verifications')
     `
-    expect(rows).toHaveLength(3)
+    expect(rows).toHaveLength(4)
     expect(rows.every((r) => r.relrowsecurity)).toBe(true)
 
     const policyCount = await sql<{ count: string }[]>`
       select count(*)::text as count from pg_policies
-      where tablename in ('customers', 'identity_evidence', 'identity_evidence_access_events')
+      where tablename in ('customers', 'identity_evidence', 'identity_evidence_access_events', 'identity_verifications')
     `
     expect(policyCount[0]?.count).toBe('0')
   })
@@ -113,5 +114,74 @@ describe.skipIf(!databaseUrl)('Customer Identity & Compliance migration (integra
     })
 
     expect(accessEvent.operatorId).toBe(operatorId)
+  })
+
+  it('enforces reason iff rejected at the database level (FR-15)', async () => {
+    const repo = createPostgresCustomerIdentityComplianceRepository(sql)
+    const customer = await repo.insertCustomer(tenantId, {
+      reservationGroupId,
+      name: 'Jana Nováková',
+      email: 'jana@example.sk',
+      phone: '+421900000000',
+    })
+    const evidence = await repo.insertIdentityEvidence(tenantId, {
+      customerId: customer.id,
+      objectKey: 'obj-1',
+      retentionDeadline: new Date(Date.now() + 86_400_000),
+    })
+
+    // rejected with no reason
+    await expect(
+      sql`
+        insert into identity_verifications (tenant_id, customer_id, identity_evidence_id, operator_id, outcome)
+        values (${tenantId}, ${customer.id}, ${evidence.id}, ${operatorId}, 'rejected')
+      `,
+    ).rejects.toThrow()
+
+    // verified with a reason
+    await expect(
+      sql`
+        insert into identity_verifications (
+          tenant_id, customer_id, identity_evidence_id, operator_id, outcome, reason
+        ) values (
+          ${tenantId}, ${customer.id}, ${evidence.id}, ${operatorId}, 'verified', 'unnecessary reason'
+        )
+      `,
+    ).rejects.toThrow()
+  })
+
+  it('round-trips IdentityVerification and FR-14\'s hasSuccessfulIdentityVerification query', async () => {
+    const repo = createPostgresCustomerIdentityComplianceRepository(sql)
+    const customer = await repo.insertCustomer(tenantId, {
+      reservationGroupId,
+      name: 'Jana Nováková',
+      email: 'jana@example.sk',
+      phone: '+421900000000',
+    })
+    const evidence = await repo.insertIdentityEvidence(tenantId, {
+      customerId: customer.id,
+      objectKey: 'obj-1',
+      retentionDeadline: new Date(Date.now() + 86_400_000),
+    })
+
+    expect(await repo.hasSuccessfulIdentityVerification(tenantId, customer.id)).toBe(false)
+
+    await repo.insertIdentityVerification(tenantId, {
+      customerId: customer.id,
+      identityEvidenceId: evidence.id,
+      operatorId,
+      outcome: 'rejected',
+      reason: 'Blurry photo',
+    })
+    expect(await repo.hasSuccessfulIdentityVerification(tenantId, customer.id)).toBe(false)
+
+    await repo.insertIdentityVerification(tenantId, {
+      customerId: customer.id,
+      identityEvidenceId: evidence.id,
+      operatorId,
+      outcome: 'verified',
+      reason: null,
+    })
+    expect(await repo.hasSuccessfulIdentityVerification(tenantId, customer.id)).toBe(true)
   })
 })

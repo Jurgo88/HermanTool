@@ -48,6 +48,25 @@ export interface IdentityEvidenceAccessEvent {
   accessedAt: Date
 }
 
+// D-15: the counter-side act, separate from IdentityEvidence submission
+// — an Operator compares the photograph to the human in front of them
+// and records the outcome. Append-only (D-10): a rejected-then-later-
+// verified Customer gets a second row, never an update to the first.
+export type IdentityVerificationOutcome = 'verified' | 'rejected'
+
+// FR-14/FR-15: HandoverOut's precondition. `reason` is non-null iff
+// outcome is 'rejected' (FR-15) — enforced at the type level with a
+// discriminated union so a caller can't construct the invalid
+// combination, and backed by the migration's check constraint besides.
+export type IdentityVerification = {
+  id: number
+  tenantId: TenantId
+  customerId: number
+  identityEvidenceId: number
+  operatorId: string
+  occurredAt: Date
+} & ({ outcome: 'verified'; reason: null } | { outcome: 'rejected'; reason: string })
+
 export class CustomerIdentityComplianceError extends Error {
   constructor(message: string) {
     super(message)
@@ -73,6 +92,26 @@ export class CustomerNotFoundError extends CustomerIdentityComplianceError {
 export class IdentityEvidenceNotFoundError extends CustomerIdentityComplianceError {
   constructor(identifier: number) {
     super(`IdentityEvidence ${identifier} does not exist for this Tenant.`)
+  }
+}
+
+// FR-15: "a rejected IdentityVerification records a reason." Thrown when
+// a caller tries to record a rejection with an empty reason — the
+// migration's check constraint is the backstop, this is the domain-level
+// guard that produces a typed error instead of a raw constraint
+// violation.
+export class IdentityVerificationReasonRequiredError extends CustomerIdentityComplianceError {
+  constructor() {
+    super('A rejected IdentityVerification must record a reason (FR-15).')
+  }
+}
+
+// The IdentityEvidence being verified must belong to the Customer being
+// verified — a mismatch here means the caller mixed up two counter
+// interactions, not a fact about either Customer.
+export class IdentityEvidenceCustomerMismatchError extends CustomerIdentityComplianceError {
+  constructor(identityEvidenceId: number, customerId: number) {
+    super(`IdentityEvidence ${identityEvidenceId} does not belong to Customer ${customerId}.`)
   }
 }
 

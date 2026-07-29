@@ -8,26 +8,31 @@ import type {
   CustomerIdentityComplianceRepository,
   NewCustomer,
   NewIdentityEvidence,
+  NewIdentityVerification,
 } from '../../../../server/contexts/customer-identity-compliance/repository'
 import type {
   Customer,
   IdentityEvidence,
   IdentityEvidenceAccessEvent,
+  IdentityVerification,
 } from '../../../../server/contexts/customer-identity-compliance/types'
 
 interface State {
   customers: Customer[]
   identityEvidence: IdentityEvidence[]
   accessEvents: IdentityEvidenceAccessEvent[]
+  identityVerifications: IdentityVerification[]
   nextCustomerId: number
   nextEvidenceId: number
   nextAccessEventId: number
+  nextVerificationId: number
 }
 
 export interface FakeCustomerIdentityComplianceRepository extends CustomerIdentityComplianceRepository {
   allCustomers(): Customer[]
   allIdentityEvidence(): IdentityEvidence[]
   allAccessEvents(): IdentityEvidenceAccessEvent[]
+  allIdentityVerifications(): IdentityVerification[]
 }
 
 export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerIdentityComplianceRepository {
@@ -35,9 +40,11 @@ export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerId
     customers: [],
     identityEvidence: [],
     accessEvents: [],
+    identityVerifications: [],
     nextCustomerId: 1,
     nextEvidenceId: 1,
     nextAccessEventId: 1,
+    nextVerificationId: 1,
   }
 
   return {
@@ -49,6 +56,9 @@ export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerId
     },
     allAccessEvents() {
       return state.accessEvents.map((e) => ({ ...e }))
+    },
+    allIdentityVerifications() {
+      return state.identityVerifications.map((v) => ({ ...v }))
     },
 
     async insertCustomer(tenantId: TenantId, { reservationGroupId, name, email, phone }: NewCustomer) {
@@ -105,6 +115,29 @@ export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerId
       }
       state.accessEvents.push(accessEvent)
       return { ...accessEvent }
+    },
+
+    async insertIdentityVerification(tenantId: TenantId, params: NewIdentityVerification) {
+      const base = {
+        id: state.nextVerificationId++,
+        tenantId,
+        customerId: params.customerId,
+        identityEvidenceId: params.identityEvidenceId,
+        operatorId: params.operatorId,
+        occurredAt: new Date(),
+      }
+      const verification: IdentityVerification =
+        params.outcome === 'rejected'
+          ? { ...base, outcome: 'rejected', reason: params.reason }
+          : { ...base, outcome: 'verified', reason: null }
+      state.identityVerifications.push(verification)
+      return { ...verification }
+    },
+
+    async hasSuccessfulIdentityVerification(tenantId, customerId) {
+      return state.identityVerifications.some(
+        (v) => v.tenantId === tenantId && v.customerId === customerId && v.outcome === 'verified',
+      )
     },
   }
 }
