@@ -1,21 +1,47 @@
 // Payments [MVP · generic] — owns the online rental fee charge and its
-// refunds, behind an anti-corruption layer so the provider's vocabulary
-// never leaks into the domain. Does NOT own the deposit (D-07 —
-// DepositObligation lives in Handover & Possession). Part 1 §4; D-26.
+// refunds, wrapped behind an anti-corruption layer so that the provider's
+// vocabulary never leaks into the domain (Part 1 §4; D-07, D-26). Does
+// NOT own the deposit — DepositObligation lives in Handover & Possession,
+// cash recorded rather than money processed (D-07, P6).
 //
 // Dependency direction (Part 1 §4 context map): upstream of Availability
-// & Reservation. Must never import it, and must never let a Stripe
-// concept (payment intent, session, etc.) leak past this context's
-// published interface.
+// & Reservation. This module and everything it imports must NEVER import
+// Availability & Reservation — confirming a ReservationGroup after a
+// successful payment (D-37, Finding 3) is cross-context orchestration and
+// lives at the composition root, server/utils/payment-webhook-flow.ts,
+// which is the one place allowed to import both contexts' published
+// interfaces.
 //
-// Every Payment is an aggregate root and MUST carry `tenantId: TenantId`
-// (D-01, P2 — see ../_shared/tenant.ts). Amounts are MonetaryAmount
-// values (D-21 — see ../_shared/monetary-amount.ts). The Tenant's own
-// Stripe account is used (D-26) — never the developer's.
+// Every Payment is an aggregate root and carries `tenantId: TenantId`
+// (D-01, P2). Amounts are MonetaryAmount values (D-21). The Tenant's own
+// Stripe account is used (D-26) — never the developer's (D-31: the
+// secret key is the Tenant's, rotation is a two-party event).
 //
-// Scaffold only (issue: project skeleton). No domain logic yet — this
-// file is the context's published interface, currently empty. F1 —
-// terms acceptance before payment — is a launch-blocking KNOWN GAP
-// (CLAUDE.md); re-read it and D-35 before building the checkout/payment
-// flow.
-export {}
+// NFR-05/P6: card data never enters this platform. ./gateway.ts is the
+// ACL boundary and the only file permitted to import the `stripe`
+// package or reference a Stripe concept by name — createHostedCheckoutSession
+// redirects to the provider's own hosted page; this process only ever
+// sees a result, never a card number.
+//
+// OQ #1 (cancellation/refund policy) is launch-blocking and unresolved —
+// this context implements ONLY the D-37/Finding-3 automatic refund (a
+// payment-mechanics response to a re-acquire failure, not a policy-driven
+// cancellation) and does not implement any Tenant- or Customer-initiated
+// refund/cancellation path.
+export type { Payment, PaymentStatus } from './types'
+
+export {
+  PaymentsError,
+  PaymentNotFoundError,
+  PaymentNotRefundableError,
+  ProviderWebhookSignatureInvalidError,
+  ReservationGroupAlreadyPaidError,
+} from './types'
+
+export type { CheckoutSessionRequest, CheckoutSessionResult, PaymentGateway, ProviderWebhookEvent } from './gateway'
+export { createStripePaymentGateway } from './gateway'
+
+export type { NewPayment, PaymentsRepository } from './repository'
+export { createPostgresPaymentsRepository } from './repository'
+
+export { applyPaymentSucceeded, computeRentalFeeAmount, refundPayment, startPayment } from './payment'

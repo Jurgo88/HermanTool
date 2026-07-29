@@ -41,5 +41,22 @@ export default defineNuxtConfig({
     // by GitHub Actions (D-25 §14.2), e.g. the expiry sweep. Not an
     // Operator credential (D-22) — see server/utils/internal-job-auth.ts.
     internalJobSecret: '',
+
+    // Stripe (D-26, D-31): the Tenant's OWN account, never the
+    // developer's — see server/contexts/payments/gateway.ts, the one
+    // file permitted to use these. stripeWebhookSecret verifies that an
+    // inbound webhook actually came from Stripe (NFR-05/P6's boundary
+    // depends on this, not just on the outbound secret key).
+    stripeSecretKey: '',
+    stripeWebhookSecret: '',
+
+    public: {
+      // Used only to build Stripe Checkout's success_url/cancel_url
+      // server-side (server/api/payments/checkout-session.post.ts) —
+      // never a client-supplied redirect target, which would be an
+      // open-redirect risk. Public because it is the site's own origin,
+      // not a secret.
+      appBaseUrl: '',
+    },
   },
 })
