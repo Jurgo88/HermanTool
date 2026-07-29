@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { performHandoverIn } from '../../contexts/handover-possession'
 import { createHandoverPossessionDeps, translateHandoverPossessionError } from '../../utils/handover-possession-deps'
+import { InvalidPinError, verifyOperatorPin } from '../../utils/operator-pin'
+import { createOperatorsDeps } from '../../utils/operators-deps'
 import { requireOperator } from '../../utils/operator-session'
 
 // D-10, FR-24, Finding 9: omit for an ordinary live scan (occurredAt
@@ -11,6 +13,10 @@ const backdateSchema = z.object({ occurredAt: z.coerce.date(), reason: z.string(
 const bodySchema = z.object({
   tagCode: z.string().min(1),
   conditionPhotoContentTypes: z.array(z.string().min(1)).min(1),
+  // F8/D-22/FR-36: see handover-out.post.ts's identical field — resolves
+  // WHICH Operator is attesting the bundled ConditionReport, independent
+  // of the session's own Operator.
+  pin: z.string().min(1),
   backdate: backdateSchema.optional(),
 })
 
@@ -23,21 +29,27 @@ export default defineEventHandler(async (event) => {
   const operator = await requireOperator(event)
   const body = await readValidatedBody(event, bodySchema.parse)
   const { repo, conditionsGateway, close } = createHandoverPossessionDeps(event)
+  const operators = createOperatorsDeps(event)
 
   try {
+    const attestingOperator = await verifyOperatorPin(operators.repo, operator.tenantId, body.pin)
+
     return await performHandoverIn(
       { repo, conditionsGateway },
       {
         tenantId: operator.tenantId,
         tagCode: body.tagCode,
-        operatorId: operator.id,
+        operatorId: attestingOperator.id,
         conditionPhotoContentTypes: body.conditionPhotoContentTypes,
         backdate: body.backdate,
       },
     )
   } catch (err) {
+    if (err instanceof InvalidPinError) {
+      throw createError({ statusCode: 401, statusMessage: err.message })
+    }
     translateHandoverPossessionError(err)
   } finally {
-    await close()
+    await Promise.all([close(), operators.close()])
   }
 })
