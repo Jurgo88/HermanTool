@@ -16,10 +16,19 @@
 // is append-only (D-10) — never overwrite a past attestation, append a
 // superseding one.
 //
-// Scaffold only (issue: project skeleton). No domain logic yet — this
-// file is the context's published interface, currently empty. FR-20's
-// paired-evidence rule (no deduction without both HandoverOut and
-// HandoverIn ConditionReports) and F8's per-Operator PIN re-confirmation
-// (CLAUDE.md KNOWN GAPS) apply here — re-read them before building any
-// attestation flow.
-export {}
+// Currently implements ONLY ScanEvent resolution (P3, FR-17, FR-45; issue
+// #22) — the primary counter interaction and the foundation everything
+// else in this context reacts to. RentalAgreement, Possession,
+// DepositObligation and ConditionReport are NOT modelled yet; that is
+// #23's (HandoverOut workflow) and #24's (HandoverIn & Settlement) job.
+// FR-20's paired-evidence rule and F8's per-Operator PIN re-confirmation
+// (CLAUDE.md KNOWN GAPS) apply to that future work — re-read them before
+// building any attestation flow.
+export type { ScanEvent, ScanResolution } from './types'
+
+export { HandoverPossessionError, ScanEventTagNotBoundError } from './types'
+
+export type { HandoverPossessionRepository, NewScanEvent } from './repository'
+export { createPostgresHandoverPossessionRepository } from './repository'
+
+export { resolveScanEvent } from './scan-resolution'
