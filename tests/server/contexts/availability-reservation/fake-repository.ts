@@ -197,6 +197,18 @@ export function createFakeAvailabilityReservationRepository(): FakeAvailabilityR
           .map((r) => ({ ...r }))
       },
 
+      async listReservationsEndedBefore(tenantId, day) {
+        return target.reservations
+          .filter((r) => r.tenantId === tenantId && r.period.endDay < day && r.state === 'confirmed')
+          .map((r) => ({ ...r }))
+      },
+
+      async listReservationsStartedOnOrBefore(tenantId, day) {
+        return target.reservations
+          .filter((r) => r.tenantId === tenantId && r.period.startDay <= day && r.state === 'confirmed')
+          .map((r) => ({ ...r }))
+      },
+
       async transaction(fn) {
         const snapshot = cloneState(target)
         const getRentableCount: CapacitySource = async (_tenantId, assetTypeId) =>

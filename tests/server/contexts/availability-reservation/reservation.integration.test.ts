@@ -408,4 +408,40 @@ describe.skipIf(!databaseUrl)('Availability & Reservation migration (integration
     expect(await repo.listReservationsStartingOn(tenantId, '2026-03-09')).toEqual([])
     expect(await repo.listReservationsEndingOn(tenantId, '2026-03-11')).toEqual([])
   })
+
+  it('FR-28: listReservationsEndedBefore/StartedOnOrBefore find only Confirmed Reservations on the correct side of the boundary', async () => {
+    await seedRentableAssets(hammerTypeId, 3)
+    const repo = createPostgresAvailabilityReservationRepository(sql)
+
+    // Ended well before today — an Overdue candidate.
+    const { group: pastGroup, reservations: pastReservations } = await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: '2026-02-01', endDay: '2026-02-03' } }],
+    })
+    await recordTermsAcceptance(repo, { tenantId, reservationGroupId: pastGroup.id, termsVersion: 'v1' })
+    await confirmReservationGroup(repo, { tenantId, reservationGroupId: pastGroup.id })
+
+    // Ends in the future — must NOT appear as an Overdue candidate.
+    await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: '2026-04-01', endDay: '2026-04-03' } }],
+    })
+
+    const endedBefore = await repo.listReservationsEndedBefore(tenantId, '2026-03-10')
+    expect(endedBefore.map((r) => r.id)).toEqual([pastReservations[0]!.id])
+
+    // Started on-or-before today — a NoShow candidate.
+    const { group: startedGroup, reservations: startedReservations } = await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: '2026-03-10', endDay: '2026-03-12' } }],
+    })
+    await recordTermsAcceptance(repo, { tenantId, reservationGroupId: startedGroup.id, termsVersion: 'v1' })
+    await confirmReservationGroup(repo, { tenantId, reservationGroupId: startedGroup.id })
+
+    const startedOnOrBefore = await repo.listReservationsStartedOnOrBefore(tenantId, '2026-03-10')
+    const startedIds = startedOnOrBefore.map((r) => r.id)
+    expect(startedIds).toContain(pastReservations[0]!.id) // started 2026-02-01, well before too
+    expect(startedIds).toContain(startedReservations[0]!.id)
+    expect(startedIds).toHaveLength(2) // the future-starting one (2026-04-01) must not appear
+  })
 })
