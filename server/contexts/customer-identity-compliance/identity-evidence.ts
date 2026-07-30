@@ -9,6 +9,7 @@ import type { IdentityEvidenceStorageGateway } from './r2-gateway'
 import type { CustomerIdentityComplianceRepository } from './repository'
 import {
   CustomerNotFoundError,
+  IdentityEvidenceErasedError,
   IdentityEvidenceNotFoundError,
   ReservationGroupNotConfirmedError,
   RetentionWindowNotConfiguredError,
@@ -93,6 +94,7 @@ export async function generateIdentityEvidenceReadUrl(
 
   const evidence = await repo.getIdentityEvidence(tenantId, identityEvidenceId)
   if (!evidence) throw new IdentityEvidenceNotFoundError(identityEvidenceId)
+  if (evidence.erasedAt) throw new IdentityEvidenceErasedError(identityEvidenceId)
 
   const accessEvent = await repo.insertIdentityEvidenceAccessEvent(tenantId, { identityEvidenceId, operatorId })
   const { readUrl } = await gateway.generateReadUrl(evidence.objectKey)

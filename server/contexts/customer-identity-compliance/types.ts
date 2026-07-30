@@ -37,6 +37,13 @@ export interface IdentityEvidence {
   objectKey: string
   retentionDeadline: Date
   createdAt: Date
+  // FR-16, W10, issue #32: set once, by eraseExpiredIdentityEvidence,
+  // when retentionDeadline arrives — "the erasure is recorded." The row
+  // itself is never deleted (P4, append-only) — `objectKey` stays as a
+  // historical pointer to an object that no longer exists in R2; see
+  // ./identity-evidence.ts's generateIdentityEvidenceReadUrl, which
+  // refuses once this is set rather than minting a dead presigned URL.
+  erasedAt: Date | null
 }
 
 // NFR-06: "every access to evidence is itself an attributed act."
@@ -115,6 +122,16 @@ export class CustomerNotFoundError extends CustomerIdentityComplianceError {
 export class IdentityEvidenceNotFoundError extends CustomerIdentityComplianceError {
   constructor(identifier: number) {
     super(`IdentityEvidence ${identifier} does not exist for this Tenant.`)
+  }
+}
+
+// FR-16: the photograph is gone from R2 — refuses to mint a presigned
+// read URL to an object that no longer exists, rather than handing back
+// a dead link. Distinct from IdentityEvidenceNotFoundError: the row
+// itself still exists (append-only, P4), only the object doesn't.
+export class IdentityEvidenceErasedError extends CustomerIdentityComplianceError {
+  constructor(identifier: number) {
+    super(`IdentityEvidence ${identifier} was erased on its RetentionDeadline (FR-16) — no read access remains.`)
   }
 }
 

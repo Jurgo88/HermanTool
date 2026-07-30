@@ -185,7 +185,7 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
     it('records a full return with no deduction reason (D-07, FR-21)', async () => {
       const { rentalAgreement } = await handIn()
 
-      const result = await completeSettlement(handoverRepo, {
+      const result = await completeSettlement({ repo: handoverRepo, identityRepo }, {
         tenantId: tenantA,
         rentalAgreementId: rentalAgreement.id,
         operatorId,
@@ -199,7 +199,7 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
     it('records a partial return with a deduction reason when both ConditionReports exist (FR-20)', async () => {
       const { rentalAgreement } = await handIn()
 
-      const result = await completeSettlement(handoverRepo, {
+      const result = await completeSettlement({ repo: handoverRepo, identityRepo }, {
         tenantId: tenantA,
         rentalAgreementId: rentalAgreement.id,
         operatorId,
@@ -215,7 +215,7 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
       const { rentalAgreement } = await handIn()
 
       await expect(
-        completeSettlement(handoverRepo, {
+        completeSettlement({ repo: handoverRepo, identityRepo }, {
           tenantId: tenantA,
           rentalAgreementId: rentalAgreement.id,
           operatorId,
@@ -228,7 +228,7 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
       const { rentalAgreement } = await handIn()
 
       await expect(
-        completeSettlement(handoverRepo, {
+        completeSettlement({ repo: handoverRepo, identityRepo }, {
           tenantId: tenantA,
           rentalAgreementId: rentalAgreement.id,
           operatorId,
@@ -241,7 +241,7 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
       const openAgreement = await handoverRepo.getOpenRentalAgreementForAsset(tenantA, 1)
 
       await expect(
-        completeSettlement(handoverRepo, {
+        completeSettlement({ repo: handoverRepo, identityRepo }, {
           tenantId: tenantA,
           rentalAgreementId: openAgreement!.id,
           operatorId,
@@ -252,7 +252,7 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
 
     it('refuses settling the same RentalAgreement twice', async () => {
       const { rentalAgreement } = await handIn()
-      await completeSettlement(handoverRepo, {
+      await completeSettlement({ repo: handoverRepo, identityRepo }, {
         tenantId: tenantA,
         rentalAgreementId: rentalAgreement.id,
         operatorId,
@@ -260,13 +260,30 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
       })
 
       await expect(
-        completeSettlement(handoverRepo, {
+        completeSettlement({ repo: handoverRepo, identityRepo }, {
           tenantId: tenantA,
           rentalAgreementId: rentalAgreement.id,
           operatorId,
           returnedAmount: depositAmount,
         }),
       ).rejects.toThrow(RentalAgreementAlreadySettledError)
+    })
+
+    it('completes Settlement even though D-36 retention re-anchoring is blocked by OQ #2 (mechanism built, value still unset)', async () => {
+      const { rentalAgreement } = await handIn()
+
+      // Would throw RetentionWindowNotConfiguredError if it propagated —
+      // completeSettlement must swallow that specific error (D-36 is not
+      // allowed to fail an already-resolved deposit) while still calling
+      // reanchorRetentionDeadlineForCustomer under the hood.
+      const result = await completeSettlement({ repo: handoverRepo, identityRepo }, {
+        tenantId: tenantA,
+        rentalAgreementId: rentalAgreement.id,
+        operatorId,
+        returnedAmount: depositAmount,
+      })
+
+      expect(result.rentalAgreement.settlementCompletedAt).not.toBeNull()
     })
 
     it('refuses a deduction when a ConditionReport is missing (FR-20, P1 corollary)', async () => {
@@ -310,7 +327,7 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
       })
 
       await expect(
-        completeSettlement(handoverRepo, {
+        completeSettlement({ repo: handoverRepo, identityRepo }, {
           tenantId: tenantA,
           rentalAgreementId: bareAgreement.id,
           operatorId,
@@ -327,7 +344,7 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
         { repo: handoverRepo, conditionsGateway: gateway },
         { tenantId: tenantA, tagCode, operatorId, conditionPhotoContentTypes: ['image/jpeg'] },
       )
-      return completeSettlement(handoverRepo, {
+      return completeSettlement({ repo: handoverRepo, identityRepo }, {
         tenantId: tenantA,
         rentalAgreementId: rentalAgreement.id,
         operatorId,

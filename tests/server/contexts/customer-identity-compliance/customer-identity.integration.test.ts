@@ -15,6 +15,12 @@ import {
   revokeCustomerAccessLinksForCustomer,
 } from '../../../../server/contexts/customer-identity-compliance/customer-access-link'
 import { createPostgresCustomerIdentityComplianceRepository } from '../../../../server/contexts/customer-identity-compliance/repository'
+import {
+  eraseExpiredIdentityEvidence,
+  reanchorRetentionDeadlineForCustomer,
+} from '../../../../server/contexts/customer-identity-compliance/retention'
+import { RetentionWindowNotConfiguredError } from '../../../../server/contexts/customer-identity-compliance/types'
+import { createFakeIdentityEvidenceStorageGateway } from './fake-gateway'
 
 const databaseUrl = process.env.NUXT_DATABASE_URL ?? ''
 
@@ -235,5 +241,50 @@ describe.skipIf(!databaseUrl)('Customer Identity & Compliance migration (integra
 
     await revokeCustomerAccessLinksForCustomer(repo, { tenantId, customerId: customer.id })
     expect(await resolveCustomerAccessLink(repo, { tenantId, token })).toBeNull()
+  })
+
+  it('erases expired IdentityEvidence, records erasedAt, and excludes it from further candidate scans (FR-16, W10)', async () => {
+    const repo = createPostgresCustomerIdentityComplianceRepository(sql)
+    const gateway = createFakeIdentityEvidenceStorageGateway()
+    const customer = await repo.insertCustomer(tenantId, {
+      reservationGroupId,
+      name: 'Jana Nováková',
+      email: 'jana@example.sk',
+      phone: '+421900000000',
+    })
+    await repo.insertIdentityEvidence(tenantId, {
+      customerId: customer.id,
+      objectKey: 'obj-expired',
+      retentionDeadline: new Date('2026-01-01T00:00:00.000Z'),
+    })
+
+    const now = new Date('2026-02-01T00:00:00.000Z')
+    const erased = await eraseExpiredIdentityEvidence({ repo, gateway }, { tenantId, now })
+
+    expect(erased).toHaveLength(1)
+    expect(erased[0]!.erasedAt).toEqual(now)
+    expect(gateway.deletedObjectKeys).toEqual(['obj-expired'])
+
+    const second = await eraseExpiredIdentityEvidence({ repo, gateway }, { tenantId, now })
+    expect(second).toHaveLength(0)
+  })
+
+  it('re-anchors a Customer\'s IdentityEvidence deadline at Settlement once OQ #2 is set — currently refuses (D-36)', async () => {
+    const repo = createPostgresCustomerIdentityComplianceRepository(sql)
+    const customer = await repo.insertCustomer(tenantId, {
+      reservationGroupId,
+      name: 'Jana Nováková',
+      email: 'jana@example.sk',
+      phone: '+421900000000',
+    })
+    await repo.insertIdentityEvidence(tenantId, {
+      customerId: customer.id,
+      objectKey: 'obj-1',
+      retentionDeadline: new Date(Date.now() + 86_400_000),
+    })
+
+    await expect(
+      reanchorRetentionDeadlineForCustomer(repo, { tenantId, customerId: customer.id, settledAt: new Date() }),
+    ).rejects.toThrow(RetentionWindowNotConfiguredError)
   })
 })

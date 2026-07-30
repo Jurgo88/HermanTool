@@ -1,0 +1,38 @@
+# Scheduled retention erasure (D-11, D-36, FR-16, W10; issue #32).
+# Scheduling by GitHub Actions calling an authenticated Nitro endpoint —
+# same mechanism as .github/workflows/sweep-expired-reservations.yml
+# (FR-08), reused rather than reinvented (D-25 §14.2: no long-lived
+# process, matching the chosen backend runtime).
+#
+# Reuses the SAME two repo-level configuration values as the expiry
+# sweep — no new secret to provision:
+#   - vars.SWEEP_SITE_URL      — the deployed site origin
+#   - secrets.SWEEP_JOB_SECRET — must match NUXT_INTERNAL_JOB_SECRET set
+#                                 in Netlify's environment variables (D-31)
+#
+# Erasure is not time-critical the way the Pending-expiry sweep is (FR-08
+# protects a live availability invariant; this protects a retention
+# promise measured in days) — daily is enough, unlike the sweep's every
+# 10 minutes.
+name: Erase expired identity evidence
+
+on:
+  schedule:
+    - cron: '0 3 * * *' # daily, 03:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  erase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the erase-expired-evidence endpoint
+        run: |
+          http_status=$(curl -sS -o /tmp/erase-response.json -w "%{http_code}" \
+            -X POST "${{ vars.SWEEP_SITE_URL }}/api/internal/customer-identity-compliance/erase-expired-evidence" \
+            -H "Authorization: Bearer ${{ secrets.SWEEP_JOB_SECRET }}")
+          echo "HTTP status: $http_status"
+          cat /tmp/erase-response.json
+          if [ "$http_status" -ge 400 ]; then
+            echo "::error::Erasure endpoint returned HTTP $http_status"
+            exit 1
+          fi

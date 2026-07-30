@@ -8,6 +8,7 @@ import {
 } from '../../../../server/contexts/customer-identity-compliance/identity-evidence'
 import {
   CustomerNotFoundError,
+  IdentityEvidenceErasedError,
   IdentityEvidenceNotFoundError,
   ReservationGroupNotConfirmedError,
   RetentionWindowNotConfiguredError,
@@ -127,5 +128,25 @@ describe('generateIdentityEvidenceReadUrl', () => {
     await expect(
       generateIdentityEvidenceReadUrl(repo, gateway, { tenantId: tenantA, identityEvidenceId: 999, operatorId: 'op-1' }),
     ).rejects.toThrow(IdentityEvidenceNotFoundError)
+  })
+
+  it('refuses to mint a read URL for erased IdentityEvidence (FR-16) rather than pointing at a deleted object', async () => {
+    const customer = await createCustomer(repo, {
+      tenantId: tenantA,
+      reservationGroupId: 1,
+      name: 'Jana Nováková',
+      email: 'jana@example.sk',
+      phone: '+421900000000',
+    })
+    const evidence = await repo.insertIdentityEvidence(tenantA, {
+      customerId: customer.id,
+      objectKey: 'obj-1',
+      retentionDeadline: new Date(Date.now() + 86_400_000),
+    })
+    await repo.markIdentityEvidenceErased(tenantA, evidence.id, new Date())
+
+    await expect(
+      generateIdentityEvidenceReadUrl(repo, gateway, { tenantId: tenantA, identityEvidenceId: evidence.id, operatorId: 'op-1' }),
+    ).rejects.toThrow(IdentityEvidenceErasedError)
   })
 })

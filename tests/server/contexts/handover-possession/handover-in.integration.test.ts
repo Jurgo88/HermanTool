@@ -220,7 +220,7 @@ describe.skipIf(!databaseUrl)('HandoverIn & Settlement migration (integration)',
     const underInspection = await assetRegistryRepo.getAsset(tenantId, asset.id)
     expect(underInspection?.status).toBe('under_inspection')
 
-    const { rentalAgreement: afterSettlement } = await completeSettlement(handoverRepo, {
+    const { rentalAgreement: afterSettlement } = await completeSettlement({ repo: handoverRepo, identityRepo }, {
       tenantId,
       rentalAgreementId: afterIn.id,
       operatorId,

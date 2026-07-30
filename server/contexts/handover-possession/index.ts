@@ -93,6 +93,7 @@ export type { AssetAttestationHistoryEntry } from './attestation-history'
 export { getAssetAttestationHistory } from './attestation-history'
 
 export type {
+  CompleteSettlementDeps,
   CompleteSettlementParams,
   CompleteSettlementResult,
   MarkAssetReturnedToPoolDeps,

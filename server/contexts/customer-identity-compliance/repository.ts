@@ -45,6 +45,31 @@ export interface CustomerIdentityComplianceRepository {
   insertIdentityEvidence(tenantId: TenantId, params: NewIdentityEvidence): Promise<IdentityEvidence>
   getIdentityEvidence(tenantId: TenantId, id: number): Promise<IdentityEvidence | null>
 
+  // D-36, issue #32: every not-yet-erased IdentityEvidence row belonging
+  // to this Customer — re-anchored by completeSettlement, in practice at
+  // most one or two (an online submission plus, rarely, an Operator
+  // counter-fallback capture), but nothing here assumes a count.
+  listIdentityEvidenceForCustomer(tenantId: TenantId, customerId: number): Promise<IdentityEvidence[]>
+
+  // D-36: re-anchors the deadline (Settlement) — guarded to succeed only
+  // while not yet erased, mirroring every other guarded-transition
+  // method in this codebase.
+  setIdentityEvidenceRetentionDeadline(
+    tenantId: TenantId,
+    id: number,
+    retentionDeadline: Date,
+  ): Promise<IdentityEvidence | null>
+
+  // FR-16, W10: every row whose RetentionDeadline has arrived and which
+  // has not already been erased — the scheduled job's candidate set.
+  listIdentityEvidenceWithExpiredRetention(tenantId: TenantId, now: Date): Promise<IdentityEvidence[]>
+
+  // FR-16: "the erasure is recorded." Guarded to succeed only once
+  // (erased_at is null) — an idempotency guard for a job that may be
+  // invoked more than once for the same candidate (e.g. a retried
+  // GitHub Actions run).
+  markIdentityEvidenceErased(tenantId: TenantId, id: number, erasedAt: Date): Promise<IdentityEvidence | null>
+
   insertIdentityEvidenceAccessEvent(
     tenantId: TenantId,
     params: { identityEvidenceId: number; operatorId: string },
@@ -101,6 +126,7 @@ interface IdentityEvidenceRow {
   object_key: string
   retention_deadline: Date
   created_at: Date
+  erased_at: Date | null
 }
 
 function mapIdentityEvidence(row: IdentityEvidenceRow): IdentityEvidence {
@@ -111,6 +137,7 @@ function mapIdentityEvidence(row: IdentityEvidenceRow): IdentityEvidence {
     objectKey: row.object_key,
     retentionDeadline: row.retention_deadline,
     createdAt: row.created_at,
+    erasedAt: row.erased_at,
   }
 }
 
@@ -219,6 +246,44 @@ export function createPostgresCustomerIdentityComplianceRepository(
     async getIdentityEvidence(tenantId, id) {
       const rows = await sql<IdentityEvidenceRow[]>`
         select * from identity_evidence where tenant_id = ${tenantId} and id = ${id}
+      `
+      return rows[0] ? mapIdentityEvidence(rows[0]) : null
+    },
+
+    async listIdentityEvidenceForCustomer(tenantId, customerId) {
+      const rows = await sql<IdentityEvidenceRow[]>`
+        select * from identity_evidence
+        where tenant_id = ${tenantId} and customer_id = ${customerId} and erased_at is null
+        order by id
+      `
+      return rows.map(mapIdentityEvidence)
+    },
+
+    async setIdentityEvidenceRetentionDeadline(tenantId, id, retentionDeadline) {
+      const rows = await sql<IdentityEvidenceRow[]>`
+        update identity_evidence
+        set retention_deadline = ${retentionDeadline}
+        where tenant_id = ${tenantId} and id = ${id} and erased_at is null
+        returning *
+      `
+      return rows[0] ? mapIdentityEvidence(rows[0]) : null
+    },
+
+    async listIdentityEvidenceWithExpiredRetention(tenantId, now) {
+      const rows = await sql<IdentityEvidenceRow[]>`
+        select * from identity_evidence
+        where tenant_id = ${tenantId} and retention_deadline <= ${now} and erased_at is null
+        order by id
+      `
+      return rows.map(mapIdentityEvidence)
+    },
+
+    async markIdentityEvidenceErased(tenantId, id, erasedAt) {
+      const rows = await sql<IdentityEvidenceRow[]>`
+        update identity_evidence
+        set erased_at = ${erasedAt}
+        where tenant_id = ${tenantId} and id = ${id} and erased_at is null
+        returning *
       `
       return rows[0] ? mapIdentityEvidence(rows[0]) : null
     },
