@@ -9,7 +9,12 @@ import { createError, getRouterParam, type H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import type postgres from 'postgres'
 import { createDatabaseClient } from './db'
-import { AssetNotFoundError, createPostgresAssetRegistryRepository, type AssetRegistryRepository } from '../contexts/asset-registry'
+import {
+  AssetNotFoundError,
+  AssetRetiredError,
+  createPostgresAssetRegistryRepository,
+  type AssetRegistryRepository,
+} from '../contexts/asset-registry'
 import {
   AssetNotYetReturnableError,
   AssetTypeMismatchError,
@@ -23,7 +28,10 @@ import {
   EmptyConditionReportError,
   HandoverPossessionError,
   IdentityVerificationRequiredError,
+  LostAssetReasonRequiredError,
   NoOpenRentalAgreementError,
+  RentalAgreementAlreadyDeclaredLostError,
+  RentalAgreementAlreadyHandedInError,
   RentalAgreementAlreadySettledError,
   RentalAgreementNotFoundError,
   RentalAgreementNotHandedInError,
@@ -93,7 +101,8 @@ export function translateHandoverPossessionError(err: unknown): never {
     err instanceof EmptyConditionReportError ||
     err instanceof DeductionReasonRequiredError ||
     err instanceof DepositReturnExceedsTakenError ||
-    err instanceof BackdateReasonRequiredError
+    err instanceof BackdateReasonRequiredError ||
+    err instanceof LostAssetReasonRequiredError
   ) {
     throw createError({ statusCode: 400, statusMessage: err.message })
   }
@@ -108,7 +117,10 @@ export function translateHandoverPossessionError(err: unknown): never {
     err instanceof RentalAgreementAlreadySettledError ||
     err instanceof DeductionRequiresPairedConditionReportsError ||
     err instanceof SettlementNotCompleteError ||
-    err instanceof AssetNotYetReturnableError
+    err instanceof AssetNotYetReturnableError ||
+    err instanceof RentalAgreementAlreadyHandedInError ||
+    err instanceof RentalAgreementAlreadyDeclaredLostError ||
+    err instanceof AssetRetiredError
   ) {
     throw createError({ statusCode: 409, statusMessage: err.message })
   }

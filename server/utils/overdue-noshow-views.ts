@@ -89,7 +89,9 @@ export async function listOverdue(
 
   for (const reservation of candidates) {
     const rentalAgreement = await deps.handoverRepo.getRentalAgreementByReservation(tenantId, reservation.id)
-    if (!rentalAgreement || rentalAgreement.handoverInAt) continue // never handed out, or already back
+    // never handed out, already back, or already declared LostAsset (#26) —
+    // nothing left to get back through this view (D-17, FR-31).
+    if (!rentalAgreement || rentalAgreement.handoverInAt || rentalAgreement.declaredLostAt) continue
 
     if (!shortfallByAssetType.has(reservation.assetTypeId)) {
       const shortfallDay = await findShortfallDay(deps, { tenantId, assetTypeId: reservation.assetTypeId, from: today })
