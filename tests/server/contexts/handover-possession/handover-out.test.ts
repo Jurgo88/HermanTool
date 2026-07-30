@@ -5,7 +5,7 @@ import {
   confirmReservationGroup,
   recordTermsAcceptance,
 } from '../../../../server/contexts/availability-reservation'
-import { createCustomer } from '../../../../server/contexts/customer-identity-compliance'
+import { createCustomer, issueCustomerAccessLink, resolveCustomerAccessLink } from '../../../../server/contexts/customer-identity-compliance'
 import { performHandoverOut } from '../../../../server/contexts/handover-possession/handover-out'
 import {
   AssetTypeMismatchError,
@@ -127,6 +127,23 @@ describe('performHandoverOut', () => {
     // recorded-at equal, and no backdate reason.
     expect(result.rentalAgreement.handoverOutAt).toEqual(result.rentalAgreement.handoverOutRecordedAt)
     expect(result.rentalAgreement.handoverOutBackdateReason).toBeNull()
+  })
+
+  it("revokes the Customer's self-service link — its purpose ends at HandoverOut (D-23, issue #31)", async () => {
+    const { token } = await issueCustomerAccessLink(identityRepo, { tenantId: tenantA, customerId })
+    expect(await resolveCustomerAccessLink(identityRepo, { tenantId: tenantA, token })).not.toBeNull()
+
+    await performHandoverOut(deps(), {
+      tenantId: tenantA,
+      tagCode,
+      reservationId,
+      customerId,
+      operatorId,
+      depositAmount,
+      conditionPhotoContentTypes: ['image/jpeg'],
+    })
+
+    expect(await resolveCustomerAccessLink(identityRepo, { tenantId: tenantA, token })).toBeNull()
   })
 
   it('records a backdated HandoverOut with occurred-at distinct from recorded-at (D-10, FR-24, Finding 9)', async () => {

@@ -1,7 +1,8 @@
 // Domain types for Customer Identity & Compliance [MVP] — Customer
-// creation and IdentityEvidence submission only (D-06, D-14, D-27,
-// NFR-06, FR-11; issue #29). See ./index.ts for the context's boundary
-// and citations.
+// creation, IdentityEvidence submission, IdentityVerification and the
+// tokenised self-service link (D-06, D-14, D-23, D-27, NFR-06, FR-11,
+// FR-39; issues #29, #30, #31). See ./index.ts for the context's
+// boundary and citations.
 import type { TenantId } from '../_shared'
 
 // D-14: no account, no password. Created once per ReservationGroup at
@@ -66,6 +67,28 @@ export type IdentityVerification = {
   operatorId: string
   occurredAt: Date
 } & ({ outcome: 'verified'; reason: null } | { outcome: 'rejected'; reason: string })
+
+// D-23, FR-39, issue #31: "a tokenised, expiring, single-purpose link."
+// `tokenHash` is a SHA-256 digest of the raw bearer token — the raw
+// token itself is never persisted, only ever handed to the Customer once
+// at issuance (mirrors NFR-06's severity discipline even though this
+// token cannot read IdentityEvidence back, only submit it). Scope is
+// exactly "view the ReservationGroup, submit IdentityEvidence" — nothing
+// here models more than that; this is not an Account, not a Session
+// (D-23's own banned-list).
+export interface CustomerAccessLink {
+  id: number
+  tenantId: TenantId
+  customerId: number
+  tokenHash: string
+  createdAt: Date
+  expiresAt: Date
+  // D-23: "its purpose ends at HandoverOut, and so does it." Set by
+  // revokeCustomerAccessLinksForCustomer, called from
+  // server/contexts/handover-possession/handover-out.ts once
+  // performHandoverOut's transaction succeeds.
+  revokedAt: Date | null
+}
 
 export class CustomerIdentityComplianceError extends Error {
   constructor(message: string) {

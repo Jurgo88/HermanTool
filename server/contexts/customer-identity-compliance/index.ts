@@ -19,15 +19,16 @@
 // (OQ #2, still unresolved and launch-blocking per CLAUDE.md).
 //
 // Currently implements Customer creation (D-14), IdentityEvidence
-// submission mechanics (D-06, D-27, NFR-06, FR-11; issue #29), and
+// submission mechanics (D-06, D-27, NFR-06, FR-11; issue #29),
 // IdentityVerification at the counter (D-15, FR-14, FR-15, W3; issue
-// #30). The tokenised self-service link (#31) and the scheduled
-// retention/erasure job (#32) are separate, later issues — re-read
-// CLAUDE.md KNOWN GAPS F6 (Customer-record retention has no
+// #30), and the tokenised self-service link (D-23, FR-39; issue #31).
+// The scheduled retention/erasure job (#32) is a separate, later issue —
+// re-read CLAUDE.md KNOWN GAPS F6 (Customer-record retention has no
 // RetentionDeadline of its own — issue #34, not resolved here either)
 // before extending this context further.
 export type {
   Customer,
+  CustomerAccessLink,
   IdentityEvidence,
   IdentityEvidenceAccessEvent,
   IdentityVerification,
@@ -49,6 +50,7 @@ export {
 export type {
   CustomerIdentityComplianceRepository,
   NewCustomer,
+  NewCustomerAccessLink,
   NewIdentityEvidence,
   NewIdentityVerification,
 } from './repository'
@@ -65,3 +67,8 @@ export {
   RETENTION_WINDOW_DAYS,
 } from './identity-evidence'
 export { hasSuccessfulIdentityVerification, recordIdentityVerification } from './identity-verification'
+export {
+  issueCustomerAccessLink,
+  resolveCustomerAccessLink,
+  revokeCustomerAccessLinksForCustomer,
+} from './customer-access-link'

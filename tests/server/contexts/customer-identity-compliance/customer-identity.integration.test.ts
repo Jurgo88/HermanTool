@@ -9,6 +9,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type postgres from 'postgres'
 import { createDatabaseClient } from '../../../../server/utils/db'
 import type { TenantId } from '../../../../server/contexts/_shared'
+import {
+  issueCustomerAccessLink,
+  resolveCustomerAccessLink,
+  revokeCustomerAccessLinksForCustomer,
+} from '../../../../server/contexts/customer-identity-compliance/customer-access-link'
 import { createPostgresCustomerIdentityComplianceRepository } from '../../../../server/contexts/customer-identity-compliance/repository'
 
 const databaseUrl = process.env.NUXT_DATABASE_URL ?? ''
@@ -23,7 +28,8 @@ describe.skipIf(!databaseUrl)('Customer Identity & Compliance migration (integra
     sql = createDatabaseClient(databaseUrl)
 
     await sql`truncate table identity_verifications restart identity cascade`
-    await sql`truncate table identity_evidence_access_events, identity_evidence, customers restart identity cascade`
+    await sql`truncate table identity_evidence_access_events, identity_evidence restart identity cascade`
+    await sql`truncate table customer_access_links, customers restart identity cascade`
     await sql`truncate table reservations, reservation_groups, asset_type_day_holds restart identity cascade`
 
     const [{ id: seededTenantId }] = await sql<{ id: string }[]>`
@@ -183,5 +189,51 @@ describe.skipIf(!databaseUrl)('Customer Identity & Compliance migration (integra
       reason: null,
     })
     expect(await repo.hasSuccessfulIdentityVerification(tenantId, customer.id)).toBe(true)
+  })
+
+  it('has RLS enabled with no policies on customer_access_links', async () => {
+    const rows = await sql<{ relrowsecurity: boolean }[]>`
+      select relrowsecurity from pg_class where relname = 'customer_access_links'
+    `
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.relrowsecurity).toBe(true)
+
+    const policyCount = await sql<{ count: string }[]>`
+      select count(*)::text as count from pg_policies where tablename = 'customer_access_links'
+    `
+    expect(policyCount[0]?.count).toBe('0')
+  })
+
+  it('enforces a unique token_hash at the database level', async () => {
+    const repo = createPostgresCustomerIdentityComplianceRepository(sql)
+    const customer = await repo.insertCustomer(tenantId, {
+      reservationGroupId,
+      name: 'Jana Nováková',
+      email: 'jana@example.sk',
+      phone: '+421900000000',
+    })
+    const expiresAt = new Date(Date.now() + 86_400_000)
+    await repo.insertCustomerAccessLink(tenantId, { customerId: customer.id, tokenHash: 'same-hash', expiresAt })
+
+    await expect(
+      repo.insertCustomerAccessLink(tenantId, { customerId: customer.id, tokenHash: 'same-hash', expiresAt }),
+    ).rejects.toThrow()
+  })
+
+  it('end-to-end: issue -> resolve -> revoke, against a real Postgres (D-23, FR-39)', async () => {
+    const repo = createPostgresCustomerIdentityComplianceRepository(sql)
+    const customer = await repo.insertCustomer(tenantId, {
+      reservationGroupId,
+      name: 'Jana Nováková',
+      email: 'jana@example.sk',
+      phone: '+421900000000',
+    })
+
+    const { token } = await issueCustomerAccessLink(repo, { tenantId, customerId: customer.id })
+    const resolved = await resolveCustomerAccessLink(repo, { tenantId, token })
+    expect(resolved?.customerId).toBe(customer.id)
+
+    await revokeCustomerAccessLinksForCustomer(repo, { tenantId, customerId: customer.id })
+    expect(await resolveCustomerAccessLink(repo, { tenantId, token })).toBeNull()
   })
 })
