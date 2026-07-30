@@ -105,6 +105,7 @@ export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerId
         objectKey,
         retentionDeadline,
         createdAt: new Date(),
+        erasedAt: null,
       }
       state.identityEvidence.push(evidence)
       return { ...evidence }
@@ -113,6 +114,36 @@ export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerId
     async getIdentityEvidence(tenantId, id) {
       const evidence = state.identityEvidence.find((e) => e.tenantId === tenantId && e.id === id)
       return evidence ? { ...evidence } : null
+    },
+
+    async listIdentityEvidenceForCustomer(tenantId, customerId) {
+      return state.identityEvidence
+        .filter((e) => e.tenantId === tenantId && e.customerId === customerId && e.erasedAt === null)
+        .map((e) => ({ ...e }))
+    },
+
+    async setIdentityEvidenceRetentionDeadline(tenantId, id, retentionDeadline) {
+      const evidence = state.identityEvidence.find(
+        (e) => e.tenantId === tenantId && e.id === id && e.erasedAt === null,
+      )
+      if (!evidence) return null
+      evidence.retentionDeadline = retentionDeadline
+      return { ...evidence }
+    },
+
+    async listIdentityEvidenceWithExpiredRetention(tenantId, now) {
+      return state.identityEvidence
+        .filter((e) => e.tenantId === tenantId && e.retentionDeadline.getTime() <= now.getTime() && e.erasedAt === null)
+        .map((e) => ({ ...e }))
+    },
+
+    async markIdentityEvidenceErased(tenantId, id, erasedAt) {
+      const evidence = state.identityEvidence.find(
+        (e) => e.tenantId === tenantId && e.id === id && e.erasedAt === null,
+      )
+      if (!evidence) return null
+      evidence.erasedAt = erasedAt
+      return { ...evidence }
     },
 
     async insertIdentityEvidenceAccessEvent(tenantId, { identityEvidenceId, operatorId }) {

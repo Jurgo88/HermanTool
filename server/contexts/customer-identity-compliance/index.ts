@@ -21,11 +21,11 @@
 // Currently implements Customer creation (D-14), IdentityEvidence
 // submission mechanics (D-06, D-27, NFR-06, FR-11; issue #29),
 // IdentityVerification at the counter (D-15, FR-14, FR-15, W3; issue
-// #30), and the tokenised self-service link (D-23, FR-39; issue #31).
-// The scheduled retention/erasure job (#32) is a separate, later issue —
-// re-read CLAUDE.md KNOWN GAPS F6 (Customer-record retention has no
-// RetentionDeadline of its own — issue #34, not resolved here either)
-// before extending this context further.
+// #30), the tokenised self-service link (D-23, FR-39; issue #31), and
+// retention re-anchoring plus scheduled erasure (D-11, D-36, FR-12,
+// FR-16, W10; issue #32). Re-read CLAUDE.md KNOWN GAPS F6
+// (Customer-record retention has no RetentionDeadline of its own — issue
+// #34, not resolved here) before extending this context further.
 export type {
   Customer,
   CustomerAccessLink,
@@ -40,6 +40,7 @@ export {
   CustomerIdentityComplianceError,
   CustomerNotFoundError,
   IdentityEvidenceCustomerMismatchError,
+  IdentityEvidenceErasedError,
   IdentityEvidenceNotFoundError,
   IdentityVerificationReasonRequiredError,
   InvalidCustomerDetailsError,
@@ -72,3 +73,4 @@ export {
   resolveCustomerAccessLink,
   revokeCustomerAccessLinksForCustomer,
 } from './customer-access-link'
+export { eraseExpiredIdentityEvidence, reanchorRetentionDeadlineForCustomer } from './retention'

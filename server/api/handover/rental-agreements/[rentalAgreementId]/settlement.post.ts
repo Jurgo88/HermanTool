@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { completeSettlement } from '../../../../contexts/handover-possession'
+import { createCustomerIdentityComplianceDeps } from '../../../../utils/customer-identity-compliance-deps'
 import {
   createHandoverPossessionDeps,
   getRentalAgreementIdParam,
@@ -30,23 +31,27 @@ export default defineEventHandler(async (event) => {
   const body = await readValidatedBody(event, bodySchema.parse)
   const { repo, close } = createHandoverPossessionDeps(event)
   const operators = createOperatorsDeps(event)
+  const customerIdentity = createCustomerIdentityComplianceDeps(event)
 
   try {
     const attestingOperator = await verifyOperatorPin(operators.repo, operator.tenantId, body.pin)
 
-    return await completeSettlement(repo, {
-      tenantId: operator.tenantId,
-      rentalAgreementId,
-      operatorId: attestingOperator.id,
-      returnedAmount: body.returnedAmount,
-      deductionReason: body.deductionReason,
-    })
+    return await completeSettlement(
+      { repo, identityRepo: customerIdentity.repo },
+      {
+        tenantId: operator.tenantId,
+        rentalAgreementId,
+        operatorId: attestingOperator.id,
+        returnedAmount: body.returnedAmount,
+        deductionReason: body.deductionReason,
+      },
+    )
   } catch (err) {
     if (err instanceof InvalidPinError) {
       throw createError({ statusCode: 401, statusMessage: err.message })
     }
     translateHandoverPossessionError(err)
   } finally {
-    await Promise.all([close(), operators.close()])
+    await Promise.all([close(), operators.close(), customerIdentity.close()])
   }
 })

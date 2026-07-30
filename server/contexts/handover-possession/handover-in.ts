@@ -21,6 +21,11 @@
 import { randomUUID } from 'node:crypto'
 import { markAssetRentable, type AssetRegistryRepository } from '../asset-registry'
 import type { AvailabilityReservationRepository } from '../availability-reservation'
+import {
+  reanchorRetentionDeadlineForCustomer,
+  RetentionWindowNotConfiguredError,
+  type CustomerIdentityComplianceRepository,
+} from '../customer-identity-compliance'
 import type { MonetaryAmount, TenantId } from '../_shared'
 import type { ConditionReportStorageGateway } from './r2-gateway'
 import { resolveScanEvent } from './scan-resolution'
@@ -146,6 +151,11 @@ export async function performHandoverIn(
   })
 }
 
+export interface CompleteSettlementDeps {
+  repo: HandoverPossessionRepository
+  identityRepo: CustomerIdentityComplianceRepository
+}
+
 export interface CompleteSettlementParams {
   tenantId: TenantId
   rentalAgreementId: number
@@ -167,9 +177,10 @@ export interface CompleteSettlementResult {
 // two named repairs — Settlement's occurred-at and recorded-at are
 // always equal for now.
 export async function completeSettlement(
-  repo: HandoverPossessionRepository,
+  deps: CompleteSettlementDeps,
   params: CompleteSettlementParams,
 ): Promise<CompleteSettlementResult> {
+  const { repo, identityRepo } = deps
   const { tenantId, rentalAgreementId, operatorId, returnedAmount, deductionReason } = params
 
   const agreement = await repo.getRentalAgreement(tenantId, rentalAgreementId)
@@ -207,6 +218,22 @@ export async function completeSettlement(
 
   const settled = await repo.setSettlementCompletedAt(tenantId, rentalAgreementId, now)
   if (!settled) throw new RentalAgreementAlreadySettledError(rentalAgreementId)
+
+  // D-36: SettlementCompleted re-anchors this Customer's IdentityEvidence
+  // deadline(s) from their provisional (creation-time) value. Must NOT
+  // fail Settlement itself — the deposit is already resolved and
+  // recorded above, and OQ #2 being unset is an expected, structural
+  // refusal (RetentionWindowNotConfiguredError), not a bug to surface as
+  // a failed Settlement. Any OTHER error still propagates.
+  try {
+    await reanchorRetentionDeadlineForCustomer(identityRepo, {
+      tenantId,
+      customerId: agreement.customerId,
+      settledAt: now,
+    })
+  } catch (err) {
+    if (!(err instanceof RetentionWindowNotConfiguredError)) throw err
+  }
 
   return { rentalAgreement: settled, depositReturned }
 }
