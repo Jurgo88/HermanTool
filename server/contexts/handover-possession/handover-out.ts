@@ -24,7 +24,7 @@
 // path: occurredAt and recordedAt are simply both now().
 import { randomUUID } from 'node:crypto'
 import type { AvailabilityReservationRepository } from '../availability-reservation'
-import type { CustomerIdentityComplianceRepository } from '../customer-identity-compliance'
+import { revokeCustomerAccessLinksForCustomer, type CustomerIdentityComplianceRepository } from '../customer-identity-compliance'
 import type { MonetaryAmount, TenantId } from '../_shared'
 import { resolveScanEvent } from './scan-resolution'
 import type { ConditionReportStorageGateway } from './r2-gateway'
@@ -121,7 +121,7 @@ export async function performHandoverOut(
     photoObjectKeys.map((objectKey, i) => conditionsGateway.generateUploadUrl(objectKey, conditionPhotoContentTypes[i]!)),
   )
 
-  return repo.transaction(async (trx, assetRegistryRepo) => {
+  const result = await repo.transaction(async (trx, assetRegistryRepo) => {
     const resolution = await resolveScanEvent(trx, assetRegistryRepo, { tenantId, tagCode, operatorId })
     if (resolution.kind !== 'handover_out') {
       throw new UnexpectedScanResolutionError(resolution.asset.id, resolution.kind)
@@ -192,4 +192,14 @@ export async function performHandoverOut(
       conditionPhotoUploadUrls: uploads.map((u) => u.uploadUrl),
     }
   })
+
+  // D-23: "its purpose ends at HandoverOut, and so does it." Not inside
+  // the transaction above — identityRepo isn't bound to it (this
+  // context's transaction() only rebinds its own repository and Asset
+  // Registry's, see ./repository.ts) — run after the handover itself has
+  // definitely committed, mirroring this codebase's established "no
+  // cross-context saga" stance (see checkout.post.ts's own comment).
+  await revokeCustomerAccessLinksForCustomer(identityRepo, { tenantId, customerId })
+
+  return result
 }

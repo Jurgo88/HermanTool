@@ -7,6 +7,7 @@ import type postgres from 'postgres'
 import type { TenantId } from '../_shared'
 import type {
   Customer,
+  CustomerAccessLink,
   IdentityEvidence,
   IdentityEvidenceAccessEvent,
   IdentityVerification,
@@ -30,6 +31,12 @@ export type NewIdentityVerification =
   | { customerId: number; identityEvidenceId: number; operatorId: string; outcome: 'verified'; reason: null }
   | { customerId: number; identityEvidenceId: number; operatorId: string; outcome: 'rejected'; reason: string }
 
+export interface NewCustomerAccessLink {
+  customerId: number
+  tokenHash: string
+  expiresAt: Date
+}
+
 export interface CustomerIdentityComplianceRepository {
   insertCustomer(tenantId: TenantId, params: NewCustomer): Promise<Customer>
   getCustomer(tenantId: TenantId, id: number): Promise<Customer | null>
@@ -51,6 +58,18 @@ export interface CustomerIdentityComplianceRepository {
   // second document (D-15's append-only attestation model) must still
   // pass, and nothing here assumes exactly one row exists per Customer.
   hasSuccessfulIdentityVerification(tenantId: TenantId, customerId: number): Promise<boolean>
+
+  insertCustomerAccessLink(tenantId: TenantId, params: NewCustomerAccessLink): Promise<CustomerAccessLink>
+
+  // D-23: looked up by the hash of the bearer token a public, unauthenticated
+  // route received — never by id, since the caller (a Visitor with a link,
+  // not a session) has nothing else to identify it by.
+  getCustomerAccessLinkByTokenHash(tenantId: TenantId, tokenHash: string): Promise<CustomerAccessLink | null>
+
+  // D-23: "its purpose ends at HandoverOut, and so does it." Revokes every
+  // still-active link for this Customer — in practice at most one (issued
+  // once, per ./customer-access-link.ts), but this is not assumed.
+  revokeCustomerAccessLinksForCustomer(tenantId: TenantId, customerId: number, at: Date): Promise<void>
 }
 
 interface CustomerRow {
@@ -141,6 +160,28 @@ function mapIdentityVerification(row: IdentityVerificationRow): IdentityVerifica
     : { ...base, outcome: 'verified', reason: null }
 }
 
+interface CustomerAccessLinkRow {
+  id: number
+  tenant_id: string
+  customer_id: number
+  token_hash: string
+  created_at: Date
+  expires_at: Date
+  revoked_at: Date | null
+}
+
+function mapCustomerAccessLink(row: CustomerAccessLinkRow): CustomerAccessLink {
+  return {
+    id: row.id,
+    tenantId: row.tenant_id as TenantId,
+    customerId: row.customer_id,
+    tokenHash: row.token_hash,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+    revokedAt: row.revoked_at,
+  }
+}
+
 export function createPostgresCustomerIdentityComplianceRepository(
   sql: postgres.Sql | postgres.TransactionSql,
 ): CustomerIdentityComplianceRepository {
@@ -210,6 +251,30 @@ export function createPostgresCustomerIdentityComplianceRepository(
         limit 1
       `
       return rows.length > 0
+    },
+
+    async insertCustomerAccessLink(tenantId, { customerId, tokenHash, expiresAt }) {
+      const rows = await sql<CustomerAccessLinkRow[]>`
+        insert into customer_access_links (tenant_id, customer_id, token_hash, expires_at)
+        values (${tenantId}, ${customerId}, ${tokenHash}, ${expiresAt})
+        returning *
+      `
+      return mapCustomerAccessLink(rows[0]!)
+    },
+
+    async getCustomerAccessLinkByTokenHash(tenantId, tokenHash) {
+      const rows = await sql<CustomerAccessLinkRow[]>`
+        select * from customer_access_links where tenant_id = ${tenantId} and token_hash = ${tokenHash}
+      `
+      return rows[0] ? mapCustomerAccessLink(rows[0]) : null
+    },
+
+    async revokeCustomerAccessLinksForCustomer(tenantId, customerId, at) {
+      await sql`
+        update customer_access_links
+        set revoked_at = ${at}
+        where tenant_id = ${tenantId} and customer_id = ${customerId} and revoked_at is null
+      `
     },
   }
 }

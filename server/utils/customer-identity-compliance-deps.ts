@@ -55,6 +55,23 @@ export function getCustomerIdParam(event: H3Event): number {
   return id
 }
 
+// D-23: the raw bearer token from a public customer-access route's own
+// path — never a database identifier, so no numeric parsing.
+export function getCustomerAccessTokenParam(event: H3Event): string {
+  const raw = getRouterParam(event, 'token')
+  if (!raw) throw createError({ statusCode: 400, statusMessage: 'Missing access token.' })
+  return raw
+}
+
+// D-23: "unguessable, short-lived, revocable" — the response is
+// deliberately generic and identical whether the token never existed,
+// expired, or was already revoked at HandoverOut. Distinguishing those
+// cases in the response is exactly the oracle an unguessable-token
+// design must not hand back.
+export function customerAccessLinkNotFoundError(): never {
+  throw createError({ statusCode: 404, statusMessage: 'Link not found, expired, or no longer active.' })
+}
+
 // The HTTP layer translates typed domain errors into responses (CLAUDE.md).
 export function translateCustomerIdentityComplianceError(err: unknown): never {
   if (err instanceof CustomerNotFoundError || err instanceof IdentityEvidenceNotFoundError) {

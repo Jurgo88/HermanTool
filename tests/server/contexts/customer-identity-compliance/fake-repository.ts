@@ -7,11 +7,13 @@ import type { TenantId } from '../../../../server/contexts/_shared'
 import type {
   CustomerIdentityComplianceRepository,
   NewCustomer,
+  NewCustomerAccessLink,
   NewIdentityEvidence,
   NewIdentityVerification,
 } from '../../../../server/contexts/customer-identity-compliance/repository'
 import type {
   Customer,
+  CustomerAccessLink,
   IdentityEvidence,
   IdentityEvidenceAccessEvent,
   IdentityVerification,
@@ -22,10 +24,12 @@ interface State {
   identityEvidence: IdentityEvidence[]
   accessEvents: IdentityEvidenceAccessEvent[]
   identityVerifications: IdentityVerification[]
+  customerAccessLinks: CustomerAccessLink[]
   nextCustomerId: number
   nextEvidenceId: number
   nextAccessEventId: number
   nextVerificationId: number
+  nextCustomerAccessLinkId: number
 }
 
 export interface FakeCustomerIdentityComplianceRepository extends CustomerIdentityComplianceRepository {
@@ -33,6 +37,7 @@ export interface FakeCustomerIdentityComplianceRepository extends CustomerIdenti
   allIdentityEvidence(): IdentityEvidence[]
   allAccessEvents(): IdentityEvidenceAccessEvent[]
   allIdentityVerifications(): IdentityVerification[]
+  allCustomerAccessLinks(): CustomerAccessLink[]
 }
 
 export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerIdentityComplianceRepository {
@@ -41,10 +46,12 @@ export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerId
     identityEvidence: [],
     accessEvents: [],
     identityVerifications: [],
+    customerAccessLinks: [],
     nextCustomerId: 1,
     nextEvidenceId: 1,
     nextAccessEventId: 1,
     nextVerificationId: 1,
+    nextCustomerAccessLinkId: 1,
   }
 
   return {
@@ -59,6 +66,9 @@ export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerId
     },
     allIdentityVerifications() {
       return state.identityVerifications.map((v) => ({ ...v }))
+    },
+    allCustomerAccessLinks() {
+      return state.customerAccessLinks.map((l) => ({ ...l }))
     },
 
     async insertCustomer(tenantId: TenantId, { reservationGroupId, name, email, phone }: NewCustomer) {
@@ -138,6 +148,33 @@ export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerId
       return state.identityVerifications.some(
         (v) => v.tenantId === tenantId && v.customerId === customerId && v.outcome === 'verified',
       )
+    },
+
+    async insertCustomerAccessLink(tenantId: TenantId, { customerId, tokenHash, expiresAt }: NewCustomerAccessLink) {
+      const link: CustomerAccessLink = {
+        id: state.nextCustomerAccessLinkId++,
+        tenantId,
+        customerId,
+        tokenHash,
+        createdAt: new Date(),
+        expiresAt,
+        revokedAt: null,
+      }
+      state.customerAccessLinks.push(link)
+      return { ...link }
+    },
+
+    async getCustomerAccessLinkByTokenHash(tenantId, tokenHash) {
+      const link = state.customerAccessLinks.find((l) => l.tenantId === tenantId && l.tokenHash === tokenHash)
+      return link ? { ...link } : null
+    },
+
+    async revokeCustomerAccessLinksForCustomer(tenantId, customerId, at) {
+      for (const link of state.customerAccessLinks) {
+        if (link.tenantId === tenantId && link.customerId === customerId && link.revokedAt === null) {
+          link.revokedAt = at
+        }
+      }
     },
   }
 }
