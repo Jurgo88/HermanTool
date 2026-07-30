@@ -109,6 +109,22 @@ export interface AvailabilityReservationRepository {
   // physical one (P1).
   listReservationsEndingOn(tenantId: TenantId, day: string): Promise<Reservation[]>
 
+  // FR-28/D-17: Overdue candidates — Confirmed Reservations whose
+  // RentalPeriod ended strictly before `day`. The caller
+  // (server/utils/overdue-noshow-views.ts) cross-references Handover &
+  // Possession's RentalAgreement.handoverInAt to find which of these are
+  // genuinely still out (Overdue is Possession that outlived its
+  // Reservation, not the Reservation's own state).
+  listReservationsEndedBefore(tenantId: TenantId, day: string): Promise<Reservation[]>
+
+  // FR-28/D-17: NoShow candidates — Confirmed Reservations whose
+  // RentalPeriod began on or before `day`. The caller cross-references
+  // Handover & Possession to exclude ones already handed out — a NoShow
+  // is a Reservation whose period began WITHOUT a HandoverOut, and stays
+  // one for as long as no HandoverOut exists, however many days have
+  // passed since (D-17: no automatic timeout, no escalation).
+  listReservationsStartedOnOrBefore(tenantId: TenantId, day: string): Promise<Reservation[]>
+
   // Runs `fn` against a repository bound to a single transaction, and
   // also hands back a `getRentableCount` bound to that SAME transaction
   // (Part 4 §16 D-33) — Availability & Reservation's capacity read and
@@ -305,6 +321,24 @@ export function createPostgresAvailabilityReservationRepository(
       const rows = await sql<ReservationRow[]>`
         select * from reservations
         where tenant_id = ${tenantId} and end_day = ${day} and state = 'confirmed'
+        order by id
+      `
+      return rows.map(mapReservation)
+    },
+
+    async listReservationsEndedBefore(tenantId, day) {
+      const rows = await sql<ReservationRow[]>`
+        select * from reservations
+        where tenant_id = ${tenantId} and end_day < ${day} and state = 'confirmed'
+        order by id
+      `
+      return rows.map(mapReservation)
+    },
+
+    async listReservationsStartedOnOrBefore(tenantId, day) {
+      const rows = await sql<ReservationRow[]>`
+        select * from reservations
+        where tenant_id = ${tenantId} and start_day <= ${day} and state = 'confirmed'
         order by id
       `
       return rows.map(mapReservation)
