@@ -108,6 +108,15 @@ export interface RentalAgreement {
   // after its RentalPeriod's final day. Null until
   // markAssetReturnedToPool succeeds.
   returnedToPoolAt: Date | null
+  // D-17, FR-31, FR-36; issue #26: set only by declareAssetLost, always
+  // together with a reason and the PIN-resolved attesting Operator — an
+  // Operator declaration, never automatic, never a timer. Once set, this
+  // Agreement stops surfacing in the Overdue view
+  // (server/utils/overdue-noshow-views.ts) — there is nothing left to
+  // get back through that path.
+  declaredLostAt: Date | null
+  declaredLostReason: string | null
+  declaredLostOperatorId: string | null
 }
 
 export type ConditionReportStage = 'handover_out' | 'handover_in'
@@ -303,5 +312,30 @@ export class SettlementNotCompleteError extends HandoverPossessionError {
 export class BackdateReasonRequiredError extends HandoverPossessionError {
   constructor(kind: 'handover_out' | 'handover_in') {
     super(`A backdated ${kind === 'handover_out' ? 'HandoverOut' : 'HandoverIn'} correction must record a reason (FR-24).`)
+  }
+}
+
+// FR-31: "The transition to LostAsset is always an Operator declaration
+// with a reason." No reason, no declaration — mirrors
+// DeductionReasonRequiredError/BackdateReasonRequiredError's established
+// pattern in this context.
+export class LostAssetReasonRequiredError extends HandoverPossessionError {
+  constructor() {
+    super('A LostAsset declaration must record a reason (FR-31).')
+  }
+}
+
+// A RentalAgreement whose Possession has already closed (handed back)
+// has nothing left to declare lost — the Asset is physically present.
+export class RentalAgreementAlreadyHandedInError extends HandoverPossessionError {
+  constructor(rentalAgreementId: number) {
+    super(`RentalAgreement ${rentalAgreementId} has already been handed in — there is nothing to declare lost.`)
+  }
+}
+
+// Idempotency guard: a RentalAgreement can be declared lost at most once.
+export class RentalAgreementAlreadyDeclaredLostError extends HandoverPossessionError {
+  constructor(rentalAgreementId: number) {
+    super(`RentalAgreement ${rentalAgreementId} has already been declared LostAsset.`)
   }
 }

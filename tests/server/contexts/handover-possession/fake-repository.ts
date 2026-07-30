@@ -119,6 +119,9 @@ export function createFakeHandoverPossessionRepository(
           handoverInBackdateReason: null,
           settlementCompletedAt: null,
           returnedToPoolAt: null,
+          declaredLostAt: null,
+          declaredLostReason: null,
+          declaredLostOperatorId: null,
         }
         state.rentalAgreements.push(agreement)
         return { ...agreement }
@@ -180,6 +183,21 @@ export function createFakeHandoverPossessionRepository(
         )
         if (!agreement) return null
         agreement.returnedToPoolAt = at
+        return { ...agreement }
+      },
+
+      async declareRentalAgreementLost(tenantId, rentalAgreementId, { reason, operatorId, at }) {
+        const agreement = state.rentalAgreements.find(
+          (a) =>
+            a.tenantId === tenantId &&
+            a.id === rentalAgreementId &&
+            a.handoverInAt === null &&
+            a.declaredLostAt === null,
+        )
+        if (!agreement) return null
+        agreement.declaredLostAt = at
+        agreement.declaredLostReason = reason
+        agreement.declaredLostOperatorId = operatorId
         return { ...agreement }
       },
 

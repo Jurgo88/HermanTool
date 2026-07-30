@@ -103,6 +103,15 @@ export interface HandoverPossessionRepository {
 
   markReturnedToPool(tenantId: TenantId, rentalAgreementId: number, at: Date): Promise<RentalAgreement | null>
 
+  // FR-31, D-17, issue #26: guarded to succeed only if neither
+  // handover_in_at nor declared_lost_at is already set — mirrors every
+  // other guarded-transition method in this repository.
+  declareRentalAgreementLost(
+    tenantId: TenantId,
+    rentalAgreementId: number,
+    params: { reason: string; operatorId: string; at: Date },
+  ): Promise<RentalAgreement | null>
+
   insertConditionReport(tenantId: TenantId, params: NewConditionReport): Promise<ConditionReport>
   listConditionReportsForAgreement(tenantId: TenantId, rentalAgreementId: number): Promise<ConditionReport[]>
 
@@ -172,6 +181,9 @@ interface RentalAgreementRow {
   handover_in_backdate_reason: string | null
   settlement_completed_at: Date | null
   returned_to_pool_at: Date | null
+  declared_lost_at: Date | null
+  declared_lost_reason: string | null
+  declared_lost_operator_id: string | null
 }
 
 function mapRentalAgreement(row: RentalAgreementRow): RentalAgreement {
@@ -191,6 +203,9 @@ function mapRentalAgreement(row: RentalAgreementRow): RentalAgreement {
     handoverInBackdateReason: row.handover_in_backdate_reason,
     settlementCompletedAt: row.settlement_completed_at,
     returnedToPoolAt: row.returned_to_pool_at,
+    declaredLostAt: row.declared_lost_at,
+    declaredLostReason: row.declared_lost_reason,
+    declaredLostOperatorId: row.declared_lost_operator_id,
   }
 }
 
@@ -356,6 +371,19 @@ export function createPostgresHandoverPossessionRepository(
         update rental_agreements
         set returned_to_pool_at = ${at}
         where tenant_id = ${tenantId} and id = ${rentalAgreementId} and returned_to_pool_at is null
+        returning *
+      `
+      return rows[0] ? mapRentalAgreement(rows[0]) : null
+    },
+
+    async declareRentalAgreementLost(tenantId, rentalAgreementId, { reason, operatorId, at }) {
+      const rows = await sql<RentalAgreementRow[]>`
+        update rental_agreements
+        set declared_lost_at = ${at},
+            declared_lost_reason = ${reason},
+            declared_lost_operator_id = ${operatorId}
+        where tenant_id = ${tenantId} and id = ${rentalAgreementId}
+          and handover_in_at is null and declared_lost_at is null
         returning *
       `
       return rows[0] ? mapRentalAgreement(rows[0]) : null

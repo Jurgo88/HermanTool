@@ -25,9 +25,10 @@
 //
 // Implements ScanEvent resolution (P3, FR-17, FR-45; issue #22), the
 // HandoverOut workflow (D-04, D-05, FR-14, FR-15, FR-18, FR-19, FR-21,
-// FR-22, W4; issue #23), and HandoverIn & Settlement (D-09, FR-19,
-// FR-20, FR-21, FR-23, W5, W8; issue #24). Attestation correction (#25)
-// and LostAsset declaration (#26) are separate, later issues.
+// FR-22, W4; issue #23), HandoverIn & Settlement (D-09, FR-19, FR-20,
+// FR-21, FR-23, W5, W8; issue #24), attestation correction (D-10, FR-24,
+// Finding 9; issue #25), and LostAsset declaration (D-17, FR-31, FR-36,
+// W6; issue #26).
 //
 // D-09's "the Asset rejoins the pool on X+1" is markAssetReturnedToPool:
 // an explicit Operator action gated by a refusal, not a scheduled
@@ -56,7 +57,10 @@ export {
   EmptyConditionReportError,
   HandoverPossessionError,
   IdentityVerificationRequiredError,
+  LostAssetReasonRequiredError,
   NoOpenRentalAgreementError,
+  RentalAgreementAlreadyDeclaredLostError,
+  RentalAgreementAlreadyHandedInError,
   RentalAgreementAlreadySettledError,
   RentalAgreementNotFoundError,
   RentalAgreementNotHandedInError,
@@ -97,3 +101,6 @@ export type {
   PerformHandoverInResult,
 } from './handover-in'
 export { completeSettlement, markAssetReturnedToPool, performHandoverIn } from './handover-in'
+
+export type { DeclareAssetLostDeps, DeclareAssetLostParams } from './lost-asset'
+export { declareAssetLost } from './lost-asset'
