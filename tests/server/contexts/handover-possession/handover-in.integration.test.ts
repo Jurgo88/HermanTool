@@ -258,5 +258,10 @@ describe.skipIf(!databaseUrl)('HandoverIn & Settlement migration (integration)',
 
     const rentableAgain = await assetRegistryRepo.getAsset(tenantId, asset.id)
     expect(rentableAgain?.status).toBe('rentable')
+
+    // FR-43: getDepositReturnedForAgreement finds the real row once
+    // Settlement has completed.
+    const depositReturned = await handoverRepo.getDepositReturnedForAgreement(tenantId, afterSettlement.id)
+    expect(depositReturned?.amount.amount).toBe(5000)
   })
 })

@@ -79,6 +79,17 @@ export interface HandoverPossessionRepository {
   // practice — an Asset holds at most one open Agreement at a time.
   getOpenRentalAgreementForAsset(tenantId: TenantId, assetId: number): Promise<RentalAgreement | null>
 
+  // FR-42: server/utils/operator-counter-views.ts's cross-reference —
+  // "has this Reservation already been handed out / handed back?" A
+  // Reservation produces at most one RentalAgreement ever (FR-22's
+  // unique index), so this is a plain lookup, not a "latest" query.
+  getRentalAgreementByReservation(tenantId: TenantId, reservationId: number): Promise<RentalAgreement | null>
+
+  // FR-43: every RentalAgreement this Asset has ever been part of, for
+  // ./attestation-history.ts. Ordered by handoverOutAt (occurred-at) —
+  // the Asset's own story, oldest first.
+  listRentalAgreementsForAsset(tenantId: TenantId, assetId: number): Promise<RentalAgreement[]>
+
   // Guarded transition: succeeds only if handover_in_at is currently
   // null, mirroring every other guarded-transition method in this
   // codebase (e.g. Availability & Reservation's transitionReservationState).
@@ -99,6 +110,10 @@ export interface HandoverPossessionRepository {
   getDepositTakenForAgreement(tenantId: TenantId, rentalAgreementId: number): Promise<DepositTaken | null>
 
   insertDepositReturned(tenantId: TenantId, params: NewDepositReturned): Promise<DepositReturned>
+
+  // FR-43: at most one per RentalAgreement (the migration's own unique
+  // index) — null until Settlement completes.
+  getDepositReturnedForAgreement(tenantId: TenantId, rentalAgreementId: number): Promise<DepositReturned | null>
 
   // Every RentalAgreement whose Settlement has completed but whose Asset
   // has not yet been recorded as returned to the pool — the candidate
@@ -298,6 +313,22 @@ export function createPostgresHandoverPossessionRepository(
       return rows[0] ? mapRentalAgreement(rows[0]) : null
     },
 
+    async getRentalAgreementByReservation(tenantId, reservationId) {
+      const rows = await sql<RentalAgreementRow[]>`
+        select * from rental_agreements where tenant_id = ${tenantId} and reservation_id = ${reservationId}
+      `
+      return rows[0] ? mapRentalAgreement(rows[0]) : null
+    },
+
+    async listRentalAgreementsForAsset(tenantId, assetId) {
+      const rows = await sql<RentalAgreementRow[]>`
+        select * from rental_agreements
+        where tenant_id = ${tenantId} and asset_id = ${assetId}
+        order by handover_out_at
+      `
+      return rows.map(mapRentalAgreement)
+    },
+
     async setHandoverInAt(tenantId, rentalAgreementId, { handoverInAt, handoverInRecordedAt, handoverInBackdateReason }) {
       const rows = await sql<RentalAgreementRow[]>`
         update rental_agreements
@@ -379,6 +410,13 @@ export function createPostgresHandoverPossessionRepository(
         returning *
       `
       return mapDepositReturned(rows[0]!)
+    },
+
+    async getDepositReturnedForAgreement(tenantId, rentalAgreementId) {
+      const rows = await sql<DepositReturnedRow[]>`
+        select * from deposit_returned where tenant_id = ${tenantId} and rental_agreement_id = ${rentalAgreementId}
+      `
+      return rows[0] ? mapDepositReturned(rows[0]) : null
     },
 
     async listSettledRentalAgreementsPendingPoolReturn(tenantId) {

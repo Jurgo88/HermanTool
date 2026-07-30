@@ -185,6 +185,18 @@ export function createFakeAvailabilityReservationRepository(): FakeAvailabilityR
         ).length
       },
 
+      async listReservationsStartingOn(tenantId, day) {
+        return target.reservations
+          .filter((r) => r.tenantId === tenantId && r.period.startDay === day && r.state === 'confirmed')
+          .map((r) => ({ ...r }))
+      },
+
+      async listReservationsEndingOn(tenantId, day) {
+        return target.reservations
+          .filter((r) => r.tenantId === tenantId && r.period.endDay === day && r.state === 'confirmed')
+          .map((r) => ({ ...r }))
+      },
+
       async transaction(fn) {
         const snapshot = cloneState(target)
         const getRentableCount: CapacitySource = async (_tenantId, assetTypeId) =>

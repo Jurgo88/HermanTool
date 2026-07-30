@@ -372,4 +372,40 @@ describe.skipIf(!databaseUrl)('Availability & Reservation migration (integration
     expect(row[0]?.terms_version).toBe('draft-1')
     expect(row[0]?.terms_accepted_at).toBeInstanceOf(Date)
   })
+
+  it('FR-42: listReservationsStartingOn/EndingOn find only Confirmed Reservations on the exact boundary day', async () => {
+    await seedRentableAssets(hammerTypeId, 3)
+    const repo = createPostgresAvailabilityReservationRepository(sql)
+
+    const { group: pickupGroup, reservations: pickupReservations } = await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: '2026-03-10', endDay: '2026-03-12' } }],
+    })
+    await recordTermsAcceptance(repo, { tenantId, reservationGroupId: pickupGroup.id, termsVersion: 'v1' })
+    await confirmReservationGroup(repo, { tenantId, reservationGroupId: pickupGroup.id })
+
+    // A Pending Reservation also starting 2026-03-10 — must NOT appear.
+    await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: '2026-03-10', endDay: '2026-03-10' } }],
+    })
+
+    const { group: returnGroup, reservations: returnReservations } = await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: '2026-03-08', endDay: '2026-03-10' } }],
+    })
+    await recordTermsAcceptance(repo, { tenantId, reservationGroupId: returnGroup.id, termsVersion: 'v1' })
+    await confirmReservationGroup(repo, { tenantId, reservationGroupId: returnGroup.id })
+
+    const startingOn10th = await repo.listReservationsStartingOn(tenantId, '2026-03-10')
+    expect(startingOn10th.map((r) => r.id)).toEqual([pickupReservations[0]!.id])
+    expect(startingOn10th[0]!.state).toBe('confirmed')
+
+    const endingOn10th = await repo.listReservationsEndingOn(tenantId, '2026-03-10')
+    expect(endingOn10th.map((r) => r.id)).toEqual([returnReservations[0]!.id])
+
+    // Neither boundary matches an unrelated day.
+    expect(await repo.listReservationsStartingOn(tenantId, '2026-03-09')).toEqual([])
+    expect(await repo.listReservationsEndingOn(tenantId, '2026-03-11')).toEqual([])
+  })
 })

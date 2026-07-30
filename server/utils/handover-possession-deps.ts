@@ -69,6 +69,17 @@ export function getRentalAgreementIdParam(event: H3Event): number {
   return id
 }
 
+// FR-43: Asset ids are Asset Registry's own `integer generated always as
+// identity` primary key.
+export function getAssetIdParam(event: H3Event): number {
+  const raw = getRouterParam(event, 'assetId')
+  const id = Number(raw)
+  if (!raw || !Number.isInteger(id) || id <= 0) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid Asset id.' })
+  }
+  return id
+}
+
 // The HTTP layer translates typed domain errors into responses (CLAUDE.md).
 export function translateHandoverPossessionError(err: unknown): never {
   if (

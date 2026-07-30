@@ -96,6 +96,19 @@ export interface AvailabilityReservationRepository {
   // flipped its state column yet.
   countActiveReservations(tenantId: TenantId, assetTypeId: number, day: string): Promise<number>
 
+  // FR-42: "today's pickups" — Confirmed Reservations whose RentalPeriod
+  // begins on `day`. Only Confirmed: a Pending Reservation starting today
+  // is not a real commitment yet (unpaid), and Cancelled/Expired ones
+  // never were one.
+  listReservationsStartingOn(tenantId: TenantId, day: string): Promise<Reservation[]>
+
+  // FR-42: "today's returns" — Confirmed Reservations whose RentalPeriod
+  // ends on `day`. The caller (server/utils/operator-counter-views.ts)
+  // cross-references Handover & Possession to exclude ones already
+  // handed back — this method only knows the commercial clock, never the
+  // physical one (P1).
+  listReservationsEndingOn(tenantId: TenantId, day: string): Promise<Reservation[]>
+
   // Runs `fn` against a repository bound to a single transaction, and
   // also hands back a `getRentableCount` bound to that SAME transaction
   // (Part 4 §16 D-33) — Availability & Reservation's capacity read and
@@ -277,6 +290,24 @@ export function createPostgresAvailabilityReservationRepository(
           and (state = 'confirmed' or (state = 'pending' and pending_expires_at > now()))
       `
       return Number(rows[0]!.count)
+    },
+
+    async listReservationsStartingOn(tenantId, day) {
+      const rows = await sql<ReservationRow[]>`
+        select * from reservations
+        where tenant_id = ${tenantId} and start_day = ${day} and state = 'confirmed'
+        order by id
+      `
+      return rows.map(mapReservation)
+    },
+
+    async listReservationsEndingOn(tenantId, day) {
+      const rows = await sql<ReservationRow[]>`
+        select * from reservations
+        where tenant_id = ${tenantId} and end_day = ${day} and state = 'confirmed'
+        order by id
+      `
+      return rows.map(mapReservation)
     },
 
     async transaction<T>(
