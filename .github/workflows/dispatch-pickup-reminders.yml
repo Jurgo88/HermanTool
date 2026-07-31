@@ -1,0 +1,32 @@
+# Pickup reminder dispatch (FR-41; issue #36). Scheduling by GitHub
+# Actions calling an authenticated Nitro endpoint — same mechanism as
+# .github/workflows/dispatch-return-reminders.yml, reused rather than
+# reinvented.
+#
+# Reuses the SAME two repo-level configuration values as every other
+# scheduled job in this repo — no new secret to provision:
+#   - vars.SWEEP_SITE_URL      — the deployed site origin
+#   - secrets.SWEEP_JOB_SECRET — must match NUXT_INTERNAL_JOB_SECRET set
+#                                 in Netlify's environment variables (D-31)
+name: Dispatch pickup reminders
+
+on:
+  schedule:
+    - cron: '0 7 * * *' # daily, 07:00 UTC — same slot as the return reminder
+  workflow_dispatch: {}
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the dispatch-pickup-reminders endpoint
+        run: |
+          http_status=$(curl -sS -o /tmp/dispatch-response.json -w "%{http_code}" \
+            -X POST "${{ vars.SWEEP_SITE_URL }}/api/internal/notification/dispatch-pickup-reminders" \
+            -H "Authorization: Bearer ${{ secrets.SWEEP_JOB_SECRET }}")
+          echo "HTTP status: $http_status"
+          cat /tmp/dispatch-response.json
+          if [ "$http_status" -ge 400 ]; then
+            echo "::error::Pickup-reminder dispatch endpoint returned HTTP $http_status"
+            exit 1
+          fi

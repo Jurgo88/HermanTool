@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { TenantId } from '../../../../server/contexts/_shared'
-import { dispatchReservationConfirmation, dispatchReturnReminder } from '../../../../server/contexts/notification/notification'
+import {
+  dispatchOverdueReminder,
+  dispatchPickupReminder,
+  dispatchReservationConfirmation,
+  dispatchReturnReminder,
+} from '../../../../server/contexts/notification/notification'
 import { createFakeNotificationGateway, type FakeNotificationGateway } from './fake-gateway'
 import { createFakeNotificationRepository, type FakeNotificationRepository } from './fake-repository'
 
@@ -144,6 +149,132 @@ describe('dispatchReturnReminder (A-08, FR-32, issue #35)', () => {
         customerName: 'Jana',
         assetTypeId: 1,
         endDay: '2026-03-07',
+      },
+    )
+
+    expect(result).not.toBeNull()
+    expect(gateway.sentEmails).toHaveLength(2)
+  })
+})
+
+describe('dispatchPickupReminder (FR-41, issue #36)', () => {
+  let repo: FakeNotificationRepository
+  let gateway: FakeNotificationGateway
+
+  beforeEach(() => {
+    repo = createFakeNotificationRepository()
+    gateway = createFakeNotificationGateway()
+  })
+
+  it('sends the pickup reminder email and records the dispatch', async () => {
+    const result = await dispatchPickupReminder(
+      { repo, gateway },
+      {
+        tenantId: tenantA,
+        customerId,
+        reservationId: 7,
+        to: 'jana@example.sk',
+        customerName: 'Jana Nováková',
+        assetTypeId: 1,
+        startDay: '2026-03-05',
+      },
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.kind).toBe('pickup_reminder')
+    expect(result!.referenceId).toBe(7)
+    expect(gateway.sentEmails).toHaveLength(1)
+  })
+
+  it('never sends twice for the same Reservation', async () => {
+    const params = {
+      tenantId: tenantA,
+      customerId,
+      reservationId: 7,
+      to: 'jana@example.sk',
+      customerName: 'Jana Nováková',
+      assetTypeId: 1,
+      startDay: '2026-03-05',
+    }
+    await dispatchPickupReminder({ repo, gateway }, params)
+    const second = await dispatchPickupReminder({ repo, gateway }, params)
+
+    expect(second).toBeNull()
+    expect(gateway.sentEmails).toHaveLength(1)
+  })
+})
+
+describe('dispatchOverdueReminder (D-17, W6, FR-41, issue #36)', () => {
+  let repo: FakeNotificationRepository
+  let gateway: FakeNotificationGateway
+
+  beforeEach(() => {
+    repo = createFakeNotificationRepository()
+    gateway = createFakeNotificationGateway()
+  })
+
+  it('sends the Overdue reminder email and records the dispatch', async () => {
+    const result = await dispatchOverdueReminder(
+      { repo, gateway },
+      {
+        tenantId: tenantA,
+        customerId,
+        reservationId: 99,
+        to: 'jana@example.sk',
+        customerName: 'Jana Nováková',
+        assetTypeId: 1,
+        endDay: '2026-03-01',
+      },
+    )
+
+    expect(result).not.toBeNull()
+    expect(result!.kind).toBe('overdue_reminder')
+    expect(result!.referenceId).toBe(99)
+    expect(gateway.sentEmails).toHaveLength(1)
+  })
+
+  it('never sends a second Overdue reminder for the same Reservation — D-17 rejects repeated nagging, not just staged escalation', async () => {
+    const params = {
+      tenantId: tenantA,
+      customerId,
+      reservationId: 99,
+      to: 'jana@example.sk',
+      customerName: 'Jana Nováková',
+      assetTypeId: 1,
+      endDay: '2026-03-01',
+    }
+    await dispatchOverdueReminder({ repo, gateway }, params)
+    // A second scheduled scan, days later, still finds the same
+    // Reservation Overdue — must still send nothing.
+    const second = await dispatchOverdueReminder({ repo, gateway }, { ...params, endDay: '2026-03-01' })
+
+    expect(second).toBeNull()
+    expect(gateway.sentEmails).toHaveLength(1)
+  })
+
+  it('an Overdue reminder and a return reminder for the same Reservation id are independent kinds', async () => {
+    await dispatchReturnReminder(
+      { repo, gateway },
+      {
+        tenantId: tenantA,
+        customerId,
+        reservationId: 99,
+        to: 'jana@example.sk',
+        customerName: 'Jana',
+        assetTypeId: 1,
+        endDay: '2026-03-01',
+      },
+    )
+    const result = await dispatchOverdueReminder(
+      { repo, gateway },
+      {
+        tenantId: tenantA,
+        customerId,
+        reservationId: 99,
+        to: 'jana@example.sk',
+        customerName: 'Jana',
+        assetTypeId: 1,
+        endDay: '2026-03-01',
       },
     )
 
