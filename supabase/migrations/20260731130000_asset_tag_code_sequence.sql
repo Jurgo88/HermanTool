@@ -1,0 +1,14 @@
+-- QR tag generation (F10, FR-25, FR-26, W9; issue #9). A dedicated
+-- sequence for AssetTag codes — deliberately its own identity space, NOT
+-- assets.id and NOT asset_tags.id, so a tag code never correlates with
+-- either (Finding 10: "the QR must encode an opaque tag identity, never
+-- an Asset ID"). Single global sequence for the pilot's one Tenant
+-- (D-01) — a second Tenant would need this partitioned, same
+-- single-value-for-the-pilot pattern already used for OQ #7's reminder
+-- schedule and D-17's LostAsset threshold.
+--
+-- No new table: server/contexts/asset-registry/tag-code.ts formats
+-- nextval('asset_tag_code_seq') as a short, human-readable code
+-- ("HT-000042") and passes it into the ALREADY EXISTING bindAssetTag
+-- (asset_tags.tag_code), unchanged.
+create sequence if not exists asset_tag_code_seq;

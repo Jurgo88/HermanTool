@@ -38,4 +38,20 @@ export const sk = {
     fieldDeposit: 'Depozit (EUR)',
     createAction: 'Vytvoriť',
   },
+  adminAssetRegistry: {
+    title: 'Hromadná registrácia a QR štítky',
+    intro:
+      'Nahrajte CSV so stĺpcami "assetTypeId,quantity" (jeden riadok na typ náradia). Pre každý kus sa vytvorí Asset a vygeneruje sa nový QR štítok.',
+    csvFileLabel: 'Súbor CSV',
+    csvTextareaLabel: 'Alebo vložte CSV priamo',
+    submitAction: 'Zaregistrovať a vygenerovať štítky',
+    submitting: 'Registrujem…',
+    resultHeading: 'Vygenerované štítky',
+    resultCount: 'Vygenerovaných {count} štítkov.',
+    printAction: 'Tlačiť hárok',
+    columnAssetId: 'Asset',
+    columnAssetTypeId: 'Typ náradia',
+    columnTagCode: 'Kód štítku',
+    emptyCsvError: 'Vložte alebo nahrajte CSV pred odoslaním.',
+  },
 } as const

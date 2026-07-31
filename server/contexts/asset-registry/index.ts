@@ -29,3 +29,15 @@ export {
   markAssetUnavailable,
   retireAsset,
 } from './asset-lifecycle'
+
+// F10, FR-25, FR-26, W9; issue #9: QR tag code generation and the
+// 200-asset pilot bootstrap.
+export { formatTagCode } from './tag-code'
+export type { BulkRegisteredUnit, BulkRegistrationLine } from './bulk-registration'
+export {
+  bulkRegisterAssets,
+  EmptyBulkRegistrationError,
+  InvalidBulkRegistrationLineError,
+  MalformedCsvRowError,
+  parseBulkRegistrationCsv,
+} from './bulk-registration'

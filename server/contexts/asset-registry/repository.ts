@@ -54,6 +54,17 @@ export interface AssetRegistryRepository {
 
   unbindAssetTag(tenantId: TenantId, tagId: number, operatorId: string): Promise<void>
 
+  // F10, FR-25, FR-26; issue #9: the next value from a dedicated,
+  // tag-only identity space (asset_tag_code_seq) — deliberately NOT the
+  // Asset's own id or the asset_tags row's own id, so a tag code never
+  // correlates with either (Finding 10: "never an Asset ID"). Every call
+  // consumes a value permanently, matching a physical QR sticker that,
+  // once printed, is never reissued to a different tag even if this
+  // particular bulk-registration attempt is rolled back — cheap and
+  // correct at this scale (NFR-04), same "a gap in a serial column is
+  // fine" reasoning Postgres sequences always carry.
+  nextTagCodeNumber(tenantId: TenantId): Promise<number>
+
   // Runs `fn` against a repository bound to a single transaction, so a
   // multi-step domain operation (e.g. rebind = unbind + insert) commits or
   // rolls back as one unit.
@@ -233,6 +244,16 @@ export function createPostgresAssetRegistryRepository(
         set unbound_at = now(), unbound_by_operator_id = ${operatorId}
         where tenant_id = ${tenantId} and id = ${tagId} and unbound_at is null
       `
+    },
+
+    // Single global sequence for the pilot's one Tenant (D-01) —
+    // `tenantId` isn't used in the query itself, kept in the signature
+    // for FR-33's structural consistency ("every method takes tenantId
+    // first") and so a second Tenant's own partitioning is a one-line
+    // change here, not a signature change at every call site.
+    async nextTagCodeNumber(_tenantId) {
+      const rows = await sql<{ n: number }[]>`select nextval('asset_tag_code_seq')::int as n`
+      return rows[0]!.n
     },
 
     async transaction<T>(fn: (repo: AssetRegistryRepository) => Promise<T>) {
