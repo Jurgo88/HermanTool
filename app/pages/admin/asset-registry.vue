@@ -8,8 +8,23 @@
 // client-side (the `qrcode` package): a tag code has no security
 // purpose (unlike D-23's Customer access token), so there is nothing
 // here for the server to protect by generating the image itself.
+//
+// The primary input is a line builder — pick an AssetType by NAME from
+// Catalog (reusing GET /api/catalog/asset-types, the same endpoint
+// ./catalog.vue already uses) rather than typing its numeric id, which
+// tested confusing and error-prone (an Operator has no reason to know
+// or copy AssetType ids by heart). Raw CSV paste/upload stays available
+// as a secondary, "advanced" path for a Tenant preparing a large import
+// from a spreadsheet — the backend's parseBulkRegistrationCsv is
+// unchanged; the builder just generates the same CSV text under the
+// hood before submitting.
 import QRCode from 'qrcode'
 import { sk } from '~/i18n/sk'
+
+interface AssetTypeOption {
+  id: number
+  name: string
+}
 
 interface BulkRegisteredUnitView {
   assetId: number
@@ -21,7 +36,20 @@ interface TagSheetEntry extends BulkRegisteredUnitView {
   qrDataUrl: string
 }
 
+interface BuilderLine {
+  assetTypeId: number
+  assetTypeName: string
+  quantity: number
+}
+
 const nuxtApp = useNuxtApp()
+const requestFetch = useRequestFetch()
+
+const assetTypes = ref<AssetTypeOption[]>([])
+const lines = ref<BuilderLine[]>([])
+const selectedAssetTypeId = ref<number | null>(null)
+const quantityInput = ref('')
+
 const csv = ref('')
 const error = ref<string | null>(null)
 const submitting = ref(false)
@@ -37,6 +65,38 @@ async function handleFetchError(err: unknown) {
   error.value = message ?? sk.common.somethingWentWrong
 }
 
+async function loadAssetTypes() {
+  try {
+    assetTypes.value = await requestFetch<AssetTypeOption[]>('/api/catalog/asset-types')
+    if (assetTypes.value.length > 0) selectedAssetTypeId.value = assetTypes.value[0]!.id
+  } catch (err: unknown) {
+    await handleFetchError(err)
+  }
+}
+
+function addLine() {
+  error.value = null
+  const assetTypeId = selectedAssetTypeId.value
+  const quantity = Number(quantityInput.value)
+  if (!assetTypeId || !Number.isInteger(quantity) || quantity <= 0) {
+    error.value = sk.adminAssetRegistry.invalidLineError
+    return
+  }
+
+  const assetType = assetTypes.value.find((a) => a.id === assetTypeId)!
+  const existing = lines.value.find((l) => l.assetTypeId === assetTypeId)
+  if (existing) {
+    existing.quantity += quantity
+  } else {
+    lines.value.push({ assetTypeId, assetTypeName: assetType.name, quantity })
+  }
+  quantityInput.value = ''
+}
+
+function removeLine(index: number) {
+  lines.value.splice(index, 1)
+}
+
 async function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -44,9 +104,17 @@ async function onFileChange(event: Event) {
   csv.value = await file.text()
 }
 
+function buildCsv(): string {
+  if (lines.value.length > 0) {
+    return lines.value.map((l) => `${l.assetTypeId},${l.quantity}`).join('\n')
+  }
+  return csv.value
+}
+
 async function submit() {
   error.value = null
-  if (!csv.value.trim()) {
+  const body = buildCsv()
+  if (!body.trim()) {
     error.value = sk.adminAssetRegistry.emptyCsvError
     return
   }
@@ -56,12 +124,14 @@ async function submit() {
   try {
     const { units } = await $fetch<{ units: BulkRegisteredUnitView[] }>('/api/asset-registry/bulk-register', {
       method: 'POST',
-      body: { csv: csv.value },
+      body: { csv: body },
     })
 
     entries.value = await Promise.all(
       units.map(async (unit) => ({ ...unit, qrDataUrl: await QRCode.toDataURL(unit.tagCode, { margin: 1 }) })),
     )
+    lines.value = []
+    csv.value = ''
   } catch (err: unknown) {
     await handleFetchError(err)
   } finally {
@@ -72,6 +142,8 @@ async function submit() {
 function print() {
   window.print()
 }
+
+await loadAssetTypes()
 </script>
 
 <template>
@@ -81,17 +153,60 @@ function print() {
     <p v-if="error" role="alert">{{ error }}</p>
 
     <section class="no-print">
-      <label>
-        {{ sk.adminAssetRegistry.csvFileLabel }}
-        <input type="file" accept=".csv,text/csv" @change="onFileChange" />
-      </label>
-      <label>
-        {{ sk.adminAssetRegistry.csvTextareaLabel }}
-        <textarea v-model="csv" rows="8" placeholder="assetTypeId,quantity&#10;1,50&#10;2,20"></textarea>
-      </label>
-      <button type="button" :disabled="submitting" @click="submit">
-        {{ submitting ? sk.adminAssetRegistry.submitting : sk.adminAssetRegistry.submitAction }}
-      </button>
+      <h2>{{ sk.adminAssetRegistry.builderHeading }}</h2>
+      <p v-if="assetTypes.length === 0">{{ sk.adminAssetRegistry.noAssetTypes }}</p>
+      <template v-else>
+        <label>
+          {{ sk.adminAssetRegistry.assetTypeLabel }}
+          <select v-model.number="selectedAssetTypeId">
+            <option v-for="assetType in assetTypes" :key="assetType.id" :value="assetType.id">
+              {{ assetType.name }}
+            </option>
+          </select>
+        </label>
+        <label>
+          {{ sk.adminAssetRegistry.quantityLabel }}
+          <input v-model="quantityInput" type="number" min="1" step="1" />
+        </label>
+        <button type="button" @click="addLine">{{ sk.adminAssetRegistry.addLineAction }}</button>
+
+        <table v-if="lines.length > 0">
+          <thead>
+            <tr>
+              <th>{{ sk.adminAssetRegistry.columnAssetType }}</th>
+              <th>{{ sk.adminAssetRegistry.columnQuantity }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(line, index) in lines" :key="line.assetTypeId">
+              <td>{{ line.assetTypeName }}</td>
+              <td>{{ line.quantity }}</td>
+              <td>
+                <button type="button" @click="removeLine(index)">{{ sk.adminAssetRegistry.removeLineAction }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </template>
+
+      <details>
+        <summary>{{ sk.adminAssetRegistry.advancedToggle }}</summary>
+        <label>
+          {{ sk.adminAssetRegistry.csvFileLabel }}
+          <input type="file" accept=".csv,text/csv" @change="onFileChange" />
+        </label>
+        <label>
+          {{ sk.adminAssetRegistry.csvTextareaLabel }}
+          <textarea v-model="csv" rows="6" placeholder="assetTypeId,quantity&#10;1,50&#10;2,20"></textarea>
+        </label>
+      </details>
+
+      <p>
+        <button type="button" :disabled="submitting" @click="submit">
+          {{ submitting ? sk.adminAssetRegistry.submitting : sk.adminAssetRegistry.submitAction }}
+        </button>
+      </p>
     </section>
 
     <section v-if="entries.length > 0">
