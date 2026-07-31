@@ -106,7 +106,9 @@ export interface AvailabilityReservationRepository {
   // ends on `day`. The caller (server/utils/operator-counter-views.ts)
   // cross-references Handover & Possession to exclude ones already
   // handed back — this method only knows the commercial clock, never the
-  // physical one (P1).
+  // physical one (P1). Reused as-is by A-08/FR-32's return-reminder
+  // dispatch (server/utils/return-reminder-dispatch.ts, issue #35) — same
+  // candidate set, different consumer.
   listReservationsEndingOn(tenantId: TenantId, day: string): Promise<Reservation[]>
 
   // FR-28/D-17: Overdue candidates — Confirmed Reservations whose

@@ -50,6 +50,13 @@ export default defineNuxtConfig({
     stripeSecretKey: '',
     stripeWebhookSecret: '',
 
+    // Resend (D-28) — see server/contexts/notification/resend-gateway.ts,
+    // the one file permitted to use the `resend` package.
+    // notificationFromAddress must be a Resend-verified sender for the
+    // Tenant's own domain.
+    resendApiKey: '',
+    notificationFromAddress: '',
+
     // Cloudflare R2 (D-27, S3-compatible). r2AccessKeyId/r2SecretAccessKey/
     // r2Endpoint are shared across buckets; each context reads its OWN
     // bucket only, through its OWN gateway file (the one file per

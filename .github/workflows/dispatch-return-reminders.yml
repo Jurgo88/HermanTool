@@ -1,0 +1,38 @@
+# Return reminder dispatch (A-08, D-28, FR-32; issue #35). Scheduling by
+# GitHub Actions calling an authenticated Nitro endpoint — same
+# mechanism as .github/workflows/sweep-expired-reservations.yml (FR-08)
+# and .github/workflows/erase-expired-identity-evidence.yml (FR-16),
+# reused rather than reinvented.
+#
+# Reuses the SAME two repo-level configuration values as those two
+# workflows — no new secret to provision:
+#   - vars.SWEEP_SITE_URL      — the deployed site origin
+#   - secrets.SWEEP_JOB_SECRET — must match NUXT_INTERNAL_JOB_SECRET set
+#                                 in Netlify's environment variables (D-31)
+#
+# Once daily is enough: a Reservation is a return-reminder candidate on
+# exactly one calendar day (its RentalPeriod's own end day), so running
+# more often than daily buys nothing — unlike the Pending-expiry sweep,
+# which protects a live availability invariant.
+name: Dispatch return reminders
+
+on:
+  schedule:
+    - cron: '0 7 * * *' # daily, 07:00 UTC — a reasonable local morning
+  workflow_dispatch: {}
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the dispatch-return-reminders endpoint
+        run: |
+          http_status=$(curl -sS -o /tmp/dispatch-response.json -w "%{http_code}" \
+            -X POST "${{ vars.SWEEP_SITE_URL }}/api/internal/notification/dispatch-return-reminders" \
+            -H "Authorization: Bearer ${{ secrets.SWEEP_JOB_SECRET }}")
+          echo "HTTP status: $http_status"
+          cat /tmp/dispatch-response.json
+          if [ "$http_status" -ge 400 ]; then
+            echo "::error::Return-reminder dispatch endpoint returned HTTP $http_status"
+            exit 1
+          fi
