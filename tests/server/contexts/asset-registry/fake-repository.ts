@@ -24,6 +24,7 @@ interface State {
   nextAssetId: number
   nextStatusEventId: number
   nextTagId: number
+  nextTagCodeSeq: number
 }
 
 function cloneState(state: State): State {
@@ -35,6 +36,7 @@ function cloneState(state: State): State {
     nextAssetId: state.nextAssetId,
     nextStatusEventId: state.nextStatusEventId,
     nextTagId: state.nextTagId,
+    nextTagCodeSeq: state.nextTagCodeSeq,
   }
 }
 
@@ -53,6 +55,7 @@ export function createFakeAssetRegistryRepository(): FakeAssetRegistryRepository
     nextAssetId: 1,
     nextStatusEventId: 1,
     nextTagId: 1,
+    nextTagCodeSeq: 1,
   }
 
   function build(target: State): FakeAssetRegistryRepository {
@@ -162,6 +165,10 @@ export function createFakeAssetRegistryRepository(): FakeAssetRegistryRepository
         if (!tag) return
         tag.unboundAt = new Date()
         tag.unboundByOperatorId = operatorId
+      },
+
+      async nextTagCodeNumber() {
+        return target.nextTagCodeSeq++
       },
 
       async transaction(fn) {
