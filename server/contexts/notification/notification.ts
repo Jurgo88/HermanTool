@@ -1,9 +1,19 @@
-// Notification core (D-28, FR-32, A-08; issue #35). Two named message
-// kinds: 'confirmation' (dispatched at ReservationConfirmed — see
-// server/api/webhooks/stripe.post.ts) and 'return_reminder' (dispatched
-// by a scheduled scan of Reservations due back today — see
-// server/utils/return-reminder-dispatch.ts). 'pickup_reminder' and
-// 'overdue_reminder' are #36's separate, later scope.
+// Notification core (D-28, FR-32, A-08, FR-41, W6, D-17; issues #35,
+// #36). All four named message kinds: 'confirmation' (dispatched at
+// ReservationConfirmed — see server/api/webhooks/stripe.post.ts),
+// 'return_reminder' (server/utils/return-reminder-dispatch.ts),
+// 'pickup_reminder' (server/utils/pickup-reminder-dispatch.ts) and
+// 'overdue_reminder' (server/utils/overdue-reminder-dispatch.ts).
+//
+// 'overdue_reminder' is sent AT MOST ONCE per Reservation — the first
+// time it is found Overdue, not repeatedly on every scheduled run while
+// it stays Overdue. D-17 explicitly rejects "staged automatic
+// escalation... no escalation state machine, no automatic penalty" — a
+// daily nagging email would be exactly that in disguise, and nothing in
+// FR-41/W6/D-17 asks for repetition. This also keeps the same
+// at-most-once-per-(kind, referenceId) model every other kind already
+// uses, rather than inventing a second dispatch-tracking shape just for
+// this one.
 //
 // Deliberately a leaf with ZERO cross-context imports of its own, even
 // though the context map (Part 1 §4) would structurally permit this
@@ -54,6 +64,26 @@ function formatReturnReminderEmail(params: { customerName: string; assetTypeId: 
   return {
     subject: 'Your rental is due back soon',
     body: `Hi ${params.customerName},\n\nA reminder that your rental (AssetType ${params.assetTypeId}) is due back on ${params.endDay}.\n\nThanks for returning it on time.`,
+  }
+}
+
+function formatPickupReminderEmail(params: { customerName: string; assetTypeId: number; startDay: string }): {
+  subject: string
+  body: string
+} {
+  return {
+    subject: 'Your reservation is ready for pickup',
+    body: `Hi ${params.customerName},\n\nA reminder that your reservation (AssetType ${params.assetTypeId}) is ready for pickup on ${params.startDay}.\n\nSee you soon.`,
+  }
+}
+
+function formatOverdueReminderEmail(params: { customerName: string; assetTypeId: number; endDay: string }): {
+  subject: string
+  body: string
+} {
+  return {
+    subject: 'Your rental is overdue',
+    body: `Hi ${params.customerName},\n\nYour rental (AssetType ${params.assetTypeId}) was due back on ${params.endDay} and has not yet been returned. Please bring it back as soon as possible, or contact us.`,
   }
 }
 
@@ -117,4 +147,50 @@ export async function dispatchReturnReminder(
   const { tenantId, customerId, reservationId, to, customerName, assetTypeId, endDay } = params
   const { subject, body } = formatReturnReminderEmail({ customerName, assetTypeId, endDay })
   return sendAndRecord(deps, { tenantId, customerId, kind: 'return_reminder', referenceId: reservationId, to, subject, body })
+}
+
+// FR-41: "Pickup reminder by email." Sent exactly on the Reservation's
+// own RentalPeriod start day (OQ #7's timing value — not launch-blocking,
+// same pragmatic pilot-scale constant discipline as return_reminder's
+// own "exactly on end day" choice) for symmetry and simplicity, not a
+// preference/configuration surface (issue #36's own scope note).
+export async function dispatchPickupReminder(
+  deps: NotificationDeps,
+  params: {
+    tenantId: TenantId
+    customerId: number
+    reservationId: number
+    to: string
+    customerName: string
+    assetTypeId: number
+    startDay: string
+  },
+): Promise<NotificationDispatch | null> {
+  const { tenantId, customerId, reservationId, to, customerName, assetTypeId, startDay } = params
+  const { subject, body } = formatPickupReminderEmail({ customerName, assetTypeId, startDay })
+  return sendAndRecord(deps, { tenantId, customerId, kind: 'pickup_reminder', referenceId: reservationId, to, subject, body })
+}
+
+// D-17, W6, FR-41: the Customer-facing half of Overdue handling — the
+// derivation and Operator view live in Availability & Reservation
+// (server/utils/overdue-noshow-views.ts, issue #16). Sent AT MOST ONCE
+// per Reservation (see this file's header comment for why) —
+// server/utils/overdue-reminder-dispatch.ts's own hasBeenDispatched
+// check (via sendAndRecord) is what makes a daily scheduled scan safe to
+// run indefinitely without renagging the same Customer.
+export async function dispatchOverdueReminder(
+  deps: NotificationDeps,
+  params: {
+    tenantId: TenantId
+    customerId: number
+    reservationId: number
+    to: string
+    customerName: string
+    assetTypeId: number
+    endDay: string
+  },
+): Promise<NotificationDispatch | null> {
+  const { tenantId, customerId, reservationId, to, customerName, assetTypeId, endDay } = params
+  const { subject, body } = formatOverdueReminderEmail({ customerName, assetTypeId, endDay })
+  return sendAndRecord(deps, { tenantId, customerId, kind: 'overdue_reminder', referenceId: reservationId, to, subject, body })
 }

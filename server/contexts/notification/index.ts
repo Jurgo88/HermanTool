@@ -14,10 +14,10 @@
 // Every NotificationDispatch is an aggregate root and carries
 // `tenantId: TenantId` (D-01, P2).
 //
-// Implements 'confirmation' and 'return_reminder' (D-28, FR-32, A-08;
-// issue #35). 'pickup_reminder' and 'overdue_reminder' are issue #36's
-// separate, later scope — see ./types.ts's NotificationKind for the
-// full, closed four-kind list.
+// Implements all four named kinds — 'confirmation' and 'return_reminder'
+// (D-28, FR-32, A-08; issue #35), 'pickup_reminder' and
+// 'overdue_reminder' (FR-41, W6, D-17; issue #36). See ./types.ts's
+// NotificationKind for the full, closed list.
 export type { NotificationDispatch, NotificationKind } from './types'
 export { NotificationError, NotificationSendFailedError } from './types'
 
@@ -28,4 +28,9 @@ export type { NotificationGateway, SendEmailRequest } from './resend-gateway'
 export { createResendNotificationGateway } from './resend-gateway'
 
 export type { NotificationDeps } from './notification'
-export { dispatchReservationConfirmation, dispatchReturnReminder } from './notification'
+export {
+  dispatchOverdueReminder,
+  dispatchPickupReminder,
+  dispatchReservationConfirmation,
+  dispatchReturnReminder,
+} from './notification'
