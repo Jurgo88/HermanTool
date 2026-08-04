@@ -4,12 +4,12 @@
 | | |
 |---|---|
 | **Status** | Draft — authoritative for technology selection and risk |
-| **Scope** | Sections 13–16 and the Open Questions appendix. Section 17 (Independent Review) is Part 5. |
+| **Scope** | Sections 13–16 and the Open Questions appendix. Section 17 (Independent Review) is Part 5. Section 16.2 reconciles the 04 August 2026 implementation review (`docs/reviews/implementation-review-2026-08-04.md`, findings `IR-01`…`IR-13`). |
 | **Depends on** | Parts 1, 2 and 3, all **frozen**. Their identifiers are referenced, never restated or renumbered. Section 16 reconciles Part 5's independent review; because Parts 1–3 are frozen, its corrections are expressed here as new decisions and flagged supersessions rather than as edits to those parts. |
-| **Adds** | Decisions `D-24`…`D-32` (technology), and — in the §16 reconciliation pass — `D-10` and `D-33`…`D-37`. Risks `R-01`…`R-15`. No new Ubiquitous Language. |
+| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-41`. Risks `R-01`…`R-17`. No new Ubiquitous Language. |
 | **Prices verified** | 18 July 2026, against vendor pricing pages. Every number below has a date on it because every number below will move. |
 
-### Flags: two contradictions and one defect
+### Flags: two contradictions and two defects
 
 Parts 1–3 are frozen, so these are raised rather than resolved.
 
@@ -19,11 +19,13 @@ Parts 1–3 are frozen, so these are raised rather than resolved.
 
 **F-3 — D-10 was missing in Parts 1–3. `[defect in Part 1]`** Principle P4 in Part 1 §2 ends with "See D-10" and the identifier was not written in Parts 1–3. The decision it points at was already stated inline in P4 — append-only event history for Possession and condition, ordinary mutable state elsewhere, explicitly *not* event sourcing across the system — so reasoning was present while the ADR reference was broken. **Resolved in this revision:** D-10 is now written in §16 and marked accepted in §15. The ADR is hosted in Part 4 because Parts 1–3 are frozen.
 
+**F-4 — The §15 decision log stopped at D-32. `[defect in Part 4]`** The reconciliation pass added `D-10` and `D-33`…`D-37` in §16 but never gave them rows in §15's table, so the document's own map omitted six accepted decisions — including D-33, which governs the system's hardest invariant. A log that silently omits a decision is worse than no log, because it is consulted as if complete. **Resolved in this revision:** §15 now carries every decision through D-41.
+
 ---
 
 ## 13. Risks and Unknowns
 
-Fifteen risks. Each is specific to *this* system given Parts 1–3; none is here to pad the list. Where the honest answer is "accepted", it says so.
+Seventeen risks. Each is specific to *this* system given Parts 1–3; none is here to pad the list. Where the honest answer is "accepted", it says so.
 
 ### R-01 — Cancellation and refund policy is still unwritten
 **Severity: Critical · Category: legal**
@@ -114,6 +116,18 @@ Every number in Section 14 was verified on 18 July 2026 and several are recent: 
 
 Card-scheme dispute windows commonly run around 120 days and may be measured from service delivery context rather than only payment date. If retention policy is set shorter than this horizon, evidence needed for dispute defence can be erased while the cardholder can still charge back. In the worst case (stolen card used for a real pickup), the Tenant can lose both fee and asset while the strongest identity evidence has already rolled off. This risk is separate from cancellation policy and cannot be deferred behind R-01.
 **Mitigation:** set the D-11 retention window with card-scheme dispute timelines in scope, not in isolation. Keep identity verification, contract acceptance record, and handover evidence available for the full dispute horizon plus documented backup horizon.
+
+### R-16 — Per-request connection and authentication round trips on the scan path
+**Severity: Medium · Category: technical**
+
+Raised by IR-09. R-08 covers cold starts and stops there. Separately from cold start, the implemented request shape opens a fresh Postgres connection per dependency and makes a remote Supabase Auth call before any domain work begins, so a scan pays two TLS handshakes and one auth round trip against the one endpoint NFR-02 gives a latency budget. It also doubles the connections held per request against the pooler, which is the free-tier exhaustion cliff Part 5 Finding 4 named and R-08 does not cover.
+**Mitigation:** D-39. The measurement task at OQ #22 is the go/no-go, and it should measure the request path as built rather than a cold start in isolation.
+
+### R-17 — Photographic evidence is recorded without proof that it was stored
+**Severity: High · Category: technical, legal**
+
+Raised by IR-10. ConditionReport and IdentityEvidence rows name R2 object keys that nothing confirms exist, so FR-20's paired-evidence guard — the mechanism that makes a deposit deduction defensible rather than an assertion — can pass against two rows pointing at nothing. The failure is silent at capture time and surfaces only in the dispute the evidence existed for. R-10's storage-volume framing assumed the bytes arrive; this is the case where they do not.
+**Mitigation:** D-40. Unconfirmed rows never count as evidence, and presigned uploads carry a content-length range so a leaked D-23 link cannot be used to fill the bucket either.
 
 ---
 
@@ -294,6 +308,15 @@ The map. Every decision from D-01, with its owning part and status. Reasoning is
 | **D-30** | **Migrations are files in the repo, applied by GitHub Actions, rehearsed on a second free project, expand/contract only.** | P4 §14.7 | accepted |
 | **D-31** | **Secrets: `.env` local, Netlify env vars in production, nothing in the repo, service-role key never client-side.** | P4 §14.8 | accepted |
 | **D-32** | **Nightly `pg_dump` to R2 via GitHub Actions, with a named retention horizon. Satisfies NFR-03's intent at €0.** | P4 §14.9 | accepted — **horizon value open** |
+| **D-33** | **Per-(AssetType, day) hold counter maintained in the same transaction as Reservation creation, enforcing D-08 under concurrency.** | P4 §16 | accepted — implemented; verified by OQ #23 |
+| **D-34** | **Banned terms and dependency direction enforced in CI; the build fails on violation.** | P4 §16 | accepted — **not implemented (IR-03)** |
+| **D-35** | **Terms acceptance recorded on ReservationGroup before payment, with version and timestamp.** | P4 §16 | accepted — mechanics implemented; terms content and pre-contractual catalogue open (OQ #1) |
+| **D-36** | **Provisional RetentionDeadline at creation, re-anchored at Settlement; no evidence without an active deadline.** | P4 §16 | accepted — implemented; blocked on the window value (OQ #2) |
+| **D-37** | **Payment after Pending expiry re-acquires atomically; on failure, auto-refund and notify.** | P4 §16 | accepted — implemented |
+| **D-38** | **Availability capacity is the size of the rentable pool, not the count of Assets currently in Rentable status.** | P4 §16.2 | accepted — supersedes the literal reading of D-08's "Rentable Assets" |
+| **D-39** | **Reused database client and locally verified Operator sessions on the request path; remote verification retained for evidence access.** | P4 §16.2 | accepted — **token lifetime open (OQ #25)** |
+| **D-40** | **A photograph counts as evidence only once its object is confirmed stored; presigned uploads are size-bounded.** | P4 §16.2 | accepted — **size value open (OQ #26)** |
+| **D-41** | **Every internal scheduled endpoint records a job run; one ledger serves FR-40 and FR-44.** | P4 §16.2 | accepted |
 
 ### Long-term implications and migration difficulty — D-24 to D-32
 
@@ -362,6 +385,74 @@ Client code must not write domain state directly to Supabase. Business invariant
 **Traceability rule for generated changes**
 Every non-trivial code change must cite at least one governing identifier in commit message or PR notes (for example `FR-29`, `D-33`, `NFR-08`). If no identifier can be cited, the change is out of scope.
 
+## 16.2 Reconciliation with the implementation review (04 August 2026)
+
+The codebase was reviewed against Parts 1–5 after milestone M4. The findings are in `docs/reviews/implementation-review-2026-08-04.md` as `IR-01`…`IR-13`; four of them require a decision rather than a task, and those four are written here. The rest are implementation work against decisions and requirements that already exist — IR-03 is D-34, IR-04 is D-32, IR-05 is D-29, IR-08 is FR-02, IR-11 is FR-10 mechanics — and are tracked as issues rather than as new ADRs, because a decision that already says what to do does not need restating in order to be done.
+
+Parts 1–3 remain frozen. D-38 is the only one of these that touches a frozen part's language, and it does so as a supersession of a reading rather than of a decision; that is stated inside it.
+
+### D-38 — Availability capacity is the rentable pool, not the current Rentable status count
+
+**Raised by:** IR-01 (Critical).
+
+**Considered:** (a) capacity is the number of Assets whose status is Rentable, which is the literal reading of D-08 and what is implemented; (b) capacity is the number of Assets *in the pool* — Rentable, InPossession and UnderInspection — excluding Unavailable and Retired; (c) capacity is projected per day from a forward model of each Asset's expected status.
+
+**Trade-offs:** (a) conflates the two clocks Part 1 §3 calls the most important distinction in the domain. An Asset handed out today is InPossession for the duration of its Possession, while the Reservation that authorised the handover has *already* consumed a day in `asset_type_day_holds`. The same unit is subtracted twice, and it is subtracted from every future day rather than only from the days it is actually out. The direction of the error is quiet: availability is under-reported, and the pilot refuses bookings for days that are free. (c) is a projection engine — speculative structure of exactly the kind P8 refuses, and it would additionally require the system to predict a return date it has already declined to trust (P1). (b) costs one changed query and one changed sentence.
+
+**Recommended: (b).** Capacity for an AssetType is the count of its Assets in Rentable, InPossession or UnderInspection status. Unavailable and Retired are excluded.
+
+**Why:** `asset_type_day_holds` is already the per-day commercial ledger, and D-33 already makes it authoritative under concurrency. Capacity is the *physical* quantity that ledger is measured against, and pool membership is a durable fact about a unit rather than a statement about where it is standing this afternoon. Unavailable and Retired are excluded precisely because they *are* statements that the unit has left the pool. The consequence is one the specification already committed to elsewhere: an Overdue Asset does not reduce future capacity — the shortfall it threatens is surfaced by FR-29's ranking, exactly as Part 5 Finding 12 framed it and as `server/utils/overdue-noshow-views.ts` already computes. The current query silently contradicts that view.
+
+**What this supersedes, precisely.** Not D-08, whose invariant is unchanged and whose strictness is unchanged. What is superseded is the literal reading of the phrase "Rentable Assets of that type" in D-08 and FR-03/FR-04, which Part 1 wrote before Handover & Possession existed to move Assets out of Rentable status; at that time the two readings were indistinguishable. Every occurrence of that phrase in Parts 1–3 is to be read as "Assets of that type in the rentable pool", as defined here.
+
+**Obligation:** the D-08 test set that CLAUDE.md already makes mandatory gains one case — a HandoverOut does not change availability for any day outside the Reservation's own RentalPeriod.
+
+**Left open:** an Asset marked Unavailable leaves the pool immediately and for all future days. Whether a damaged unit with a known return-to-service date should instead leave the pool only until that date is a real question and is deferred as OQ #24; the answer affects only Unavailable, never the handover path.
+
+### D-39 — Connection reuse and session verification on the request path
+
+**Raised by:** IR-09 (Medium), R-16.
+
+**Considered:** (a) a Postgres client created and ended per dependency per request, with the Operator session verified by a remote Supabase Auth call on every request — what is implemented; (b) a module-scope client reused across invocations, one client per request shared by every dependency, and local verification of the access token's signature and expiry, with the remote call reserved for the refresh path; (c) an external connection pooler or proxy in front of Supavisor.
+
+**Trade-offs:** (a) is simple and honest and its comments justify it by NFR-04's refusal of scaling apparatus, which is a fair reading of the wrong thing: postgres.js already owns a pool, so creating one per request does not avoid apparatus, it discards apparatus that already exists. The cost lands on the one endpoint the whole product is organised around — a scan pays an auth round trip plus two connection setups before any domain work starts (NFR-02, P3) — and it holds two pooler connections per request where one would do, which is Part 5 Finding 4's exhaustion cliff. (c) is apparatus NFR-04 genuinely does refuse, at a load that is a rounding error.
+
+**Recommended: (b).**
+
+**Why:** the latency requirement is not general; there is exactly one, and this is the path it names. Reuse costs nothing structural and removes both fixed costs from that path.
+
+**The honest cost, stated so nobody discovers it later.** Local verification means a revoked session stays usable until its access token expires, so NFR-09's revocability becomes revocability *within a bounded lag* rather than immediately. That lag is the access token's lifetime and it must be a named value (OQ #25). Two carve-outs keep the trade acceptable: the refresh path always goes to Supabase Auth, so revocation is real at every refresh; and any route that hands out a presigned read URL for IdentityEvidence keeps the remote check, because NFR-06 is the requirement that bought individual authentication in the first place (D-22) and it is the one place where a lag is not affordable.
+
+**What must not change:** `prepare: false` stays. It is required by Supavisor's transaction pooling (D-24, D-25 §14.2) and is unaffected by this decision; a reused client makes it *more* important, not less.
+
+### D-40 — A photograph is evidence only once its object is confirmed stored
+
+**Raised by:** IR-10 (High), R-17.
+
+**Considered:** (a) record the ConditionReport or IdentityEvidence row when presigned URLs are issued and treat it as complete — what is implemented; (b) record the row unconfirmed, confirm the object's presence in a second step, and count only confirmed rows as evidence; (c) proxy uploads through Nitro so the server sees the bytes.
+
+**Trade-offs:** (a) allows FR-20's paired-evidence check — "no deduction without both reports", the mechanism that makes a deduction defensible rather than a shouting match (P1 corollary, W8) — to pass against two rows naming objects that do not exist. That is worse than an absent check, because it manufactures confidence at the exact moment a dispute requires the opposite. (c) puts multi-megabyte bodies through a serverless function with a 10-second synchronous cap (R-08) and pays egress twice; it also breaks the reason R2 was chosen for photographs at all (D-27, R-10). (b) costs one column, one confirmation call and one sweep.
+
+**Recommended: (b).** A photograph row is created unconfirmed. A confirmation step verifies the object exists before the row counts as evidence. FR-20 counts confirmed reports only. Unconfirmed rows older than the presigned URL's own lifetime are swept, and the sweep records its run under D-41.
+
+**Why:** P1 says the system is a ledger of claims about the physical world. An object key is a claim that a photograph exists, and this is the one place where the claim is cheap to check against the world it describes — a single HEAD against a bucket the platform controls. Everywhere else in this system the physical world is genuinely unobservable and correction is the answer (P1, FR-24); here it is observable, and declining to look is the failure.
+
+**Second, smaller obligation in the same place.** Presigned uploads currently constrain content type and not content length. The D-23 link is by design a bearer token that lands in an inbox (its risks are accepted there), and it grants an upload URL against a 10 GB free tier (R-10). Presigned uploads carry a content-length range; the value is OQ #26.
+
+### D-41 — Scheduled jobs record their runs
+
+**Raised by:** IR-06 (High).
+
+**Considered:** (a) a bespoke last-run marker for the erasure job, which is the only job FR-40 names; (b) a job-run ledger written by every internal scheduled endpoint; (c) rely on GitHub Actions run history and Sentry Crons.
+
+**Trade-offs:** (c) is not availability to the owner, which is what FR-40 asks for — it is availability to the developer, in two third-party consoles, one of which retains logs for a bounded period. It also fails R-07's test: the Tenant cannot see it. (a) satisfies the Must and leaves the sweep, the three reminder dispatchers and the D-32 backup with the same silent-failure shape and no answer. (b) costs one table.
+
+**Recommended: (b).** Each internal scheduled endpoint writes a row: job name, started-at, finished-at, outcome, and a count of whatever it processed.
+
+**Why:** NFR-14's argument for FR-40 was that W10's erasure is the only failure in the system that is silent by construction. That was true of the system as specified; as built there are now six scheduled jobs and the argument applies to all of them — a reminder dispatcher that stops running is silent in exactly the same way, and its consequence is the return reminder that Part 1 §4 calls the highest-leverage operational lever the business has. One ledger serves FR-40 (Must) and most of FR-44 (Should), and Sentry Crons (D-29) stays as the independent second signal rather than the only one.
+
+**Boundary:** this is an operations record, not a domain event. It is not in Part 2's catalogue, nothing reacts to it, and it carries no Tenant-scoped domain meaning — it is platform housekeeping, in the same category as a log.
+
 ## Appendix — Open Questions
 
 The pre-build checklist. Everything still open across Parts 1–4, flattest form, with where the context lives.
@@ -374,6 +465,7 @@ The pre-build checklist. Everything still open across Parts 1–4, flattest form
 | 2 | The IdentityEvidence retention window: the number **and** the lawful basis, in writing, recorded in the spec, set with card-scheme dispute timelines in scope. | D-11 · P3 §12(e) · R-02 · R-15 |
 | 3 | The backup retention horizon value. Sum with #2 is the actual promise made to customers. | NFR-07 · D-32 |
 | 4 | Is there a written controller–processor agreement between the Tenant and the developer, naming sub-processors? | R-06 · R-13 |
+| 27 | The Customer-record retention period **and** its basis (accounting/limitation statute), recorded the way D-11 requires. Same lawyer, same conversation as #2 — the records exist in production today with no clock (IR-07). | P7 · Part 5 Finding 6 · IR-07 |
 
 ### Decisions with values still unset
 
@@ -385,6 +477,9 @@ The pre-build checklist. Everything still open across Parts 1–4, flattest form
 | 8 | Verify D-33 implementation under concurrency on the chosen pooler/transaction mode and document retry semantics. | D-33 · D-24 · D-25 |
 | 9 | Is the Netlify account pre- or post-4 September 2025? Legacy pricing retires R-03 entirely. | §14.0 · R-03 |
 | 10 | Confirmation of A-10 — does the EAA micro-enterprise exemption actually apply? | NFR-11 · A-10 |
+| 24 | Does an Asset marked Unavailable leave the pool for all future days, or only until a recorded return-to-service date? Affects Unavailable only, never the handover path. | D-38 · IR-01 |
+| 25 | The Operator access-token lifetime — i.e. the revocation lag D-39 accepts in exchange for removing a remote auth call from the scan path. | D-39 · NFR-09 · IR-09 |
+| 26 | Maximum accepted photograph size for presigned uploads, for both buckets. | D-40 · R-10 · IR-10 |
 
 ### Deferred design work — decided in principle, not designed
 
@@ -414,3 +509,4 @@ The pattern P3 named holds: almost every trigger is "the second Tenant", and non
 | 21 | Does the Tenant get access to the R2 backup bucket, or does the bus factor stay fully with you? | R-07 · D-32 |
 | 22 | Measure cold-start scan-to-resolution against NFR-02 before launch. Not a question — a task with a go/no-go attached. | R-08 · NFR-02 |
 | 23 | Run a concurrent-booking test: two simultaneous holds on the last available unit, prove one succeeds and one fails without oversell. | D-33 · D-08 |
+| 28 | Does FR-38's cookie banner survive an actual cookie inventory, or is the accurate obligation a privacy-notice statement rather than a banner? Fold into #4's conversation. | FR-38 · NFR-10 · IR-13 |

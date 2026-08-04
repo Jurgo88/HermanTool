@@ -13,14 +13,17 @@ NORMATIVE. Read it before implementing anything non-trivial.
 - Part 1 — domain, boundaries, Ubiquitous Language, principles P1–P8
 - Part 2 — user types, workflows W1–W11, event catalogue
 - Part 3 — functional (FR-XX) and non-functional (NFR-XX) requirements
-- Part 4 — risks, technology decisions, ADR log (D-01…D-37)
+- Part 4 — risks, technology decisions, ADR log (D-01…D-41)
 - Part 5 — independent review findings (F1–F12)
+- `docs/reviews/implementation-review-2026-08-04.md` — implementation
+  review findings (IR-01…IR-13), reconciled in Part 4 §16.2
 
 ## Precedence when instructions conflict
-1. Part 4 §16 reconciliation decisions (D-10, D-33…D-37)
-2. Part 3 FR/NFR requirements
-3. Part 2 workflows and event catalogue
-4. Part 1 Ubiquitous Language and boundaries
+1. Part 4 §16.2 implementation-review decisions (D-38…D-41)
+2. Part 4 §16 reconciliation decisions (D-10, D-33…D-37)
+3. Part 3 FR/NFR requirements
+4. Part 2 workflows and event catalogue
+5. Part 1 Ubiquitous Language and boundaries
 
 ## Banned terms — NEVER use in code, tables, config, or naming
 Booking, Order, Item, Product, Inventory, User, Check-out/Check-in, 
@@ -47,6 +50,12 @@ HandoverOut/HandoverIn, RentalAgreement, Possession, ReservationGroup.
   FR-34).
 - Reservation and Possession are separate clocks. Overdue and NoShow 
   are DERIVED, never stored (P1, FR-28).
+- Availability capacity is the POOL — Assets that are Rentable, 
+  InPossession or UnderInspection — never the count of Assets currently 
+  in Rentable status (D-38). An Asset being out today must not reduce 
+  capacity for any other day; its own Reservation's holds already did.
+- A photograph counts as evidence only once its object is confirmed 
+  stored. FR-20 counts confirmed ConditionReports only (D-40).
 - No deduction without paired ConditionReports (P1 corollary, FR-20).
 - Every monetary amount carries its currency (D-21).
 - IdentityEvidence always carries a RetentionDeadline (P7, FR-12).
@@ -71,35 +80,52 @@ These are deliberately deferred per the "resolve at build time"
 decision. When implementation touches one of these, STOP and flag it 
 rather than inventing a default.
 
-- **F1 (Critical) — Terms acceptance missing.** No FR yet for 
-  presenting rental terms + deposit rules before payment and 
-  recording acceptance on ReservationGroup with timestamp + terms 
-  version. When building the checkout/payment flow (W2), this must 
-  be designed. D-35 sketches it; it needs a proper FR.
-- **F6 — Customer-record retention.** Customer name/email/phone has 
-  no RetentionDeadline, violating P7. When building the Customer 
-  model, decide the retention basis (accounting/limitation statute) 
-  and apply a deadline.
-- **F8 — Shared counter phone.** D-22 assumes one device per 
-  Operator; reality is one shared counter phone. When building 
-  attesting actions (DepositTaken, DepositReturned, ConditionReport, 
-  LostAsset), add per-Operator PIN re-confirmation.
-- **F10 — QR tag generation.** Nothing generates or prints the QR 
-  tags the whole operational loop depends on. When building Asset 
-  registration (W9), design tag generation (opaque tag identity, not 
-  a URL) and the 200-asset bootstrap.
-- **D-33 detail — concurrency mechanism for D-08.** The overbooking 
-  invariant needs a materialised holds-per-(AssetType,day) counter in 
-  the same transaction as Reservation creation. Isolation level, 
-  retry semantics, and constraint placement are not yet specified. 
-  Design carefully when building the reservation hold logic; write a 
-  concurrent-booking test (OQ #23).
+- **F1 — Terms acceptance. RESOLVED (D-35).** Mechanics are built: 
+  ReservationGroup carries terms version + timestamp, and HandoverOut 
+  refuses a group with no recorded acceptance. Still open is the terms 
+  CONTENT and the pre-contractual information catalogue — legal, OQ #1.
+- **F6 — Customer-record retention. NOW A LIVE GAP (IR-07).** Customer 
+  name/email/phone are persisted with no RetentionDeadline, violating 
+  P7 in production. Needs a period and a recorded basis — OQ #27, same 
+  lawyer conversation as OQ #2.
+- **F8 — Shared counter phone. RESOLVED.** Per-Operator PIN 
+  re-confirmation is built (server/utils/operator-pin.ts) and evidence 
+  reads carry no-store. The PIN prompt still needs a UI (IR-12).
+- **F10 — QR tag generation. RESOLVED.** Opaque tag codes from a 
+  dedicated sequence, bulk registration, client-side QR rendering.
+- **D-33 — concurrency mechanism. RESOLVED.** Atomic conditional UPSERT 
+  with reap-on-contention, plus a concurrency proof test (OQ #23). Do 
+  not replace it with SERIALIZABLE or advisory locks without an ADR.
+
+## OPEN WORK from the 04 August 2026 implementation review
+Full reasoning in docs/reviews/implementation-review-2026-08-04.md. 
+Each has a GitHub issue; cite the IR number alongside the governing 
+identifier in commits.
+
+- **IR-01 (Critical) — capacity double-counts a handed-out Asset.** 
+  getRentableCount reads status='rentable'. Fix per D-38.
+- **IR-02 (Critical) — RETENTION_WINDOW_DAYS is null**, so no end-to-end 
+  rental can be exercised. Not a code fix; OQ #2 must be answered.
+- **IR-03 (High) — D-34 unimplemented, no CI exists at all.**
+- **IR-04 (High) — D-32 nightly pg_dump missing; R-04 unmitigated.**
+- **IR-05 (High) — Sentry absent.** Add SDK and NFR-08 scrubbing in the 
+  SAME change, never SDK first.
+- **IR-06 (High) — FR-40 unimplemented.** Job-run ledger per D-41.
+- **IR-07 (High) — F6 above.**
+- **IR-08 (Medium) — availability has no HTTP surface; FR-02 half-met.**
+- **IR-09 (Medium) — per-request connection churn on the scan path.** 
+  Fix per D-39. Keep prepare:false.
+- **IR-10 (High) — photo rows created without proof of upload.** D-40.
+- **IR-11 (Medium) — Stripe webhook idempotency is check-then-act.**
+- **IR-12 (Medium) — counter/checkout/Customer-link UI absent.**
+- **IR-13 (Low) — FR-38 cookie banner may be the wrong requirement.**
 
 ## Launch-blocking open questions (do NOT invent defaults)
 - Cancellation/refund policy (OQ #1) — leave cancel path unimplemented
 - IdentityEvidence retention window value + legal basis (OQ #2)
 - Backup retention horizon value (OQ #3)
 - Controller–processor agreement (OQ #4)
+- Customer-record retention period + basis (OQ #27, IR-07)
 
 ## Working style
 - Cite a governing identifier (FR-XX, D-XX, W-XX) in every commit 
