@@ -111,6 +111,7 @@ describe.skipIf(!databaseUrl)('Notification migration (integration)', () => {
         to: 'jana@example.sk',
         customerName: 'Jana Nováková',
         lines: [{ assetTypeId: 1, startDay: '2026-03-05', endDay: '2026-03-07' }],
+        accessLinkUrl: 'https://example.test/reservations/access/tok',
       },
     )
     expect(result).not.toBeNull()
@@ -124,6 +125,7 @@ describe.skipIf(!databaseUrl)('Notification migration (integration)', () => {
         to: 'jana@example.sk',
         customerName: 'Jana Nováková',
         lines: [{ assetTypeId: 1, startDay: '2026-03-05', endDay: '2026-03-07' }],
+        accessLinkUrl: 'https://example.test/reservations/access/tok',
       },
     )
     expect(second).toBeNull()

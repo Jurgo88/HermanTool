@@ -5,7 +5,7 @@ import { createAvailabilityReservationDeps } from '../../utils/availability-rese
 import { createCustomerIdentityComplianceDeps } from '../../utils/customer-identity-compliance-deps'
 import { createNotificationDeps } from '../../utils/notification-deps'
 import { applyProviderWebhookEvent } from '../../utils/payment-webhook-flow'
-import { createPaymentsDeps, translatePaymentsError } from '../../utils/payments-deps'
+import { createPaymentsDeps, getAppBaseUrl, translatePaymentsError } from '../../utils/payments-deps'
 import { getSeededTenantId } from '../../utils/tenant'
 
 // D-26, NFR-05, D-37/Finding 3: Stripe calls this directly — no Operator
@@ -60,7 +60,8 @@ export default defineEventHandler(async (event) => {
           outcome.payment.reservationGroupId,
         )
         if (customer) {
-          await issueCustomerAccessLink(customerIdentity.repo, { tenantId, customerId: customer.id })
+          const { token } = await issueCustomerAccessLink(customerIdentity.repo, { tenantId, customerId: customer.id })
+          const accessLinkUrl = `${getAppBaseUrl(event)}/reservations/access/${token}`
 
           const reservations = await availability.repo.listReservationsForGroup(tenantId, customer.reservationGroupId)
           await dispatchReservationConfirmation(
@@ -72,6 +73,7 @@ export default defineEventHandler(async (event) => {
               to: customer.email,
               customerName: customer.name,
               lines: reservations.map((r) => ({ assetTypeId: r.assetTypeId, startDay: r.period.startDay, endDay: r.period.endDay })),
+              accessLinkUrl,
             },
           )
         }

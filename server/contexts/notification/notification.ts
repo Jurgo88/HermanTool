@@ -44,7 +44,11 @@ interface ReservationLine {
   endDay: string
 }
 
-function formatReservationConfirmationEmail(params: { customerName: string; lines: ReservationLine[] }): {
+function formatReservationConfirmationEmail(params: {
+  customerName: string
+  lines: ReservationLine[]
+  accessLinkUrl: string
+}): {
   subject: string
   body: string
 } {
@@ -53,7 +57,9 @@ function formatReservationConfirmationEmail(params: { customerName: string; line
     .join('\n')
   return {
     subject: 'Your reservation is confirmed',
-    body: `Hi ${params.customerName},\n\nYour reservation is confirmed:\n${lineText}\n\nSee you soon.`,
+    body:
+      `Hi ${params.customerName},\n\nYour reservation is confirmed:\n${lineText}\n\n` +
+      `View your reservation and upload your ID: ${params.accessLinkUrl}\n\nSee you soon.`,
   }
 }
 
@@ -125,10 +131,11 @@ export async function dispatchReservationConfirmation(
     to: string
     customerName: string
     lines: ReservationLine[]
+    accessLinkUrl: string
   },
 ): Promise<NotificationDispatch | null> {
-  const { tenantId, customerId, reservationGroupId, to, customerName, lines } = params
-  const { subject, body } = formatReservationConfirmationEmail({ customerName, lines })
+  const { tenantId, customerId, reservationGroupId, to, customerName, lines, accessLinkUrl } = params
+  const { subject, body } = formatReservationConfirmationEmail({ customerName, lines, accessLinkUrl })
   return sendAndRecord(deps, { tenantId, customerId, kind: 'confirmation', referenceId: reservationGroupId, to, subject, body })
 }
 
