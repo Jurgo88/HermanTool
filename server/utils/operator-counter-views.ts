@@ -22,6 +22,12 @@ export interface TodaysPickup {
   reservation: Reservation
   assetTypeName: string
   customerName: string
+  // Issue #12/IR-12: the Counter UI's HandoverOut call needs this —
+  // performHandoverOut takes customerId, not a ReservationGroup id.
+  // Null in the same "don't disappear the row" spirit as the name
+  // fallbacks below, though in practice D-14 guarantees exactly one
+  // Customer per ReservationGroup once checkout has run.
+  customerId: number | null
 }
 
 export interface TodaysReturn {
@@ -29,13 +35,14 @@ export interface TodaysReturn {
   rentalAgreement: RentalAgreement
   assetTypeName: string
   customerName: string
+  customerId: number | null
 }
 
 async function describeReservation(
   deps: OperatorCounterViewsDeps,
   tenantId: TenantId,
   reservation: Reservation,
-): Promise<{ assetTypeName: string; customerName: string }> {
+): Promise<{ assetTypeName: string; customerName: string; customerId: number | null }> {
   const [assetType, customer] = await Promise.all([
     deps.catalogRepo.getAssetType(tenantId, reservation.assetTypeId),
     deps.identityRepo.getCustomerByReservationGroup(tenantId, reservation.reservationGroupId),
@@ -46,6 +53,7 @@ async function describeReservation(
     // comes back empty, not disappear the whole row.
     assetTypeName: assetType?.name ?? `AssetType ${reservation.assetTypeId}`,
     customerName: customer?.name ?? `ReservationGroup ${reservation.reservationGroupId}`,
+    customerId: customer?.id ?? null,
   }
 }
 
