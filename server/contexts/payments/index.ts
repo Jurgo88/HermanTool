@@ -44,4 +44,5 @@ export { createStripePaymentGateway } from './gateway'
 export type { NewPayment, PaymentsRepository } from './repository'
 export { createPostgresPaymentsRepository } from './repository'
 
+export type { ApplyPaymentSucceededOutcome } from './payment'
 export { applyPaymentSucceeded, computeRentalFeeAmount, refundPayment, startPayment } from './payment'

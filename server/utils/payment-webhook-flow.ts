@@ -39,11 +39,33 @@ export interface PaymentWebhookDeps {
   availabilityRepo: AvailabilityReservationRepository
 }
 
+// Test-only instrumentation seam (IR-11's own concurrency proof,
+// mirroring server/contexts/availability-reservation/reservation.ts's
+// AcquisitionHooks/OQ #23 exactly). No-op in production. Exists so a
+// test can force genuine interleaving between two webhook deliveries —
+// pausing one after it has read the Payment but before the atomic
+// transition — rather than relying on network-timing luck to exercise
+// that interleaving.
+export interface WebhookProcessingHooks {
+  afterPaymentRead?: (params: { paymentId: number; status: string }) => Promise<void> | void
+}
+
 // FR-10/D-37: on a completed checkout, PaymentReceived confirms every
 // Reservation in the group. Idempotent against Stripe's own webhook
 // retries — a Payment already succeeded or refunded is reported as
 // `already_processed` rather than re-run, since confirmReservationGroup
 // is not safe to call twice against a group that may have moved on.
+//
+// IR-11 (Part 5 Finding 3): the guard is applyPaymentSucceeded's own
+// atomic status transition, not a read of `payment.status` before
+// calling it. Two genuinely concurrent deliveries of the same webhook
+// event — Stripe's at-least-once retry semantics permit this, and its
+// retry-on-timeout behaviour makes it likely precisely when this
+// function is slow — can both read the SAME 'pending' row. Only one
+// wins the transition; applyPaymentSucceeded's outcome tells THIS call
+// whether it was the winner, and only the winner proceeds to
+// confirmReservationGroup. This is the same class of defect D-33 closes
+// on the reservation side, left open one context over until now.
 //
 // D-37/Finding 3: if confirmReservationGroup reports the RentalDays
 // could not be re-acquired after expiry, the refund here is automatic —
@@ -52,6 +74,7 @@ export interface PaymentWebhookDeps {
 export async function applyProviderWebhookEvent(
   deps: PaymentWebhookDeps,
   event: ProviderWebhookEvent,
+  hooks?: WebhookProcessingHooks,
 ): Promise<PaymentWebhookOutcome> {
   if (event.type !== 'checkout_completed') return { outcome: 'ignored' }
 
@@ -61,17 +84,18 @@ export async function applyProviderWebhookEvent(
   // (e.g. a misdirected or stale test event) — nothing to do, and
   // nothing to error about.
   if (!payment) return { outcome: 'ignored' }
+  await hooks?.afterPaymentRead?.({ paymentId: payment.id, status: payment.status })
 
-  if (payment.status === 'succeeded' || payment.status === 'refunded') {
-    return { outcome: 'already_processed', payment }
-  }
-
-  const succeeded = await applyPaymentSucceeded(paymentsRepo, {
+  const result = await applyPaymentSucceeded(paymentsRepo, {
     tenantId,
     payment,
     providerPaymentReference: event.providerPaymentReference,
   })
+  if (result.outcome === 'already_processed') {
+    return { outcome: 'already_processed', payment: result.payment }
+  }
 
+  const succeeded = result.payment
   try {
     await confirmReservationGroup(availabilityRepo, { tenantId, reservationGroupId: succeeded.reservationGroupId })
     return { outcome: 'confirmed', payment: succeeded }

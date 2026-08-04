@@ -81,17 +81,18 @@ describe('applyPaymentSucceeded', () => {
   it('transitions pending -> succeeded and records the provider payment reference (FR-10)', async () => {
     const { payment } = await startPayment(repo, gateway, startPaymentParams)
 
-    const succeeded = await applyPaymentSucceeded(repo, {
+    const result = await applyPaymentSucceeded(repo, {
       tenantId: tenantA,
       payment,
       providerPaymentReference: 'pi_123',
     })
 
-    expect(succeeded.status).toBe('succeeded')
-    expect(succeeded.providerPaymentReference).toBe('pi_123')
+    expect(result.outcome).toBe('succeeded')
+    expect(result.payment.status).toBe('succeeded')
+    expect(result.payment.providerPaymentReference).toBe('pi_123')
   })
 
-  it('is idempotent against a Payment already succeeded (webhook redelivery)', async () => {
+  it('is idempotent against a Payment already succeeded (webhook redelivery), and reports already_processed (IR-11)', async () => {
     const { payment } = await startPayment(repo, gateway, startPaymentParams)
     const first = await applyPaymentSucceeded(repo, {
       tenantId: tenantA,
@@ -101,11 +102,17 @@ describe('applyPaymentSucceeded', () => {
 
     const second = await applyPaymentSucceeded(repo, {
       tenantId: tenantA,
-      payment: first,
+      payment: first.payment,
       providerPaymentReference: 'pi_123',
     })
 
-    expect(second).toEqual(first)
+    // IR-11: the first call is the one that actually transitioned the
+    // row; a redelivery must be told it did NOT win, so a caller gating
+    // a side effect on "succeeded" (payment-webhook-flow.ts's
+    // confirmReservationGroup) runs it exactly once.
+    expect(first.outcome).toBe('succeeded')
+    expect(second.outcome).toBe('already_processed')
+    expect(second.payment).toEqual(first.payment)
   })
 })
 
@@ -120,7 +127,7 @@ describe('refundPayment', () => {
 
   it('refunds a succeeded Payment through the gateway and marks it refunded (D-37, Finding 3)', async () => {
     const { payment } = await startPayment(repo, gateway, startPaymentParams)
-    const succeeded = await applyPaymentSucceeded(repo, {
+    const { payment: succeeded } = await applyPaymentSucceeded(repo, {
       tenantId: tenantA,
       payment,
       providerPaymentReference: 'pi_123',
@@ -142,7 +149,7 @@ describe('refundPayment', () => {
 
   it('is idempotent against a Payment already refunded, and never calls the gateway twice', async () => {
     const { payment } = await startPayment(repo, gateway, startPaymentParams)
-    const succeeded = await applyPaymentSucceeded(repo, {
+    const { payment: succeeded } = await applyPaymentSucceeded(repo, {
       tenantId: tenantA,
       payment,
       providerPaymentReference: 'pi_123',
