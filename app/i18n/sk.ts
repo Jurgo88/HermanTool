@@ -19,6 +19,12 @@ export const sk = {
     title: 'HermanTool',
     dayRateSuffix: '/ deň, depozit',
     empty: 'Zatiaľ nie je publikované žiadne náradie.',
+    fromLabel: 'Od',
+    toLabel: 'Do',
+    availabilityLoading: 'Zisťujem dostupnosť…',
+    availabilityAvailable: 'Dostupné: {count} ks',
+    availabilityNone: 'Na tieto dni nie je nič dostupné.',
+    availabilityError: 'Dostupnosť sa nepodarilo zistiť.',
   },
   adminCatalog: {
     title: 'Správa katalógu',
