@@ -15,6 +15,11 @@ export interface FakeSupabaseAuthClient extends SupabaseAuthClient {
   seedUser(user: FakeAuthUser): void
   expireAccessToken(accessToken: string): void
   revokeRefreshToken(refreshToken: string): void
+  // D-39/IR-09: stands in for a real local JWT signature+expiry check —
+  // checks the SAME validAccessTokens map `getUser`/expireAccessToken
+  // use, so a fake-expired token fails this exactly like it would fail
+  // a real jose.jwtVerify call.
+  localVerify(accessToken: string): string | null
 }
 
 function tokenFor(userId: string, kind: 'access' | 'refresh', generation: number): string {
@@ -50,6 +55,10 @@ export function createFakeSupabaseAuthClient(): FakeSupabaseAuthClient {
 
     revokeRefreshToken(refreshToken) {
       validRefreshTokens.delete(refreshToken)
+    },
+
+    localVerify(accessToken) {
+      return validAccessTokens.get(accessToken) ?? null
     },
 
     auth: {
@@ -119,5 +128,9 @@ export function createFakeAuthDeps(params: { supabase: FakeSupabaseAuthClient; o
   return {
     supabase: params.supabase,
     operators: createFakeOperatorRepository(params.operators),
+    async verifyAccessToken(accessToken) {
+      const userId = params.supabase.localVerify(accessToken)
+      return userId ? { userId } : null
+    },
   }
 }

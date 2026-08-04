@@ -26,3 +26,27 @@ export function hasDatabaseUrl(databaseUrl: string): boolean {
 export function createDatabaseClient(databaseUrl: string): postgres.Sql {
   return postgres(databaseUrl, { prepare: false })
 }
+
+// D-39 (IR-09): module-scope, reused across invocations, never
+// `.end()`-ed. Before this, every *-deps.ts factory called
+// createDatabaseClient() fresh and the owning route `.end()`-ed it in a
+// `finally` -- on a warm Netlify Function instance that discarded a
+// perfectly good connection every single request, and a single request
+// touching several contexts (e.g. dispatch-overdue-reminders.post.ts's
+// four *Deps calls) opened that many separate connections for one HTTP
+// request. postgres.js already owns a pool internally (NFR-04: this is
+// not "scaling apparatus", it's apparatus already paid for and
+// previously discarded) -- one client, created once, is enough for
+// every request this process ever handles.
+//
+// Deliberately NOT used by tests or by scripts/backup-and-record.mjs:
+// integration tests need their own per-test-file connection for
+// truncate isolation (createDatabaseClient, called directly, is
+// correct there), and the backup script is a one-shot process with
+// nothing to reuse a connection across.
+let sharedClient: postgres.Sql | null = null
+
+export function getSharedDatabaseClient(databaseUrl: string): postgres.Sql {
+  sharedClient ??= createDatabaseClient(databaseUrl)
+  return sharedClient
+}

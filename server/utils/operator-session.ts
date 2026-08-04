@@ -4,7 +4,8 @@
 // not domain logic (Part 4 §14.2); ./auth.ts carries the tested logic.
 import { createError, deleteCookie, getCookie, setCookie, type H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
-import { createDatabaseClient } from './db'
+import { createSupabaseJwksKeySet, verifyAccessTokenLocally } from './access-token-verification'
+import { getSharedDatabaseClient } from './db'
 import { createPostgresOperatorRepository, type Operator } from './operators'
 import { createSupabaseAuthClient } from './supabase'
 import {
@@ -51,20 +52,29 @@ export function clearSessionCookie(event: H3Event): void {
   deleteCookie(event, REFRESH_TOKEN_COOKIE, { path: '/' })
 }
 
+// D-39: module-scope, same reasoning as ./db.ts's getSharedDatabaseClient
+// — jose's createRemoteJWKSet caches the JWKS response internally, but
+// that cache lives on the returned function's own closure. Calling
+// createSupabaseJwksKeySet fresh per request would throw away the cache
+// every time and re-fetch, defeating the point.
+let jwksKeySet: ReturnType<typeof createSupabaseJwksKeySet> | null = null
+
 // Constructs the real Supabase/Postgres-backed AuthDeps from runtime
-// config, plus a `close()` to end the Postgres connection afterwards.
-// The connection is created and ended per call, matching the existing
-// convention in ./db-health.ts rather than introducing a new pooling
-// pattern (NFR-04: no scaling apparatus at pilot load).
+// config. `close` is a no-op (D-39, IR-09): the Postgres connection is
+// module-scope and reused across invocations (./db.ts), never ended per
+// request — kept as a field so every existing call site's
+// `finally { await close() }` keeps working unchanged.
 export function createAuthDeps(event: H3Event): { deps: AuthDeps; close: () => Promise<void> } {
   const config = useRuntimeConfig(event)
-  const sql = createDatabaseClient(config.databaseUrl)
+  const sql = getSharedDatabaseClient(config.databaseUrl)
+  jwksKeySet ??= createSupabaseJwksKeySet(config.supabaseUrl)
   return {
     deps: {
       supabase: createSupabaseAuthClient(config.supabaseUrl, config.supabaseAnonKey),
       operators: createPostgresOperatorRepository(sql),
+      verifyAccessToken: (accessToken) => verifyAccessTokenLocally(accessToken, jwksKeySet!),
     },
-    close: () => sql.end(),
+    close: () => Promise.resolve(),
   }
 }
 

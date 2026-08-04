@@ -1,11 +1,12 @@
 // Constructs a real Postgres-backed AvailabilityReservationRepository
-// from runtime config, plus a `close()` to end the connection afterwards
-// — same per-request create/end convention as ./catalog-deps.ts and
-// ./db-health.ts (NFR-04: no pooling apparatus at pilot load).
+// from runtime config. `close` is a no-op (D-39, IR-09): the connection
+// is module-scope and reused across invocations (./db.ts), never ended
+// per request — kept as a field so every call site's
+// `finally { await close() }` keeps working unchanged.
 import { createError, getRouterParam, type H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import type postgres from 'postgres'
-import { createDatabaseClient } from './db'
+import { getSharedDatabaseClient } from './db'
 import {
   AssetTypeUnavailableError,
   EmptyReservationGroupError,
@@ -23,11 +24,11 @@ export function createAvailabilityReservationDeps(
   event: H3Event,
 ): { repo: AvailabilityReservationRepository; sql: postgres.Sql; close: () => Promise<void> } {
   const config = useRuntimeConfig(event)
-  const sql = createDatabaseClient(config.databaseUrl)
+  const sql = getSharedDatabaseClient(config.databaseUrl)
   return {
     repo: createPostgresAvailabilityReservationRepository(sql),
     sql,
-    close: () => sql.end(),
+    close: () => Promise.resolve(), // D-39: shared client, never ended per request
   }
 }
 

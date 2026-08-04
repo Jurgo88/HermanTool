@@ -8,7 +8,7 @@
 // one.
 import type { H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
-import { createDatabaseClient } from './db'
+import { getSharedDatabaseClient } from './db'
 import { createPostgresOperatorRepository, type OperatorRepository } from './operators'
 
 // Lighter than ./operator-session.ts's createAuthDeps: routes that only
@@ -18,6 +18,6 @@ import { createPostgresOperatorRepository, type OperatorRepository } from './ope
 // scan-to-resolution path.
 export function createOperatorsDeps(event: H3Event): { repo: OperatorRepository; close: () => Promise<void> } {
   const config = useRuntimeConfig(event)
-  const sql = createDatabaseClient(config.databaseUrl)
-  return { repo: createPostgresOperatorRepository(sql), close: () => sql.end() }
+  const sql = getSharedDatabaseClient(config.databaseUrl)
+  return { repo: createPostgresOperatorRepository(sql), close: () => Promise.resolve() } // D-39: shared client, never ended per request
 }

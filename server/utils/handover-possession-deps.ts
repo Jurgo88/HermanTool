@@ -2,13 +2,17 @@
 // AssetRegistryRepository it composes with (D-02: ScanEvent resolution
 // reads Asset state through Asset Registry's published interface, never
 // by querying `assets`/`asset_tags` directly), plus the real R2-backed
-// ConditionReportStorageGateway, from runtime config, plus a `close()` to
-// end the connection afterwards — same per-request create/end convention
-// as ./catalog-deps.ts (NFR-04: no pooling apparatus at pilot load).
+// ConditionReportStorageGateway, from runtime config. `close` is a no-op
+// (D-39, IR-09): the connection is module-scope and reused across
+// invocations (./db.ts), never ended per request — kept as a field so
+// every call site's `finally { await close() }` keeps working unchanged.
+// This is the request NFR-02 names a latency budget for (the scan
+// route) — D-39 exists specifically because this file's old per-request
+// create/end cost a TLS handshake before any domain work began.
 import { createError, getRouterParam, type H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import type postgres from 'postgres'
-import { createDatabaseClient } from './db'
+import { getSharedDatabaseClient } from './db'
 import {
   AssetNotFoundError,
   AssetRetiredError,
@@ -52,7 +56,7 @@ export function createHandoverPossessionDeps(event: H3Event): {
   close: () => Promise<void>
 } {
   const config = useRuntimeConfig(event)
-  const sql = createDatabaseClient(config.databaseUrl)
+  const sql = getSharedDatabaseClient(config.databaseUrl)
   return {
     repo: createPostgresHandoverPossessionRepository(sql),
     assetRegistryRepo: createPostgresAssetRegistryRepository(sql),
@@ -63,7 +67,7 @@ export function createHandoverPossessionDeps(event: H3Event): {
       bucket: config.r2BucketConditions,
     }),
     sql,
-    close: () => sql.end(),
+    close: () => Promise.resolve(), // D-39: shared client, never ended per request
   }
 }
 

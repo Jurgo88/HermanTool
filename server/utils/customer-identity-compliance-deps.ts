@@ -1,12 +1,13 @@
 // Constructs a real Postgres-backed CustomerIdentityComplianceRepository
 // and the real R2-backed IdentityEvidenceStorageGateway from runtime
-// config, plus a `close()` to end the connection afterwards — same
-// per-request create/end convention as ./catalog-deps.ts (NFR-04: no
-// pooling apparatus at pilot load).
+// config. `close` is a no-op (D-39, IR-09): the connection is
+// module-scope and reused across invocations (./db.ts), never ended per
+// request — kept as a field so every call site's
+// `finally { await close() }` keeps working unchanged.
 import { createError, getRouterParam, type H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import type postgres from 'postgres'
-import { createDatabaseClient } from './db'
+import { getSharedDatabaseClient } from './db'
 import {
   createPostgresCustomerIdentityComplianceRepository,
   createR2IdentityEvidenceGateway,
@@ -30,7 +31,7 @@ export function createCustomerIdentityComplianceDeps(event: H3Event): {
   close: () => Promise<void>
 } {
   const config = useRuntimeConfig(event)
-  const sql = createDatabaseClient(config.databaseUrl)
+  const sql = getSharedDatabaseClient(config.databaseUrl)
   return {
     repo: createPostgresCustomerIdentityComplianceRepository(sql),
     gateway: createR2IdentityEvidenceGateway({
@@ -40,7 +41,7 @@ export function createCustomerIdentityComplianceDeps(event: H3Event): {
       bucket: config.r2BucketEvidence,
     }),
     sql,
-    close: () => sql.end(),
+    close: () => Promise.resolve(), // D-39: shared client, never ended per request
   }
 }
 
