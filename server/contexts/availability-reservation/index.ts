@@ -7,10 +7,12 @@
 // Dependency direction (Part 1 §4 context map): downstream of Catalog,
 // Asset Registry and Payments; upstream of Handover & Possession and
 // Notification. Imports Asset Registry's published interface only (its
-// `getRentableCount`, composed inside the same transaction as the D-33
-// hold increment — see ./repository.ts) and must never reach into its
-// internals. Must never import Handover & Possession, Notification or
-// Payments at all — none of those contexts exist yet.
+// `getRentablePoolCount` — D-38, the rentable+in_possession+
+// under_inspection pool, not the literal Rentable-status count —
+// composed inside the same transaction as the D-33 hold increment, see
+// ./repository.ts) and must never reach into its internals. Must never
+// import Handover & Possession, Notification or Payments at all — none
+// of those contexts exist yet.
 //
 // Two distinct "availability" computations live here, and they are not
 // the same mechanism:

@@ -82,6 +82,15 @@ export function createFakeAssetRegistryRepository(): FakeAssetRegistryRepository
         ).length
       },
 
+      async getRentablePoolCount(tenantId, assetTypeId) {
+        return target.assets.filter(
+          (a) =>
+            a.tenantId === tenantId &&
+            a.assetTypeId === assetTypeId &&
+            (a.status === 'rentable' || a.status === 'in_possession' || a.status === 'under_inspection'),
+        ).length
+      },
+
       async getAsset(tenantId, assetId) {
         const asset = target.assets.find((a) => a.tenantId === tenantId && a.id === assetId)
         return asset ? { ...asset } : null
