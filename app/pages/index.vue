@@ -11,6 +11,7 @@
 // requires every day in it to have at least one unit free, so the
 // minimum is the number that actually answers "can I book this."
 import { sk } from '~/i18n/sk'
+import type { DraftReservationLine } from '~/composables/useReservationDraft'
 
 interface AssetTypeView {
   id: number
@@ -24,6 +25,9 @@ interface AvailabilityState {
   status: 'loading' | 'loaded' | 'error'
   minAvailable: number | null
 }
+
+const { lines: draftLines, addLine, removeLine } = useReservationDraft()
+const quantityInputs = reactive<Record<number, string>>({})
 
 function toEuros(minorUnits: number): string {
   return (minorUnits / 100).toFixed(2)
@@ -68,6 +72,26 @@ async function loadAvailability() {
 }
 
 watch([startDay, endDay, assetTypes], loadAvailability, { immediate: true })
+
+function addToReservation(assetType: AssetTypeView) {
+  const quantity = Number(quantityInputs[assetType.id] ?? '1')
+  const minAvailable = availability[assetType.id]?.minAvailable ?? 0
+  if (!Number.isInteger(quantity) || quantity <= 0 || quantity > minAvailable) return
+
+  addLine({
+    assetTypeId: assetType.id,
+    assetTypeName: assetType.name,
+    dayRate: assetType.dayRate,
+    depositAmount: assetType.depositAmount,
+    period: { startDay: startDay.value, endDay: endDay.value },
+    quantity,
+  })
+  quantityInputs[assetType.id] = '1'
+}
+
+function draftLineTotal(line: DraftReservationLine): string {
+  return toEuros(line.dayRate.amount * line.quantity)
+}
 </script>
 
 <template>
@@ -99,8 +123,50 @@ watch([startDay, endDay, assetTypes], loadAvailability, { immediate: true })
         <p v-else-if="availability[assetType.id]?.minAvailable != null">
           {{ sk.publicCatalog.availabilityAvailable.replace('{count}', String(availability[assetType.id]?.minAvailable)) }}
         </p>
+        <p v-if="(availability[assetType.id]?.minAvailable ?? 0) > 0">
+          <label>
+            {{ sk.publicCatalog.quantityLabel }}
+            <input
+              v-model="quantityInputs[assetType.id]"
+              type="number"
+              min="1"
+              :max="availability[assetType.id]?.minAvailable"
+              step="1"
+            />
+          </label>
+          <button type="button" @click="addToReservation(assetType)">{{ sk.publicCatalog.addToReservationAction }}</button>
+        </p>
       </li>
     </ul>
     <p v-if="assetTypes && assetTypes.length === 0">{{ sk.publicCatalog.empty }}</p>
+
+    <section v-if="draftLines.length > 0">
+      <h2>{{ sk.publicCatalog.draftHeading }}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>{{ sk.publicCatalog.columnAssetType }}</th>
+            <th>{{ sk.publicCatalog.columnPeriod }}</th>
+            <th>{{ sk.publicCatalog.columnQuantity }}</th>
+            <th>{{ sk.publicCatalog.columnLineTotal }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(line, index) in draftLines" :key="`${line.assetTypeId}-${line.period.startDay}-${line.period.endDay}`">
+            <td>{{ line.assetTypeName }}</td>
+            <td>{{ line.period.startDay }} – {{ line.period.endDay }}</td>
+            <td>{{ line.quantity }}</td>
+            <td>{{ draftLineTotal(line) }} {{ line.dayRate.currency }}</td>
+            <td>
+              <button type="button" @click="removeLine(index)">{{ sk.publicCatalog.removeLineAction }}</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        <NuxtLink to="/checkout">{{ sk.publicCatalog.proceedToCheckoutAction }}</NuxtLink>
+      </p>
+    </section>
   </main>
 </template>
