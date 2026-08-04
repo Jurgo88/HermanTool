@@ -45,6 +45,19 @@ export interface CustomerIdentityComplianceRepository {
   insertIdentityEvidence(tenantId: TenantId, params: NewIdentityEvidence): Promise<IdentityEvidence>
   getIdentityEvidence(tenantId: TenantId, id: number): Promise<IdentityEvidence | null>
 
+  // D-40, issue #78/IR-10: "the erasure is recorded" was already this
+  // shape (markIdentityEvidenceErased below) — confirmation reuses it.
+  // Guarded to succeed only while unconfirmed, so a retried confirm call
+  // (client retry, or the sweep re-attempting one already confirmed by
+  // the client) is idempotent rather than clobbering confirmedAt twice.
+  confirmIdentityEvidence(tenantId: TenantId, id: number, confirmedAt: Date): Promise<IdentityEvidence | null>
+
+  // D-40: the sweep's candidate set — unconfirmed rows older than the
+  // presigned URL's own lifetime (the caller passes that cutoff; this
+  // repository does not know UPLOAD_URL_TTL_SECONDS, that lives in
+  // ./r2-gateway.ts).
+  listUnconfirmedIdentityEvidenceOlderThan(tenantId: TenantId, cutoff: Date): Promise<IdentityEvidence[]>
+
   // D-36, issue #32: every not-yet-erased IdentityEvidence row belonging
   // to this Customer — re-anchored by completeSettlement, in practice at
   // most one or two (an online submission plus, rarely, an Operator
@@ -126,6 +139,7 @@ interface IdentityEvidenceRow {
   object_key: string
   retention_deadline: Date
   created_at: Date
+  confirmed_at: Date | null
   erased_at: Date | null
 }
 
@@ -137,6 +151,7 @@ function mapIdentityEvidence(row: IdentityEvidenceRow): IdentityEvidence {
     objectKey: row.object_key,
     retentionDeadline: row.retention_deadline,
     createdAt: row.created_at,
+    confirmedAt: row.confirmed_at,
     erasedAt: row.erased_at,
   }
 }
@@ -286,6 +301,25 @@ export function createPostgresCustomerIdentityComplianceRepository(
         returning *
       `
       return rows[0] ? mapIdentityEvidence(rows[0]) : null
+    },
+
+    async confirmIdentityEvidence(tenantId, id, confirmedAt) {
+      const rows = await sql<IdentityEvidenceRow[]>`
+        update identity_evidence
+        set confirmed_at = ${confirmedAt}
+        where tenant_id = ${tenantId} and id = ${id} and confirmed_at is null
+        returning *
+      `
+      return rows[0] ? mapIdentityEvidence(rows[0]) : null
+    },
+
+    async listUnconfirmedIdentityEvidenceOlderThan(tenantId, cutoff) {
+      const rows = await sql<IdentityEvidenceRow[]>`
+        select * from identity_evidence
+        where tenant_id = ${tenantId} and confirmed_at is null and created_at < ${cutoff}
+        order by id
+      `
+      return rows.map(mapIdentityEvidence)
     },
 
     async insertIdentityEvidenceAccessEvent(tenantId, { identityEvidenceId, operatorId }) {

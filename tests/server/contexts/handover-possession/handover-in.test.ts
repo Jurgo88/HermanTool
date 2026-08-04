@@ -182,6 +182,17 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
       )
     }
 
+    // D-40: performHandoverOut/performHandoverIn create ConditionReport
+    // rows unconfirmed — a test that wants FR-20's deduction path to
+    // succeed must confirm them first, same as a real Operator's client
+    // would after the presigned upload actually completes.
+    async function confirmAllReports(rentalAgreementId: number) {
+      const reports = await handoverRepo.listConditionReportsForAgreement(tenantA, rentalAgreementId)
+      for (const report of reports) {
+        await handoverRepo.confirmConditionReport(tenantA, report.id, new Date())
+      }
+    }
+
     it('records a full return with no deduction reason (D-07, FR-21)', async () => {
       const { rentalAgreement } = await handIn()
 
@@ -196,8 +207,9 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
       expect(result.rentalAgreement.settlementCompletedAt).not.toBeNull()
     })
 
-    it('records a partial return with a deduction reason when both ConditionReports exist (FR-20)', async () => {
+    it('records a partial return with a deduction reason when both ConditionReports exist and are confirmed (D-40, FR-20)', async () => {
       const { rentalAgreement } = await handIn()
+      await confirmAllReports(rentalAgreement.id)
 
       const result = await completeSettlement({ repo: handoverRepo, identityRepo }, {
         tenantId: tenantA,
@@ -209,6 +221,40 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
 
       expect(result.depositReturned.deductionReason).toBe('Scratched casing')
       expect(result.depositReturned.amount.amount).toBe(3000)
+    })
+
+    it('refuses a deduction when both ConditionReports exist but neither is confirmed (D-40) -- existence is not evidence', async () => {
+      const { rentalAgreement } = await handIn()
+      // Deliberately NOT confirmed — the exact pre-D-40 gap: both rows
+      // exist, naming objects that may never have been uploaded.
+
+      await expect(
+        completeSettlement({ repo: handoverRepo, identityRepo }, {
+          tenantId: tenantA,
+          rentalAgreementId: rentalAgreement.id,
+          operatorId,
+          returnedAmount: { amount: 3000, currency: 'EUR' },
+          deductionReason: 'Scratched casing',
+        }),
+      ).rejects.toThrow(DeductionRequiresPairedConditionReportsError)
+    })
+
+    it('refuses a deduction when only ONE of the two ConditionReports is confirmed (D-40)', async () => {
+      const { rentalAgreement } = await handIn()
+      const reports = await handoverRepo.listConditionReportsForAgreement(tenantA, rentalAgreement.id)
+      const handoverOutReport = reports.find((r) => r.stage === 'handover_out')!
+      await handoverRepo.confirmConditionReport(tenantA, handoverOutReport.id, new Date())
+      // The HandoverIn-stage report stays unconfirmed.
+
+      await expect(
+        completeSettlement({ repo: handoverRepo, identityRepo }, {
+          tenantId: tenantA,
+          rentalAgreementId: rentalAgreement.id,
+          operatorId,
+          returnedAmount: { amount: 3000, currency: 'EUR' },
+          deductionReason: 'Scratched casing',
+        }),
+      ).rejects.toThrow(DeductionRequiresPairedConditionReportsError)
     })
 
     it('refuses a deduction with no reason', async () => {

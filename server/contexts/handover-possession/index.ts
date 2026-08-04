@@ -50,6 +50,7 @@ export {
   AssetNotYetReturnableError,
   AssetTypeMismatchError,
   BackdateReasonRequiredError,
+  ConditionReportNotFoundError,
   CustomerReservationMismatchError,
   DeductionReasonRequiredError,
   DeductionRequiresPairedConditionReportsError,
@@ -81,10 +82,13 @@ export type {
 } from './repository'
 export { createPostgresHandoverPossessionRepository } from './repository'
 
-export type { ConditionReportStorageGateway } from './r2-gateway'
+export type { ConditionReportStorageGateway, ObjectStat } from './r2-gateway'
 export { createR2ConditionReportGateway } from './r2-gateway'
 
 export { resolveScanEvent } from './scan-resolution'
+
+export type { ConfirmConditionReportUploadOutcome } from './condition-report-confirmation'
+export { confirmConditionReportUpload, sweepUnconfirmedConditionReports } from './condition-report-confirmation'
 
 export type { PerformHandoverOutDeps, PerformHandoverOutParams, PerformHandoverOutResult } from './handover-out'
 export { performHandoverOut } from './handover-out'

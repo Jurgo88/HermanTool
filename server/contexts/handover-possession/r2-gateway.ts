@@ -8,15 +8,36 @@
 // deliberately — same storage mechanism, different bucket, different
 // owning context (D-02: each context owns its own ACL to its own data,
 // even when the pattern is identical).
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  NotFound,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
-const UPLOAD_URL_TTL_SECONDS = 5 * 60
+// Exported so the D-40 sweep
+// (./condition-report-confirmation.ts's sweepUnconfirmedConditionReports)
+// can use "the presigned URL's own lifetime" as its cutoff without a
+// second, driftable copy of this value.
+export const UPLOAD_URL_TTL_SECONDS = 5 * 60
 const READ_URL_TTL_SECONDS = 5 * 60
+
+export interface ObjectStat {
+  exists: boolean
+  contentLength: number | null
+}
 
 export interface ConditionReportStorageGateway {
   generateUploadUrl(objectKey: string, contentType: string): Promise<{ uploadUrl: string; expiresAt: Date }>
   generateReadUrl(objectKey: string): Promise<{ readUrl: string; expiresAt: Date }>
+  // D-40: the confirmation primitive — a single HEAD against the bucket
+  // the platform controls. contentLength is null when exists is false;
+  // never guessed.
+  statObject(objectKey: string): Promise<ObjectStat>
+  deleteObject(objectKey: string): Promise<void>
 }
 
 export function createR2ConditionReportGateway(params: {
@@ -43,6 +64,24 @@ export function createR2ConditionReportGateway(params: {
       const command = new GetObjectCommand({ Bucket: bucket, Key: objectKey })
       const readUrl = await getSignedUrl(client, command, { expiresIn: READ_URL_TTL_SECONDS })
       return { readUrl, expiresAt: new Date(Date.now() + READ_URL_TTL_SECONDS * 1000) }
+    },
+
+    async statObject(objectKey) {
+      try {
+        const result = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: objectKey }))
+        return { exists: true, contentLength: result.ContentLength ?? null }
+      } catch (err) {
+        // NotFound is the one expected outcome of "the upload never
+        // happened" (D-40) — everything else (network, credentials, a
+        // genuinely broken bucket) must surface as a real error rather
+        // than being silently read as "unconfirmed."
+        if (err instanceof NotFound) return { exists: false, contentLength: null }
+        throw err
+      }
+    },
+
+    async deleteObject(objectKey) {
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }))
     },
   }
 }

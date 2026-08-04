@@ -135,6 +135,13 @@ export interface ConditionReport {
   // report belongs to one); recordedAt is always real.
   capturedAt: Date
   recordedAt: Date
+  // D-40, issue #78/IR-10: null until confirmConditionReportUpload
+  // (./condition-report-confirmation.ts) verifies EVERY key in
+  // photoObjectKeys exists via a HEAD against the bucket — a report
+  // claims "these N photographs exist"; if even one does not, the claim
+  // is false. completeSettlement's FR-20 paired-evidence check reads
+  // this field, not mere row existence.
+  confirmedAt: Date | null
 }
 
 // D-07/FR-21: an attestation that cash changed hands. The platform moves
@@ -231,6 +238,14 @@ export class EmptyConditionReportError extends HandoverPossessionError {
 export class RentalAgreementNotFoundError extends HandoverPossessionError {
   constructor(identifier: number) {
     super(`RentalAgreement ${identifier} does not exist for this Tenant.`)
+  }
+}
+
+// D-40, issue #78/IR-10: confirmConditionReportUpload's own not-found
+// guard, mirroring RentalAgreementNotFoundError's shape.
+export class ConditionReportNotFoundError extends HandoverPossessionError {
+  constructor(identifier: number) {
+    super(`ConditionReport ${identifier} does not exist for this Tenant.`)
   }
 }
 

@@ -214,14 +214,37 @@ export function createFakeHandoverPossessionRepository(
           operatorId,
           capturedAt,
           recordedAt,
+          confirmedAt: null,
         }
         state.conditionReports.push(report)
         return { ...report }
       },
 
+      async getConditionReport(tenantId, id) {
+        const report = state.conditionReports.find((r) => r.tenantId === tenantId && r.id === id)
+        return report ? { ...report } : null
+      },
+
       async listConditionReportsForAgreement(tenantId, rentalAgreementId) {
         return state.conditionReports
           .filter((r) => r.tenantId === tenantId && r.rentalAgreementId === rentalAgreementId)
+          .map((r) => ({ ...r }))
+      },
+
+      async confirmConditionReport(tenantId, id, confirmedAt) {
+        const report = state.conditionReports.find(
+          (r) => r.tenantId === tenantId && r.id === id && r.confirmedAt === null,
+        )
+        if (!report) return null
+        report.confirmedAt = confirmedAt
+        return { ...report }
+      },
+
+      async listUnconfirmedConditionReportsOlderThan(tenantId, cutoff) {
+        return state.conditionReports
+          .filter(
+            (r) => r.tenantId === tenantId && r.confirmedAt === null && r.recordedAt.getTime() < cutoff.getTime(),
+          )
           .map((r) => ({ ...r }))
       },
 

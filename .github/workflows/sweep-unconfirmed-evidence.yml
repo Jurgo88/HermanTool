@@ -1,0 +1,39 @@
+# Sweep unconfirmed IdentityEvidence (D-40, Part 4 §16.2; issue
+# #78/IR-10). Scheduling by GitHub Actions calling an authenticated
+# Nitro endpoint — same mechanism as
+# .github/workflows/sweep-expired-reservations.yml (FR-08), reused
+# rather than reinvented.
+#
+# Reuses the SAME two repo-level configuration values as every other
+# internal scheduled endpoint — no new secret to provision:
+#   - vars.SWEEP_SITE_URL      — the deployed site origin
+#   - secrets.SWEEP_JOB_SECRET — must match NUXT_INTERNAL_JOB_SECRET set
+#                                 in Netlify's environment variables (D-31)
+#
+# Every 15 minutes: frequent enough that a counter Operator's client
+# missing its own confirm call (closed tab, dropped connection) gets
+# resolved within one pickup window, not aggressive like the D-08 holds
+# sweep's every-10-minutes (nothing here protects a live invariant --
+# an unconfirmed row simply never counts as evidence until this runs).
+name: Sweep unconfirmed IdentityEvidence
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the sweep-unconfirmed-evidence endpoint
+        run: |
+          http_status=$(curl -sS -o /tmp/sweep-response.json -w "%{http_code}" \
+            -X POST "${{ vars.SWEEP_SITE_URL }}/api/internal/customer-identity-compliance/sweep-unconfirmed-evidence" \
+            -H "Authorization: Bearer ${{ secrets.SWEEP_JOB_SECRET }}")
+          echo "HTTP status: $http_status"
+          cat /tmp/sweep-response.json
+          if [ "$http_status" -ge 400 ]; then
+            echo "::error::Sweep endpoint returned HTTP $http_status"
+            exit 1
+          fi

@@ -57,15 +57,18 @@ export type {
 } from './repository'
 export { createPostgresCustomerIdentityComplianceRepository } from './repository'
 
-export type { IdentityEvidenceStorageGateway } from './r2-gateway'
+export type { IdentityEvidenceStorageGateway, ObjectStat } from './r2-gateway'
 export { createR2IdentityEvidenceGateway } from './r2-gateway'
 
 export { createCustomer } from './customer'
+export type { ConfirmIdentityEvidenceUploadOutcome } from './identity-evidence'
 export {
   computeRetentionDeadline,
+  confirmIdentityEvidenceUpload,
   generateIdentityEvidenceReadUrl,
   requestIdentityEvidenceUpload,
   RETENTION_WINDOW_DAYS,
+  sweepUnconfirmedIdentityEvidence,
 } from './identity-evidence'
 export { hasSuccessfulIdentityVerification, recordIdentityVerification } from './identity-verification'
 export {

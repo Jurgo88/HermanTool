@@ -5,3 +5,4 @@
 export type { TenantId } from './tenant'
 export type { CurrencyCode, MonetaryAmount } from './monetary-amount'
 export { createMonetaryAmount, InvalidMonetaryAmountError } from './monetary-amount'
+export { MAX_EVIDENCE_UPLOAD_SIZE_BYTES } from './upload-limits'

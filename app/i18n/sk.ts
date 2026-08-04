@@ -76,6 +76,8 @@ export const sk = {
       return_reminder_dispatch: 'Pripomienky na vrátenie',
       overdue_reminder_dispatch: 'Pripomienky pri omeškaní',
       database_backup: 'Záloha databázy',
+      unconfirmed_identity_evidence_sweep: 'Kontrola nepotvrdených identifikačných dokladov',
+      unconfirmed_condition_report_sweep: 'Kontrola nepotvrdených fotodokumentácií',
     },
   },
 } as const
