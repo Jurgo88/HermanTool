@@ -23,6 +23,7 @@
     "@aws-sdk/client-s3": "^3.1096.0",
     "@aws-sdk/s3-request-presigner": "^3.1096.0",
     "@nuxt/eslint": "^1.16.0",
+    "@sentry/nuxt": "^10.69.0",
     "@supabase/supabase-js": "^2.110.7",
     "nuxt": "^4.5.0",
     "postgres": "^3.4.9",

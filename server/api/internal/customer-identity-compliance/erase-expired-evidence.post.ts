@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nuxt'
 import { eraseExpiredIdentityEvidence } from '../../../contexts/customer-identity-compliance'
 import { createCustomerIdentityComplianceDeps } from '../../../utils/customer-identity-compliance-deps'
 import { requireInternalJobSecret } from '../../../utils/internal-job-session'
@@ -13,19 +14,38 @@ import { getSeededTenantId } from '../../../utils/tenant'
 // unlike D-17/D-09's deliberate refusal to automate: this IS the
 // automated case those two explicitly carved out as different, because
 // erasing an expired photograph has no judgement call in it at all.
+//
+// D-29: wrapped in Sentry.withMonitor as the SECOND, independent signal
+// alongside the D-41 job-run ledger (runScheduledJob) — this is W10's
+// silent-by-construction failure NFR-14 named as the one gap in the
+// observability posture, so it gets two watchers, not one. Schedule
+// matches .github/workflows/erase-expired-identity-evidence.yml's cron
+// ('0 3 * * *') exactly; upserts the monitor on first check-in, no
+// manual dashboard setup required for the monitor itself (EU residency
+// and rate limiting still are — see sentry.server.config.ts).
 export default defineEventHandler(async (event) => {
   requireInternalJobSecret(event)
 
   const { repo, gateway, sql, close } = createCustomerIdentityComplianceDeps(event)
   try {
     const tenantId = await getSeededTenantId(sql)
-    return await runScheduledJob(sql, { tenantId, jobName: 'evidence_erasure' }, async () => {
-      const erased = await eraseExpiredIdentityEvidence({ repo, gateway }, { tenantId })
-      return {
-        processedCount: erased.length,
-        result: { erasedCount: erased.length, identityEvidenceIds: erased.map((e) => e.id) },
-      }
-    })
+    return await Sentry.withMonitor(
+      'evidence-erasure',
+      () =>
+        runScheduledJob(sql, { tenantId, jobName: 'evidence_erasure' }, async () => {
+          const erased = await eraseExpiredIdentityEvidence({ repo, gateway }, { tenantId })
+          return {
+            processedCount: erased.length,
+            result: { erasedCount: erased.length, identityEvidenceIds: erased.map((e) => e.id) },
+          }
+        }),
+      {
+        schedule: { type: 'crontab', value: '0 3 * * *' },
+        timezone: 'UTC',
+        checkinMargin: 5,
+        maxRuntime: 10,
+      },
+    )
   } finally {
     await close()
   }
