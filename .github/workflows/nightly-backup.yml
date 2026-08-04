@@ -1,0 +1,65 @@
+# Nightly backup (D-32, Part 4 §14.9; issue #72/IR-04). pg_dump to R2,
+# plus a copy of any new `conditions` bucket object to the same backup
+# bucket -- see scripts/backup-and-record.mjs for the mechanism and the
+# reasoning behind every environment variable below.
+#
+# Requires six repo-level secrets/vars, set once by the Tenant/developer
+# (not by this workflow) -- NEW to this issue, none reused from an
+# existing workflow:
+#   - secrets.SUPABASE_DB_DIRECT_URL -- the DIRECT (session-mode, port
+#     5432) Postgres connection string. Deliberately NOT
+#     secrets.SUPABASE_DB_URL (apply-migrations.yml's own secret,
+#     Supavisor's transaction pooler on port 6543) -- pg_dump needs a
+#     consistent snapshot held for the whole dump, which transaction-mode
+#     pooling does not guarantee. Get this from Supabase's connection
+#     string settings, "Session" mode, not "Transaction" mode.
+#   - secrets.R2_ACCESS_KEY_ID, secrets.R2_SECRET_ACCESS_KEY
+#   - vars.R2_ENDPOINT
+#   - vars.R2_BUCKET_CONDITIONS -- same bucket
+#     server/contexts/handover-possession/r2-gateway.ts writes to
+#   - vars.R2_BUCKET_BACKUPS -- a NEW bucket, created for this issue;
+#     holds both the DB dumps (under db-dumps/) and the conditions-bucket
+#     copy (under conditions-backup/). Never the `evidence` bucket
+#     (D-27, NFR-07) -- deliberately not backed up, see the script's own
+#     module doc.
+#
+# Verify with workflow_dispatch before trusting the schedule -- this
+# workflow has not been run against a real Supabase project or R2
+# account yet (no backups bucket exists until the Tenant creates one).
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: '0 4 * * *' # daily, 04:00 UTC -- after the 03:00 erasure job
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+
+      - name: Enable Corepack (pnpm via packageManager field)
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install PostgreSQL client (pg_dump)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Run backup
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DB_DIRECT_URL }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ vars.R2_ENDPOINT }}
+          R2_BUCKET_CONDITIONS: ${{ vars.R2_BUCKET_CONDITIONS }}
+          R2_BUCKET_BACKUPS: ${{ vars.R2_BUCKET_BACKUPS }}
+        run: node scripts/backup-and-record.mjs
