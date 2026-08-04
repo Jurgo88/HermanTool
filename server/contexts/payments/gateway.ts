@@ -90,6 +90,7 @@ export function createStripePaymentGateway(params: { secretKey: string; webhookS
       }
 
       if (event.type === 'checkout.session.completed') {
+        // eslint-disable-next-line id-denylist -- Stripe's own SDK type name (D-34); not this codebase's domain "Session"
         const session = event.data.object as Stripe.Checkout.Session
         const providerPaymentReference =
           typeof session.payment_intent === 'string' ? session.payment_intent : (session.payment_intent?.id ?? null)
