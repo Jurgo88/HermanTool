@@ -28,6 +28,7 @@ import {
   cancelReservation,
   checkoutReservationGroup,
   confirmReservationGroup,
+  getAvailableCount,
   recordTermsAcceptance,
   sweepExpiredReservations,
 } from '../../../../server/contexts/availability-reservation/reservation'
@@ -43,11 +44,15 @@ describe.skipIf(!databaseUrl)('Availability & Reservation migration (integration
   let scaffoldTypeId: number
 
   async function seedRentableAssets(assetTypeId: number, count: number): Promise<void> {
+    await seedAssetsWithStatus(assetTypeId, 'rentable', count)
+  }
+
+  async function seedAssetsWithStatus(assetTypeId: number, status: string, count: number): Promise<void> {
     for (let i = 0; i < count; i++) {
       await sql`
         insert into assets (
           tenant_id, asset_type_id, status, registered_by_operator_id, status_changed_by_operator_id
-        ) values (${tenantId}, ${assetTypeId}, 'rentable', ${operatorId}, ${operatorId})
+        ) values (${tenantId}, ${assetTypeId}, ${status}, ${operatorId}, ${operatorId})
       `
     }
   }
@@ -258,6 +263,78 @@ describe.skipIf(!databaseUrl)('Availability & Reservation migration (integration
       where tenant_id = ${tenantId} and asset_type_id = ${hammerTypeId} and rental_day = '2026-03-05'
     `
     expect(holds).toHaveLength(0)
+  })
+
+  it('D-38 (IR-01): an InPossession Asset still counts toward capacity — a HandoverOut must not reduce availability for other days', async () => {
+    // Simulates the state right after a HandoverOut: the unit is out
+    // (in_possession) and there are deliberately NO Rentable Assets of
+    // this type at all. The old buggy capacity read (status =
+    // 'rentable') would see capacity 0 and refuse this booking; the
+    // pool read (D-38) must see capacity 1 and accept it.
+    await seedAssetsWithStatus(hammerTypeId, 'in_possession', 1)
+    const repo = createPostgresAvailabilityReservationRepository(sql)
+
+    const { reservations } = await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [{ assetTypeId: hammerTypeId, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+    })
+
+    expect(reservations[0]!.state).toBe('pending')
+  })
+
+  it('D-38 (IR-01): Unavailable and Retired Assets are excluded from the pool', async () => {
+    await seedAssetsWithStatus(hammerTypeId, 'unavailable', 1)
+    await seedAssetsWithStatus(hammerTypeId, 'retired', 1)
+    const repo = createPostgresAvailabilityReservationRepository(sql)
+
+    await expect(
+      checkoutReservationGroup(repo, {
+        tenantId,
+        lines: [{ assetTypeId: hammerTypeId, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+      }),
+    ).rejects.toThrow(AssetTypeUnavailableError)
+  })
+
+  it('D-38 (IR-01): the pool is Rentable + InPossession + UnderInspection, not any single status', async () => {
+    await seedAssetsWithStatus(hammerTypeId, 'rentable', 1)
+    await seedAssetsWithStatus(hammerTypeId, 'in_possession', 1)
+    await seedAssetsWithStatus(hammerTypeId, 'under_inspection', 1)
+    // Deliberately in the mix and must NOT count: excluded from the pool.
+    await seedAssetsWithStatus(hammerTypeId, 'unavailable', 1)
+    const repo = createPostgresAvailabilityReservationRepository(sql)
+    const day = '2026-03-05'
+
+    // Pool is exactly 3: three concurrent single-day bookings succeed...
+    for (let i = 0; i < 3; i++) {
+      const { reservations } = await checkoutReservationGroup(repo, {
+        tenantId,
+        lines: [{ assetTypeId: hammerTypeId, period: { startDay: day, endDay: day } }],
+      })
+      expect(reservations[0]!.state).toBe('pending')
+    }
+
+    // ...and a fourth is refused.
+    await expect(
+      checkoutReservationGroup(repo, {
+        tenantId,
+        lines: [{ assetTypeId: hammerTypeId, period: { startDay: day, endDay: day } }],
+      }),
+    ).rejects.toThrow(AssetTypeUnavailableError)
+  })
+
+  it('D-38 (IR-01): getAvailableCount (FR-03 read side) also uses the pool, not the literal Rentable count', async () => {
+    await seedAssetsWithStatus(hammerTypeId, 'in_possession', 2)
+    const repo = createPostgresAvailabilityReservationRepository(sql)
+
+    const available = await repo.transaction(async (trxRepo, getRentablePoolCount) =>
+      getAvailableCount(trxRepo, getRentablePoolCount, {
+        tenantId,
+        assetTypeId: hammerTypeId,
+        day: '2026-03-05',
+      }),
+    )
+
+    expect(available).toBe(2)
   })
 
   it('confirmReservationGroup re-acquires and confirms after Pending expiry, against real Postgres (D-37)', async () => {

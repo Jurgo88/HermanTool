@@ -128,7 +128,7 @@ export interface AvailabilityReservationRepository {
   listReservationsStartedOnOrBefore(tenantId: TenantId, day: string): Promise<Reservation[]>
 
   // Runs `fn` against a repository bound to a single transaction, and
-  // also hands back a `getRentableCount` bound to that SAME transaction
+  // also hands back a `getRentablePoolCount` bound to that SAME transaction
   // (Part 4 §16 D-33) — Availability & Reservation's capacity read and
   // its hold increment must never straddle two connections. Unlike
   // Asset Registry's `transaction`, this context composes a second
@@ -136,7 +136,7 @@ export interface AvailabilityReservationRepository {
   // domain logic (./reservation.ts) only ever sees the narrow
   // CapacitySource function, never a raw connection handle, so it stays
   // fakeable in unit tests without a database.
-  transaction<T>(fn: (repo: AvailabilityReservationRepository, getRentableCount: CapacitySource) => Promise<T>): Promise<T>
+  transaction<T>(fn: (repo: AvailabilityReservationRepository, getRentablePoolCount: CapacitySource) => Promise<T>): Promise<T>
 }
 
 interface ReservationGroupRow {
@@ -347,7 +347,7 @@ export function createPostgresAvailabilityReservationRepository(
     },
 
     async transaction<T>(
-      fn: (repo: AvailabilityReservationRepository, getRentableCount: CapacitySource) => Promise<T>,
+      fn: (repo: AvailabilityReservationRepository, getRentablePoolCount: CapacitySource) => Promise<T>,
     ) {
       // See Asset Registry's repository for why this guard exists:
       // `TransactionSql` has no `.begin()` (nested transactions use
@@ -363,9 +363,12 @@ export function createPostgresAvailabilityReservationRepository(
       // here (none return arrays) but not provably so for an arbitrary
       // generic T.
       return sql.begin((trx) => {
-        const getRentableCount: CapacitySource = (tenantId, assetTypeId) =>
-          createPostgresAssetRegistryRepository(trx).getRentableCount(tenantId, assetTypeId)
-        return fn(createPostgresAvailabilityReservationRepository(trx), getRentableCount)
+        // D-38 (IR-01): the capacity bound is the rentable POOL, not the
+        // literal count of Assets in `rentable` status — see Asset
+        // Registry's getRentablePoolCount for why.
+        const getRentablePoolCount: CapacitySource = (tenantId, assetTypeId) =>
+          createPostgresAssetRegistryRepository(trx).getRentablePoolCount(tenantId, assetTypeId)
+        return fn(createPostgresAvailabilityReservationRepository(trx), getRentablePoolCount)
       }) as Promise<T>
     },
   }

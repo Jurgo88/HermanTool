@@ -19,6 +19,15 @@ export interface NewAssetStatusEvent {
 export interface AssetRegistryRepository {
   assetTypeExists(tenantId: TenantId, assetTypeId: number): Promise<boolean>
 
+  // The literal count of Assets currently in `rentable` status — units
+  // sitting on the shelf right now. Deliberately NOT the capacity bound
+  // used by Availability & Reservation (see getRentablePoolCount below):
+  // this is what FR-29's shortfall ranking needs (Part 5 Finding 12,
+  // server/utils/overdue-noshow-views.ts) — "will confirmed demand
+  // exceed what is physically on the shelf", which is a different
+  // question from "what is this AssetType's booking capacity" (D-38).
+  getRentableCount(tenantId: TenantId, assetTypeId: number): Promise<number>
+
   // Availability & Reservation's D-33 holds mechanism reads this as the
   // capacity bound for its per-(AssetType, day) atomic hold increment —
   // it must be called with a repository bound to that same transaction
@@ -26,7 +35,17 @@ export interface AssetRegistryRepository {
   // hold increment share one transaction (Part 4 §16 D-33). This is the
   // published-interface seam D-02 requires: Availability & Reservation
   // calls this method, never `select ... from assets` directly.
-  getRentableCount(tenantId: TenantId, assetTypeId: number): Promise<number>
+  //
+  // D-38 (Part 4 §16.2, raised by IR-01): capacity is the size of the
+  // rentable POOL — Rentable + InPossession + UnderInspection — not the
+  // count of Assets currently in Rentable status. An Asset out on
+  // HandoverOut has already had its days held by its own Reservation;
+  // subtracting it from `rentable` a second time here would reduce
+  // capacity for every OTHER day too, which is the bug D-38 fixes.
+  // Unavailable and Retired are excluded: those statuses are statements
+  // that a unit has left the pool, not statements about where it stands
+  // today.
+  getRentablePoolCount(tenantId: TenantId, assetTypeId: number): Promise<number>
 
   getAsset(tenantId: TenantId, assetId: number): Promise<Asset | null>
 
@@ -162,6 +181,15 @@ export function createPostgresAssetRegistryRepository(
       const rows = await sql<{ count: string }[]>`
         select count(*)::text as count from assets
         where tenant_id = ${tenantId} and asset_type_id = ${assetTypeId} and status = 'rentable'
+      `
+      return Number(rows[0]!.count)
+    },
+
+    async getRentablePoolCount(tenantId, assetTypeId) {
+      const rows = await sql<{ count: string }[]>`
+        select count(*)::text as count from assets
+        where tenant_id = ${tenantId} and asset_type_id = ${assetTypeId}
+          and status in ('rentable', 'in_possession', 'under_inspection')
       `
       return Number(rows[0]!.count)
     },

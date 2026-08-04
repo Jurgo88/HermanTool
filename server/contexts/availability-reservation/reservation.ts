@@ -58,11 +58,11 @@ export interface AcquisitionHooks {
 
 async function acquireDayHold(
   repo: AvailabilityReservationRepository,
-  getRentableCount: CapacitySource,
+  getRentablePoolCount: CapacitySource,
   params: { tenantId: TenantId; assetTypeId: number; day: string; hooks?: AcquisitionHooks },
 ): Promise<void> {
   const { tenantId, assetTypeId, day, hooks } = params
-  const capacity = await getRentableCount(tenantId, assetTypeId)
+  const capacity = await getRentablePoolCount(tenantId, assetTypeId)
   await hooks?.afterCapacityRead?.({ assetTypeId, day, capacity })
 
   if (await repo.tryIncrementHold(tenantId, assetTypeId, day, capacity)) return
@@ -120,13 +120,13 @@ export async function checkoutReservationGroup(
 
   const pendingExpiresAt = new Date(now.getTime() + PENDING_EXPIRY_MINUTES * 60_000)
 
-  return repo.transaction(async (trx, getRentableCount) => {
+  return repo.transaction(async (trx, getRentablePoolCount) => {
     const group = await trx.insertReservationGroup(tenantId)
     const reservations: Reservation[] = []
 
     for (const line of lines) {
       for (const day of eachDayOfPeriod(line.period)) {
-        await acquireDayHold(trx, getRentableCount, { tenantId, assetTypeId: line.assetTypeId, day, hooks })
+        await acquireDayHold(trx, getRentablePoolCount, { tenantId, assetTypeId: line.assetTypeId, day, hooks })
       }
       reservations.push(
         await trx.insertReservation(tenantId, {
@@ -190,7 +190,7 @@ export async function confirmReservationGroup(
 ): Promise<Reservation[]> {
   const { tenantId, reservationGroupId } = params
 
-  return repo.transaction(async (trx, getRentableCount) => {
+  return repo.transaction(async (trx, getRentablePoolCount) => {
     const group = await trx.getReservationGroup(tenantId, reservationGroupId)
     if (!group) throw new ReservationGroupNotFoundError(reservationGroupId)
 
@@ -237,7 +237,7 @@ export async function confirmReservationGroup(
         }
 
         for (const day of eachDayOfPeriod(current.period)) {
-          await acquireDayHold(trx, getRentableCount, {
+          await acquireDayHold(trx, getRentablePoolCount, {
             tenantId,
             assetTypeId: current.assetTypeId,
             day,
@@ -338,12 +338,12 @@ export async function sweepExpiredReservations(
 // processed it yet.
 export async function getAvailableCount(
   repo: AvailabilityReservationRepository,
-  getRentableCount: CapacitySource,
+  getRentablePoolCount: CapacitySource,
   params: { tenantId: TenantId; assetTypeId: number; day: string },
 ): Promise<number> {
   const { tenantId, assetTypeId, day } = params
   const [rentable, active] = await Promise.all([
-    getRentableCount(tenantId, assetTypeId),
+    getRentablePoolCount(tenantId, assetTypeId),
     repo.countActiveReservations(tenantId, assetTypeId, day),
   ])
   return Math.max(0, rentable - active)
