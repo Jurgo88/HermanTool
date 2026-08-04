@@ -61,4 +61,21 @@ export const sk = {
     printAction: 'Tlačiť hárok',
     emptyCsvError: 'Pridajte aspoň jeden riadok, alebo vložte CSV, pred odoslaním.',
   },
+  adminJobRuns: {
+    title: 'Stav naplánovaných úloh',
+    columnJob: 'Úloha',
+    columnLastRun: 'Posledný beh',
+    columnLastSuccess: 'Posledný úspešný beh',
+    outcomeSuccess: 'úspech',
+    outcomeFailure: 'zlyhanie',
+    neverRun: 'Ešte nebežala',
+    jobNames: {
+      expiry_sweep: 'Kontrola vypršaných rezervácií',
+      evidence_erasure: 'Výmaz identifikačných dokladov',
+      pickup_reminder_dispatch: 'Pripomienky na vyzdvihnutie',
+      return_reminder_dispatch: 'Pripomienky na vrátenie',
+      overdue_reminder_dispatch: 'Pripomienky pri omeškaní',
+      database_backup: 'Záloha databázy',
+    },
+  },
 } as const
