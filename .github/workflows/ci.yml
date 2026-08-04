@@ -1,0 +1,46 @@
+# CI (D-34, IR-03). Runs on every push and pull request: lint (banned
+# terms, dependency direction — see eslint.config.mjs), typecheck, and
+# the unit test suite. A discipline that is only greppable is enforced
+# by whoever remembers to grep (NFR-13, Part 5 Finding 11) — this makes
+# it a build failure instead.
+#
+# Integration suites (tests/**/*.integration.test.ts) are NOT run here.
+# They self-skip without NUXT_DATABASE_URL (matching local dev with no
+# env file), same as today — deliberately: this repo currently has one
+# Supabase project (no rehearsal project yet, R-05; see
+# apply-migrations.yml's own note), so wiring that URL into a workflow
+# that runs unattended on every push, from any branch or PR, would mean
+# unattended truncation of that database. Once a rehearsal project
+# exists, running integration suites here against it is the natural
+# next step (see IR-03's own text) — not done in this change.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.node-version'
+
+      - name: Enable Corepack (pnpm via packageManager field)
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (banned terms, dependency direction — D-34, D-02)
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
