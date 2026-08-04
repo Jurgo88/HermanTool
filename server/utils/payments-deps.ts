@@ -1,12 +1,12 @@
 // Constructs a real Postgres-backed PaymentsRepository and the real
-// Stripe-backed PaymentGateway from runtime config, plus a `close()` to
-// end the connection afterwards — same per-request create/end convention
-// as ./catalog-deps.ts and ./availability-reservation-deps.ts (NFR-04: no
-// pooling apparatus at pilot load).
+// Stripe-backed PaymentGateway from runtime config. `close` is a no-op
+// (D-39, IR-09): the connection is module-scope and reused across
+// invocations (./db.ts), never ended per request — kept as a field so
+// every call site's `finally { await close() }` keeps working unchanged.
 import { createError, type H3Event } from 'h3'
 import { useRuntimeConfig } from '#imports'
 import type postgres from 'postgres'
-import { createDatabaseClient } from './db'
+import { getSharedDatabaseClient } from './db'
 import {
   createPostgresPaymentsRepository,
   createStripePaymentGateway,
@@ -22,7 +22,7 @@ export function createPaymentsDeps(
   event: H3Event,
 ): { repo: PaymentsRepository; gateway: PaymentGateway; sql: postgres.Sql; close: () => Promise<void> } {
   const config = useRuntimeConfig(event)
-  const sql = createDatabaseClient(config.databaseUrl)
+  const sql = getSharedDatabaseClient(config.databaseUrl)
   return {
     repo: createPostgresPaymentsRepository(sql),
     gateway: createStripePaymentGateway({
@@ -30,7 +30,7 @@ export function createPaymentsDeps(
       webhookSecret: config.stripeWebhookSecret,
     }),
     sql,
-    close: () => sql.end(),
+    close: () => Promise.resolve(), // D-39: shared client, never ended per request
   }
 }
 
