@@ -1,7 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2026-07-21',
-  modules: ['@nuxt/eslint'],
+  modules: ['@nuxt/eslint', '@sentry/nuxt/module'],
 
   typescript: {
     strict: true,
@@ -12,6 +12,23 @@ export default defineNuxtConfig({
     config: {
       stylistic: false, // Prettier owns formatting; ESLint owns correctness only
     },
+  },
+
+  // D-29 (issue #73/IR-05). Actual init options (dsn, sendDefaultPii,
+  // beforeSend) live in sentry.server.config.ts / sentry.client.config.ts
+  // — this block is build-time only. sourceMapsUploadOptions.authToken
+  // is intentionally left unset: without SENTRY_AUTH_TOKEN in the build
+  // environment, the module skips the upload step with a warning rather
+  // than failing the build, which is correct until a Sentry project
+  // exists to upload to.
+  sentry: {
+    sourceMapsUploadOptions: {
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      telemetry: false, // build-tool usage stats to Sentry's own telemetry endpoint; not requested, not needed
+    },
+  },
+  sourcemap: {
+    client: 'hidden',
   },
 
   runtimeConfig: {
