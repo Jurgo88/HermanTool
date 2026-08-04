@@ -67,30 +67,51 @@ export async function startPayment(
   return { payment, redirectUrl: session.redirectUrl }
 }
 
+// IR-11 (Part 5 Finding 3, D-33's own class of defect one context over):
+// the caller's decision to run a side effect exactly once — here,
+// confirmReservationGroup — must be gated on WHICH concurrent delivery
+// actually won the atomic transition, not merely on "is this Payment
+// succeeded now". Two genuinely concurrent webhook deliveries can both
+// read status='pending' and both call this function; exactly one
+// transitionPaymentStatus call below wins (the row-level guard), and the
+// other must be told it lost, not handed back a Payment object
+// indistinguishable from the winner's. Returning a bare Payment (the
+// previous shape) could not carry that distinction — see
+// server/utils/payment-webhook-flow.ts, the one caller.
+export type ApplyPaymentSucceededOutcome =
+  | { outcome: 'already_processed'; payment: Payment }
+  | { outcome: 'succeeded'; payment: Payment }
+
 // D-37/Finding 3: marks a Payment succeeded. Idempotent against a
 // duplicate webhook delivery for the same event — a Payment already
-// 'succeeded' is returned as-is rather than re-transitioned or treated as
-// an error, since Stripe's own retry semantics mean the same event can
-// arrive more than once.
+// 'succeeded' (or 'refunded': the guard below is `from: 'pending'`, so
+// any other status falls through to the same already_processed path) is
+// reported as such rather than re-transitioned or treated as an error,
+// since Stripe's own retry semantics mean the same event can arrive more
+// than once.
 export async function applyPaymentSucceeded(
   repo: PaymentsRepository,
   params: { tenantId: TenantId; payment: Payment; providerPaymentReference: string | null },
-): Promise<Payment> {
+): Promise<ApplyPaymentSucceededOutcome> {
   const { tenantId, payment, providerPaymentReference } = params
-  if (payment.status === 'succeeded') return payment
+  if (payment.status === 'succeeded') return { outcome: 'already_processed', payment }
 
   const transitioned = await repo.transitionPaymentStatus(tenantId, payment.id, {
     from: 'pending',
     to: 'succeeded',
     providerPaymentReference: providerPaymentReference ?? undefined,
   })
+  if (transitioned) return { outcome: 'succeeded', payment: transitioned }
+
   // A guard miss here means the row moved between our read and this
-  // update (e.g. concurrent webhook redelivery already advanced it) —
-  // re-read rather than assume failure.
-  if (transitioned) return transitioned
+  // update — a concurrent delivery (or an already-refunded Payment) got
+  // there first. Re-read for an accurate current Payment object, but the
+  // outcome is already_processed regardless of what it now says: THIS
+  // call did not perform the transition, so the caller must not run any
+  // effect gated on "I am the one who confirmed this."
   const current = await repo.getPayment(tenantId, payment.id)
   if (!current) throw new PaymentNotFoundError(payment.id)
-  return current
+  return { outcome: 'already_processed', payment: current }
 }
 
 // D-37/Finding 3: the automatic refund path when PaymentReceived arrives
