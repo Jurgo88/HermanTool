@@ -96,6 +96,18 @@ export function createFakeAssetRegistryRepository(): FakeAssetRegistryRepository
         return asset ? { ...asset } : null
       },
 
+      async listPendingActivation(tenantId) {
+        return target.assets
+          .filter((a) => a.tenantId === tenantId && a.status === 'unavailable')
+          .map((asset) => {
+            const tag = target.tags.find(
+              (t) => t.tenantId === tenantId && t.assetId === asset.id && t.unboundAt === null,
+            )
+            return tag ? { asset: { ...asset }, tag: { ...tag } } : null
+          })
+          .filter((entry): entry is { asset: Asset; tag: AssetTag } => entry !== null)
+      },
+
       async insertAsset(tenantId, { assetTypeId, status, operatorId }) {
         const now = new Date()
         const asset: Asset = {

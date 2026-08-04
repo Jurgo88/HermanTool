@@ -7,6 +7,7 @@ import {
   MalformedCsvRowError,
   parseBulkRegistrationCsv,
 } from '../../../../server/contexts/asset-registry/bulk-registration'
+import { markAssetRentable } from '../../../../server/contexts/asset-registry/asset-lifecycle'
 import { AssetTypeNotFoundError } from '../../../../server/contexts/asset-registry/types'
 import { createFakeAssetRegistryRepository, type FakeAssetRegistryRepository } from './fake-repository'
 
@@ -78,6 +79,19 @@ describe('bulkRegisterAssets (F10, FR-25, FR-26, W9, issue #9)', () => {
     await expect(
       bulkRegisterAssets(repo, { tenantId: tenantA, operatorId, lines: [{ assetTypeId: 999, quantity: 1 }] }),
     ).rejects.toThrow(AssetTypeNotFoundError)
+  })
+
+  it('listPendingActivation surfaces every bulk-registered unit until markAssetRentable is called on it (issue #9 follow-up)', async () => {
+    const units = await bulkRegisterAssets(repo, { tenantId: tenantA, operatorId, lines: [{ assetTypeId: 1, quantity: 2 }] })
+
+    const beforeActivation = await repo.listPendingActivation(tenantA)
+    expect(beforeActivation.map((p) => p.asset.id).sort()).toEqual(units.map((u) => u.asset.id).sort())
+
+    await markAssetRentable(repo, { tenantId: tenantA, assetId: units[0]!.asset.id, operatorId })
+
+    const afterActivation = await repo.listPendingActivation(tenantA)
+    expect(afterActivation).toHaveLength(1)
+    expect(afterActivation[0]!.asset.id).toBe(units[1]!.asset.id)
   })
 })
 

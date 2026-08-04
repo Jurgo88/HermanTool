@@ -36,6 +36,13 @@ interface TagSheetEntry extends BulkRegisteredUnitView {
   qrDataUrl: string
 }
 
+interface PendingActivationEntry {
+  assetId: number
+  assetTypeId: number
+  tagCode: string
+  registeredAt: string
+}
+
 interface BuilderLine {
   assetTypeId: number
   assetTypeName: string
@@ -54,6 +61,14 @@ const csv = ref('')
 const error = ref<string | null>(null)
 const submitting = ref(false)
 const entries = ref<TagSheetEntry[]>([])
+
+const pending = ref<PendingActivationEntry[]>([])
+const markingRentableAssetId = ref<number | null>(null)
+const markingAllRentable = ref(false)
+
+function assetTypeName(assetTypeId: number): string {
+  return assetTypes.value.find((a) => a.id === assetTypeId)?.name ?? String(assetTypeId)
+}
 
 async function handleFetchError(err: unknown) {
   const statusCode = (err as { statusCode?: number; data?: { statusMessage?: string } })?.statusCode
@@ -132,6 +147,7 @@ async function submit() {
     )
     lines.value = []
     csv.value = ''
+    await loadPending()
   } catch (err: unknown) {
     await handleFetchError(err)
   } finally {
@@ -143,7 +159,44 @@ function print() {
   window.print()
 }
 
+async function loadPending() {
+  try {
+    pending.value = await requestFetch<PendingActivationEntry[]>('/api/asset-registry/assets/pending-activation')
+  } catch (err: unknown) {
+    await handleFetchError(err)
+  }
+}
+
+async function markRentable(assetId: number) {
+  error.value = null
+  markingRentableAssetId.value = assetId
+  try {
+    await $fetch(`/api/asset-registry/assets/${assetId}/mark-rentable`, { method: 'POST' })
+    pending.value = pending.value.filter((p) => p.assetId !== assetId)
+  } catch (err: unknown) {
+    await handleFetchError(err)
+  } finally {
+    markingRentableAssetId.value = null
+  }
+}
+
+async function markAllRentable() {
+  error.value = null
+  markingAllRentable.value = true
+  try {
+    for (const entry of [...pending.value]) {
+      await $fetch(`/api/asset-registry/assets/${entry.assetId}/mark-rentable`, { method: 'POST' })
+      pending.value = pending.value.filter((p) => p.assetId !== entry.assetId)
+    }
+  } catch (err: unknown) {
+    await handleFetchError(err)
+  } finally {
+    markingAllRentable.value = false
+  }
+}
+
 await loadAssetTypes()
+await loadPending()
 </script>
 
 <template>
@@ -208,6 +261,45 @@ await loadAssetTypes()
         </button>
       </p>
     </section>
+
+    <section v-if="pending.length > 0" class="no-print">
+      <h2>{{ sk.adminAssetRegistry.pendingHeading }}</h2>
+      <p>{{ sk.adminAssetRegistry.pendingIntro }}</p>
+      <p>
+        <button type="button" :disabled="markingAllRentable" @click="markAllRentable">
+          {{ markingAllRentable ? sk.adminAssetRegistry.markingRentable : sk.adminAssetRegistry.markAllRentableAction }}
+        </button>
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>{{ sk.adminAssetRegistry.columnAssetType }}</th>
+            <th>{{ sk.adminAssetRegistry.columnTagCode }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="entry in pending" :key="entry.assetId">
+            <td>{{ assetTypeName(entry.assetTypeId) }}</td>
+            <td>{{ entry.tagCode }}</td>
+            <td>
+              <button
+                type="button"
+                :disabled="markingRentableAssetId === entry.assetId || markingAllRentable"
+                @click="markRentable(entry.assetId)"
+              >
+                {{
+                  markingRentableAssetId === entry.assetId
+                    ? sk.adminAssetRegistry.markingRentable
+                    : sk.adminAssetRegistry.markRentableAction
+                }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+    <p v-else class="no-print">{{ sk.adminAssetRegistry.pendingEmpty }}</p>
 
     <section v-if="entries.length > 0">
       <h2 class="no-print">{{ sk.adminAssetRegistry.resultHeading }}</h2>
