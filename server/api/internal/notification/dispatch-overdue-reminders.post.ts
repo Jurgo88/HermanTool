@@ -3,6 +3,7 @@ import { createAvailabilityReservationDeps } from '../../../utils/availability-r
 import { createCustomerIdentityComplianceDeps } from '../../../utils/customer-identity-compliance-deps'
 import { createHandoverPossessionDeps } from '../../../utils/handover-possession-deps'
 import { requireInternalJobSecret } from '../../../utils/internal-job-session'
+import { runScheduledJob } from '../../../utils/job-run-ledger'
 import { createNotificationDeps } from '../../../utils/notification-deps'
 import { getSeededTenantId } from '../../../utils/tenant'
 
@@ -25,18 +26,23 @@ export default defineEventHandler(async (event) => {
 
   try {
     const tenantId = await getSeededTenantId(availability.sql)
-    const dispatched = await dispatchDueOverdueReminders(
-      {
-        availabilityRepo: availability.repo,
-        handoverRepo: handover.repo,
-        assetRegistryRepo: handover.assetRegistryRepo,
-        identityRepo: customerIdentity.repo,
-        notificationRepo: notification.repo,
-        notificationGateway: notification.gateway,
-      },
-      { tenantId, today: todayAsRentalDay() },
-    )
-    return { dispatchedCount: dispatched.length, notificationIds: dispatched.map((d) => d.id) }
+    return await runScheduledJob(availability.sql, { tenantId, jobName: 'overdue_reminder_dispatch' }, async () => {
+      const dispatched = await dispatchDueOverdueReminders(
+        {
+          availabilityRepo: availability.repo,
+          handoverRepo: handover.repo,
+          assetRegistryRepo: handover.assetRegistryRepo,
+          identityRepo: customerIdentity.repo,
+          notificationRepo: notification.repo,
+          notificationGateway: notification.gateway,
+        },
+        { tenantId, today: todayAsRentalDay() },
+      )
+      return {
+        processedCount: dispatched.length,
+        result: { dispatchedCount: dispatched.length, notificationIds: dispatched.map((d) => d.id) },
+      }
+    })
   } finally {
     await Promise.all([availability.close(), handover.close(), customerIdentity.close(), notification.close()])
   }

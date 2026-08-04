@@ -1,6 +1,7 @@
 import { requireInternalJobSecret } from '../../../utils/internal-job-session'
 import { createAvailabilityReservationDeps } from '../../../utils/availability-reservation-deps'
 import { getSeededTenantId } from '../../../utils/tenant'
+import { runScheduledJob } from '../../../utils/job-run-ledger'
 import { sweepExpiredReservations } from '../../../contexts/availability-reservation'
 
 // D-25 §14.2, Finding 3, FR-08: called on a schedule by GitHub Actions
@@ -14,8 +15,10 @@ export default defineEventHandler(async (event) => {
   const { repo, sql, close } = createAvailabilityReservationDeps(event)
   try {
     const tenantId = await getSeededTenantId(sql)
-    const expired = await sweepExpiredReservations(repo, { tenantId })
-    return { sweptCount: expired.length, reservationIds: expired.map((r) => r.id) }
+    return await runScheduledJob(sql, { tenantId, jobName: 'expiry_sweep' }, async () => {
+      const expired = await sweepExpiredReservations(repo, { tenantId })
+      return { processedCount: expired.length, result: { sweptCount: expired.length, reservationIds: expired.map((r) => r.id) } }
+    })
   } finally {
     await close()
   }

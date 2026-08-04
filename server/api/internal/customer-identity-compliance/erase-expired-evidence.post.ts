@@ -1,6 +1,7 @@
 import { eraseExpiredIdentityEvidence } from '../../../contexts/customer-identity-compliance'
 import { createCustomerIdentityComplianceDeps } from '../../../utils/customer-identity-compliance-deps'
 import { requireInternalJobSecret } from '../../../utils/internal-job-session'
+import { runScheduledJob } from '../../../utils/job-run-ledger'
 import { getSeededTenantId } from '../../../utils/tenant'
 
 // D-11, D-36, FR-16, W10: called on a schedule by GitHub Actions
@@ -18,8 +19,13 @@ export default defineEventHandler(async (event) => {
   const { repo, gateway, sql, close } = createCustomerIdentityComplianceDeps(event)
   try {
     const tenantId = await getSeededTenantId(sql)
-    const erased = await eraseExpiredIdentityEvidence({ repo, gateway }, { tenantId })
-    return { erasedCount: erased.length, identityEvidenceIds: erased.map((e) => e.id) }
+    return await runScheduledJob(sql, { tenantId, jobName: 'evidence_erasure' }, async () => {
+      const erased = await eraseExpiredIdentityEvidence({ repo, gateway }, { tenantId })
+      return {
+        processedCount: erased.length,
+        result: { erasedCount: erased.length, identityEvidenceIds: erased.map((e) => e.id) },
+      }
+    })
   } finally {
     await close()
   }
