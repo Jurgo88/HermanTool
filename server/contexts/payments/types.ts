@@ -75,3 +75,18 @@ export class PaymentNotRefundableError extends PaymentsError {
     super(`Payment ${paymentId} is ${status} and cannot be refunded.`)
   }
 }
+
+// P6/NFR-05: the anti-corruption layer's own catch-all — ./gateway.ts is
+// the only file allowed to know Stripe's error shapes, and it must never
+// let one escape past this boundary raw (a Customer on the public
+// checkout page has no business seeing a provider's internal error
+// text). Covers both "the provider rejected the request" (e.g. no/bad
+// API key — this dev environment's own NUXT_STRIPE_SECRET_KEY-is-empty
+// state) and "the provider accepted it but returned something we can't
+// use" (gateway.ts's own "no hosted checkout URL" case).
+export class PaymentProviderUnavailableError extends PaymentsError {
+  constructor(cause: unknown) {
+    super('The payment provider could not start a hosted checkout session.')
+    this.cause = cause
+  }
+}

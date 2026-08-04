@@ -6,7 +6,12 @@ import {
   TermsNotAcceptedError,
 } from '../../contexts/availability-reservation'
 import { AssetTypeNotFoundError } from '../../contexts/catalog'
-import { computeRentalFeeAmount, ReservationGroupAlreadyPaidError, startPayment } from '../../contexts/payments'
+import {
+  computeRentalFeeAmount,
+  PaymentProviderUnavailableError,
+  ReservationGroupAlreadyPaidError,
+  startPayment,
+} from '../../contexts/payments'
 import { createAvailabilityReservationDeps } from '../../utils/availability-reservation-deps'
 import { createCatalogDeps } from '../../utils/catalog-deps'
 import { requireCheckoutGroupCookie } from '../../utils/checkout-session'
@@ -62,6 +67,10 @@ export default defineEventHandler(async (event) => {
     }
     if (err instanceof TermsNotAcceptedError || err instanceof ReservationGroupAlreadyPaidError) {
       throw createError({ statusCode: 409, statusMessage: err.message })
+    }
+    if (err instanceof PaymentProviderUnavailableError) {
+      console.error('Stripe checkout session creation failed:', err.cause)
+      throw createError({ statusCode: 502, statusMessage: err.message })
     }
     throw err
   } finally {
