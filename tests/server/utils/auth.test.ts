@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   InvalidCredentialsError,
   OperatorNotProvisionedError,
@@ -102,5 +102,39 @@ describe('resolveOperator', () => {
     const depsAfterOffboarding = createFakeAuthDeps({ supabase, operators: [] })
 
     await expect(resolveOperator(depsAfterOffboarding, session)).rejects.toThrow(OperatorNotProvisionedError)
+  })
+
+  it('forceRemoteCheck (D-39 NFR-06 carve-out): bypasses local verification entirely and uses the remote getUser call', async () => {
+    const supabase = createFakeSupabaseAuthClient()
+    supabase.seedUser({ id: 'auth-1', email: 'owner@example.com', password: 'correct-horse' })
+    const operator = fakeOperator({ id: 'auth-1' })
+    const baseDeps = createFakeAuthDeps({ supabase, operators: [operator] })
+    const { session } = await signInOperator(baseDeps, { email: 'owner@example.com', password: 'correct-horse' })
+
+    const verifyAccessToken = vi.fn(baseDeps.verifyAccessToken)
+    const deps = { ...baseDeps, verifyAccessToken }
+
+    const result = await resolveOperator(deps, session, { forceRemoteCheck: true })
+
+    expect(result.operator).toEqual(operator)
+    // The whole point of the carve-out: the local path must not run at
+    // all when a route asks for the remote check (NFR-06).
+    expect(verifyAccessToken).not.toHaveBeenCalled()
+  })
+
+  it('without forceRemoteCheck, uses local verification (the D-39 default)', async () => {
+    const supabase = createFakeSupabaseAuthClient()
+    supabase.seedUser({ id: 'auth-1', email: 'owner@example.com', password: 'correct-horse' })
+    const operator = fakeOperator({ id: 'auth-1' })
+    const baseDeps = createFakeAuthDeps({ supabase, operators: [operator] })
+    const { session } = await signInOperator(baseDeps, { email: 'owner@example.com', password: 'correct-horse' })
+
+    const verifyAccessToken = vi.fn(baseDeps.verifyAccessToken)
+    const deps = { ...baseDeps, verifyAccessToken }
+
+    const result = await resolveOperator(deps, session)
+
+    expect(result.operator).toEqual(operator)
+    expect(verifyAccessToken).toHaveBeenCalledWith(session.accessToken)
   })
 })

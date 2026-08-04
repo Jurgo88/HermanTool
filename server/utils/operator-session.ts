@@ -81,12 +81,20 @@ export function createAuthDeps(event: H3Event): { deps: AuthDeps; close: () => P
 // The gate every FR-37 admin route calls. Throws a 401 H3Error when
 // there is no valid session or the authenticated user has no Operator
 // seat provisioned — never falls back to "an Operator" (FR-34, D-16).
-export async function requireOperator(event: H3Event): Promise<Operator> {
+//
+// `forceRemoteCheck` (D-39's NFR-06 carve-out): pass `true` only from a
+// route that hands out a presigned READ URL for IdentityEvidence — see
+// ./auth.ts's resolveOperator for why. Every other caller gets the
+// default local verification.
+export async function requireOperator(
+  event: H3Event,
+  options?: { forceRemoteCheck?: boolean },
+): Promise<Operator> {
   const session = readSessionCookie(event)
   const { deps, close } = createAuthDeps(event)
 
   try {
-    const result = await resolveOperator(deps, session)
+    const result = await resolveOperator(deps, session, options)
     if (
       !session ||
       result.session.accessToken !== session.accessToken ||

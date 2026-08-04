@@ -72,14 +72,15 @@ describe('listTodaysPickups / listTodaysReturns (FR-42)', () => {
     return { reservation: reservations[0]!, customer }
   }
 
-  it('lists a Confirmed Reservation starting today as a pickup', async () => {
-    await confirmedReservation(TODAY, '2026-03-12')
+  it('lists a Confirmed Reservation starting today as a pickup, with the customerId issue #80/IR-12 needs for HandoverOut', async () => {
+    const { customer } = await confirmedReservation(TODAY, '2026-03-12')
 
     const pickups = await listTodaysPickups(deps, { tenantId: tenantA, today: TODAY })
 
     expect(pickups).toHaveLength(1)
     expect(pickups[0]!.assetTypeName).toBe('Rotary Hammer')
     expect(pickups[0]!.customerName).toBe('Jana Nováková')
+    expect(pickups[0]!.customerId).toBe(customer.id)
   })
 
   it('excludes a Reservation already handed out from pickups', async () => {

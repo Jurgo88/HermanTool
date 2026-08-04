@@ -111,23 +111,26 @@ export async function signInOperator(
 // lifetime, a Supabase project setting (Auth → Sessions), not a value
 // this codebase controls or names a default for.
 //
-// Carve-out (D-39's own text, not yet wired to a caller): a route
-// handing out a presigned READ URL for IdentityEvidence should keep the
-// remote `getUser` check instead of this local one — NFR-06 is what
-// bought individual, real-time authentication for evidence access in
-// the first place, and that route does not exist yet (IR-12). When it
-// is built, it should call `deps.supabase.auth.getUser` directly rather
-// than going through resolveOperator's local path.
+// Carve-out (D-39, wired via `forceRemoteCheck`): the route generating a
+// presigned READ URL for IdentityEvidence (issue #80/IR-12) passes
+// `{ forceRemoteCheck: true }` here instead of taking the local D-39
+// path — NFR-06 is what bought individual, real-time authentication for
+// evidence access in the first place, and that guarantee is worth the
+// one network call this route already pays for (the presigned-URL
+// generation itself talks to R2).
 export async function resolveOperator(
   deps: AuthDeps,
   session: OperatorSession | null,
+  options?: { forceRemoteCheck?: boolean },
 ): Promise<{ operator: Operator; session: OperatorSession }> {
   if (!session) throw new UnauthenticatedError()
 
-  const verified = await deps.verifyAccessToken(session.accessToken)
+  const userIdFromAccessToken = options?.forceRemoteCheck
+    ? (await deps.supabase.auth.getUser(session.accessToken)).data.user?.id
+    : (await deps.verifyAccessToken(session.accessToken))?.userId
 
   let activeSession = session
-  let userId = verified?.userId
+  let userId = userIdFromAccessToken
 
   if (!userId) {
     const refreshed = await deps.supabase.auth.refreshSession({ refresh_token: session.refreshToken })
