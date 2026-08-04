@@ -113,7 +113,18 @@ export interface HandoverPossessionRepository {
   ): Promise<RentalAgreement | null>
 
   insertConditionReport(tenantId: TenantId, params: NewConditionReport): Promise<ConditionReport>
+  getConditionReport(tenantId: TenantId, id: number): Promise<ConditionReport | null>
   listConditionReportsForAgreement(tenantId: TenantId, rentalAgreementId: number): Promise<ConditionReport[]>
+
+  // D-40, issue #78/IR-10. Guarded to succeed only while unconfirmed —
+  // idempotent against a retried confirm call.
+  confirmConditionReport(tenantId: TenantId, id: number, confirmedAt: Date): Promise<ConditionReport | null>
+
+  // D-40: the sweep's candidate set — unconfirmed rows older than the
+  // presigned URL's own lifetime (the caller passes that cutoff; this
+  // repository does not know UPLOAD_URL_TTL_SECONDS, that lives in
+  // ./r2-gateway.ts).
+  listUnconfirmedConditionReportsOlderThan(tenantId: TenantId, cutoff: Date): Promise<ConditionReport[]>
 
   insertDepositTaken(tenantId: TenantId, params: NewDepositTaken): Promise<DepositTaken>
   getDepositTakenForAgreement(tenantId: TenantId, rentalAgreementId: number): Promise<DepositTaken | null>
@@ -218,6 +229,7 @@ interface ConditionReportRow {
   operator_id: string
   captured_at: Date
   recorded_at: Date
+  confirmed_at: Date | null
 }
 
 function mapConditionReport(row: ConditionReportRow): ConditionReport {
@@ -230,6 +242,7 @@ function mapConditionReport(row: ConditionReportRow): ConditionReport {
     operatorId: row.operator_id,
     capturedAt: row.captured_at,
     recordedAt: row.recorded_at,
+    confirmedAt: row.confirmed_at,
   }
 }
 
@@ -402,10 +415,36 @@ export function createPostgresHandoverPossessionRepository(
       return mapConditionReport(rows[0]!)
     },
 
+    async getConditionReport(tenantId, id) {
+      const rows = await sql<ConditionReportRow[]>`
+        select * from condition_reports where tenant_id = ${tenantId} and id = ${id}
+      `
+      return rows[0] ? mapConditionReport(rows[0]) : null
+    },
+
     async listConditionReportsForAgreement(tenantId, rentalAgreementId) {
       const rows = await sql<ConditionReportRow[]>`
         select * from condition_reports
         where tenant_id = ${tenantId} and rental_agreement_id = ${rentalAgreementId}
+        order by id
+      `
+      return rows.map(mapConditionReport)
+    },
+
+    async confirmConditionReport(tenantId, id, confirmedAt) {
+      const rows = await sql<ConditionReportRow[]>`
+        update condition_reports
+        set confirmed_at = ${confirmedAt}
+        where tenant_id = ${tenantId} and id = ${id} and confirmed_at is null
+        returning *
+      `
+      return rows[0] ? mapConditionReport(rows[0]) : null
+    },
+
+    async listUnconfirmedConditionReportsOlderThan(tenantId, cutoff) {
+      const rows = await sql<ConditionReportRow[]>`
+        select * from condition_reports
+        where tenant_id = ${tenantId} and confirmed_at is null and recorded_at < ${cutoff}
         order by id
       `
       return rows.map(mapConditionReport)

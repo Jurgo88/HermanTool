@@ -1,0 +1,25 @@
+# Sweep unconfirmed ConditionReports (D-40, Part 4 §16.2; issue
+# #78/IR-10). Mirrors ./sweep-unconfirmed-evidence.yml exactly, same
+# reasoning, different bucket/context.
+name: Sweep unconfirmed ConditionReports
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the sweep-unconfirmed-condition-reports endpoint
+        run: |
+          http_status=$(curl -sS -o /tmp/sweep-response.json -w "%{http_code}" \
+            -X POST "${{ vars.SWEEP_SITE_URL }}/api/internal/handover-possession/sweep-unconfirmed-condition-reports" \
+            -H "Authorization: Bearer ${{ secrets.SWEEP_JOB_SECRET }}")
+          echo "HTTP status: $http_status"
+          cat /tmp/sweep-response.json
+          if [ "$http_status" -ge 400 ]; then
+            echo "::error::Sweep endpoint returned HTTP $http_status"
+            exit 1
+          fi

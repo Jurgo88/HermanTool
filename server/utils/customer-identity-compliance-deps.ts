@@ -55,6 +55,16 @@ export function getCustomerIdParam(event: H3Event): number {
   return id
 }
 
+// D-40, issue #78/IR-10: same reasoning as getCustomerIdParam above.
+export function getIdentityEvidenceIdParam(event: H3Event): number {
+  const raw = getRouterParam(event, 'identityEvidenceId')
+  const id = Number(raw)
+  if (!raw || !Number.isInteger(id) || id <= 0) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid IdentityEvidence id.' })
+  }
+  return id
+}
+
 // D-23: the raw bearer token from a public customer-access route's own
 // path — never a database identifier, so no numeric parsing.
 export function getCustomerAccessTokenParam(event: H3Event): string {

@@ -68,7 +68,7 @@ describe.skipIf(!databaseUrl)('job-run ledger (integration)', () => {
   it('getJobRunStatuses reports a job that has never run as null/null, not absent (FR-40)', async () => {
     const statuses = await getJobRunStatuses(sql, tenantId)
 
-    expect(statuses).toHaveLength(6)
+    expect(statuses).toHaveLength(8)
     const backup = statuses.find((s) => s.jobName === 'database_backup')
     expect(backup?.latestRun).toBeNull()
     expect(backup?.latestSuccessfulRun).toBeNull()

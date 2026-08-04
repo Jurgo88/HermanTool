@@ -105,6 +105,7 @@ export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerId
         objectKey,
         retentionDeadline,
         createdAt: new Date(),
+        confirmedAt: null,
         erasedAt: null,
       }
       state.identityEvidence.push(evidence)
@@ -144,6 +145,21 @@ export function createFakeCustomerIdentityComplianceRepository(): FakeCustomerId
       if (!evidence) return null
       evidence.erasedAt = erasedAt
       return { ...evidence }
+    },
+
+    async confirmIdentityEvidence(tenantId, id, confirmedAt) {
+      const evidence = state.identityEvidence.find(
+        (e) => e.tenantId === tenantId && e.id === id && e.confirmedAt === null,
+      )
+      if (!evidence) return null
+      evidence.confirmedAt = confirmedAt
+      return { ...evidence }
+    },
+
+    async listUnconfirmedIdentityEvidenceOlderThan(tenantId, cutoff) {
+      return state.identityEvidence
+        .filter((e) => e.tenantId === tenantId && e.confirmedAt === null && e.createdAt.getTime() < cutoff.getTime())
+        .map((e) => ({ ...e }))
     },
 
     async insertIdentityEvidenceAccessEvent(tenantId, { identityEvidenceId, operatorId }) {

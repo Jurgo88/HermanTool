@@ -19,6 +19,7 @@ import {
   AssetNotYetReturnableError,
   AssetTypeMismatchError,
   BackdateReasonRequiredError,
+  ConditionReportNotFoundError,
   createPostgresHandoverPossessionRepository,
   createR2ConditionReportGateway,
   CustomerReservationMismatchError,
@@ -77,6 +78,16 @@ export function getRentalAgreementIdParam(event: H3Event): number {
   return id
 }
 
+// D-40, issue #78/IR-10: same reasoning as getRentalAgreementIdParam above.
+export function getConditionReportIdParam(event: H3Event): number {
+  const raw = getRouterParam(event, 'conditionReportId')
+  const id = Number(raw)
+  if (!raw || !Number.isInteger(id) || id <= 0) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid ConditionReport id.' })
+  }
+  return id
+}
+
 // FR-43: Asset ids are Asset Registry's own `integer generated always as
 // identity` primary key.
 export function getAssetIdParam(event: H3Event): number {
@@ -93,7 +104,8 @@ export function translateHandoverPossessionError(err: unknown): never {
   if (
     err instanceof ScanEventTagNotBoundError ||
     err instanceof AssetNotFoundError ||
-    err instanceof RentalAgreementNotFoundError
+    err instanceof RentalAgreementNotFoundError ||
+    err instanceof ConditionReportNotFoundError
   ) {
     throw createError({ statusCode: 404, statusMessage: err.message })
   }

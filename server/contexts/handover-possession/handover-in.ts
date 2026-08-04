@@ -198,9 +198,14 @@ export async function completeSettlement(
   if (isDeduction) {
     if (!deductionReason?.trim()) throw new DeductionReasonRequiredError()
 
+    // D-40: a ConditionReport row counts here only once CONFIRMED — its
+    // mere existence names object keys that may never have been
+    // uploaded. A deduction passing FR-20 against two unconfirmed rows
+    // would manufacture confidence at exactly the moment a dispute needs
+    // the opposite (Part 4 §16.2's own framing for D-40).
     const conditionReports = await repo.listConditionReportsForAgreement(tenantId, rentalAgreementId)
-    const hasHandoverOutReport = conditionReports.some((r) => r.stage === 'handover_out')
-    const hasHandoverInReport = conditionReports.some((r) => r.stage === 'handover_in')
+    const hasHandoverOutReport = conditionReports.some((r) => r.stage === 'handover_out' && r.confirmedAt !== null)
+    const hasHandoverInReport = conditionReports.some((r) => r.stage === 'handover_in' && r.confirmedAt !== null)
     if (!hasHandoverOutReport || !hasHandoverInReport) {
       throw new DeductionRequiresPairedConditionReportsError(rentalAgreementId)
     }

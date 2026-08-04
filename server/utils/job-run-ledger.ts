@@ -10,6 +10,9 @@ import type { TenantId } from '../contexts/_shared'
 // The closed set of scheduled jobs, matching every internal endpoint
 // that exists today plus 'database_backup' (D-32, IR-04 -- not built
 // yet, pre-added so that issue doesn't need a second migration).
+// 'unconfirmed_identity_evidence_sweep' and
+// 'unconfirmed_condition_report_sweep' (D-40, issue #78/IR-10) widen
+// the job_runs check constraint via migration 20260804100000.
 export type JobName =
   | 'expiry_sweep'
   | 'evidence_erasure'
@@ -17,6 +20,8 @@ export type JobName =
   | 'return_reminder_dispatch'
   | 'overdue_reminder_dispatch'
   | 'database_backup'
+  | 'unconfirmed_identity_evidence_sweep'
+  | 'unconfirmed_condition_report_sweep'
 
 export type JobOutcome = 'success' | 'failure'
 
@@ -129,6 +134,8 @@ const ALL_JOB_NAMES: JobName[] = [
   'return_reminder_dispatch',
   'overdue_reminder_dispatch',
   'database_backup',
+  'unconfirmed_identity_evidence_sweep',
+  'unconfirmed_condition_report_sweep',
 ]
 
 // FR-40/FR-44: one entry per known job, even one that has never run

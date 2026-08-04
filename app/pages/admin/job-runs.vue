@@ -13,6 +13,8 @@ type JobName =
   | 'return_reminder_dispatch'
   | 'overdue_reminder_dispatch'
   | 'database_backup'
+  | 'unconfirmed_identity_evidence_sweep'
+  | 'unconfirmed_condition_report_sweep'
 
 interface JobRunView {
   startedAt: string

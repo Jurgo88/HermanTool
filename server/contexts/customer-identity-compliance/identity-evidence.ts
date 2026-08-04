@@ -4,8 +4,8 @@
 // erasure job (#32) are separate issues that call into this module,
 // this module does not build them.
 import { randomUUID } from 'node:crypto'
-import type { TenantId } from '../_shared'
-import type { IdentityEvidenceStorageGateway } from './r2-gateway'
+import { MAX_EVIDENCE_UPLOAD_SIZE_BYTES, type TenantId } from '../_shared'
+import { UPLOAD_URL_TTL_SECONDS, type IdentityEvidenceStorageGateway } from './r2-gateway'
 import type { CustomerIdentityComplianceRepository } from './repository'
 import {
   CustomerNotFoundError,
@@ -100,4 +100,78 @@ export async function generateIdentityEvidenceReadUrl(
   const { readUrl } = await gateway.generateReadUrl(evidence.objectKey)
 
   return { readUrl, accessEvent }
+}
+
+// D-40 (Part 4 §16.2, issue #78/IR-10): the confirmation step. A row
+// created by requestIdentityEvidenceUpload above names an object that
+// may not exist yet — nothing verifies the presigned PUT ever
+// succeeded. This is the one place that checks, with a single HEAD
+// against the bucket the platform controls (P1: "the one place where
+// the claim is cheap to check against the world it describes").
+export type ConfirmIdentityEvidenceUploadOutcome =
+  | { outcome: 'confirmed'; identityEvidence: IdentityEvidence }
+  | { outcome: 'not_yet_uploaded' }
+  | { outcome: 'oversized'; contentLength: number }
+
+export async function confirmIdentityEvidenceUpload(
+  repo: CustomerIdentityComplianceRepository,
+  gateway: IdentityEvidenceStorageGateway,
+  params: { tenantId: TenantId; identityEvidenceId: number; now?: Date },
+): Promise<ConfirmIdentityEvidenceUploadOutcome> {
+  const { tenantId, identityEvidenceId, now = new Date() } = params
+
+  const evidence = await repo.getIdentityEvidence(tenantId, identityEvidenceId)
+  if (!evidence) throw new IdentityEvidenceNotFoundError(identityEvidenceId)
+  if (evidence.erasedAt) throw new IdentityEvidenceErasedError(identityEvidenceId)
+
+  // Idempotent: a retried client call, or the sweep reaching a row the
+  // client already confirmed itself, is success, not an error.
+  if (evidence.confirmedAt) return { outcome: 'confirmed', identityEvidence: evidence }
+
+  const stat = await gateway.statObject(evidence.objectKey)
+  if (!stat.exists) return { outcome: 'not_yet_uploaded' }
+
+  if (stat.contentLength !== null && stat.contentLength > MAX_EVIDENCE_UPLOAD_SIZE_BYTES) {
+    // D-40's second, smaller obligation (OQ #26): deleted, not merely
+    // left unconfirmed — closes the D-23 abuse case this bound exists
+    // for (a leaked link used to fill the bucket) rather than just
+    // declining to count an oversized object as evidence.
+    await gateway.deleteObject(evidence.objectKey)
+    return { outcome: 'oversized', contentLength: stat.contentLength }
+  }
+
+  const confirmed = await repo.confirmIdentityEvidence(tenantId, identityEvidenceId, now)
+  // Unreachable in practice — confirmedAt was just checked null above,
+  // and nothing else in this codebase confirms concurrently against the
+  // same row — kept as a checked invariant rather than a silent `!`.
+  return { outcome: 'confirmed', identityEvidence: confirmed ?? evidence }
+}
+
+// D-40: the sweep. A row whose presigned URL has outlived its own
+// lifetime and is still unconfirmed gets one last confirmation attempt
+// (the client may have uploaded successfully but never called confirm —
+// a closed tab, a dropped connection) before being left as permanently
+// unconfirmed. Never deleted (P1, append-only) — an unconfirmed row
+// simply never counts as evidence anywhere that checks confirmedAt.
+export async function sweepUnconfirmedIdentityEvidence(
+  repo: CustomerIdentityComplianceRepository,
+  gateway: IdentityEvidenceStorageGateway,
+  params: { tenantId: TenantId; now?: Date },
+): Promise<IdentityEvidence[]> {
+  const { tenantId, now = new Date() } = params
+  const cutoff = new Date(now.getTime() - UPLOAD_URL_TTL_SECONDS * 1000)
+
+  const candidates = await repo.listUnconfirmedIdentityEvidenceOlderThan(tenantId, cutoff)
+  const confirmed: IdentityEvidence[] = []
+
+  for (const candidate of candidates) {
+    const result = await confirmIdentityEvidenceUpload(repo, gateway, {
+      tenantId,
+      identityEvidenceId: candidate.id,
+      now,
+    })
+    if (result.outcome === 'confirmed') confirmed.push(result.identityEvidence)
+  }
+
+  return confirmed
 }

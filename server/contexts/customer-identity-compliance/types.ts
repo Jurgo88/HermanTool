@@ -37,6 +37,15 @@ export interface IdentityEvidence {
   objectKey: string
   retentionDeadline: Date
   createdAt: Date
+  // D-40, issue #78/IR-10: null until confirmIdentityEvidenceUpload
+  // (./identity-evidence.ts) verifies the object exists via a HEAD
+  // against the bucket. A row created but never confirmed names an
+  // object that may not exist — it must not count as evidence anywhere
+  // that matters (FR-14's HandoverOut precondition reads
+  // hasSuccessfulIdentityVerification, not this row directly, but any
+  // future caller treating an IdentityEvidence row as proof MUST check
+  // this field first).
+  confirmedAt: Date | null
   // FR-16, W10, issue #32: set once, by eraseExpiredIdentityEvidence,
   // when retentionDeadline arrives — "the erasure is recorded." The row
   // itself is never deleted (P4, append-only) — `objectKey` stays as a
