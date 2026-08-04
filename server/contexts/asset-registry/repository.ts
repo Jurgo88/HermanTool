@@ -49,6 +49,14 @@ export interface AssetRegistryRepository {
 
   getAsset(tenantId: TenantId, assetId: number): Promise<Asset | null>
 
+  // W9/F10, issue #9 follow-up: registration (single or bulk) leaves an
+  // Asset `unavailable` until `markAssetRentable` is called — the
+  // explicit third W9 step, never implicit in registration itself (see
+  // ./asset-lifecycle.ts's own comment). This is what surfaces the
+  // Assets that are tagged and ready but still waiting for that step, so
+  // an Operator has somewhere to find and complete it.
+  listPendingActivation(tenantId: TenantId): Promise<{ asset: Asset; tag: AssetTag }[]>
+
   insertAsset(
     tenantId: TenantId,
     params: { assetTypeId: number; status: AssetStatus; operatorId: string },
@@ -199,6 +207,50 @@ export function createPostgresAssetRegistryRepository(
         AssetRow[]
       >`select * from assets where tenant_id = ${tenantId} and id = ${assetId}`
       return rows[0] ? mapAsset(rows[0]) : null
+    },
+
+    async listPendingActivation(tenantId) {
+      type Row = AssetRow & {
+        tag_id: number
+        tag_tenant_id: string
+        tag_asset_id: number
+        tag_code: string
+        tag_bound_at: Date
+        tag_bound_by_operator_id: string
+        tag_unbound_at: Date | null
+        tag_unbound_by_operator_id: string | null
+      }
+      const rows = await sql<Row[]>`
+        select
+          assets.*,
+          asset_tags.id as tag_id,
+          asset_tags.tenant_id as tag_tenant_id,
+          asset_tags.asset_id as tag_asset_id,
+          asset_tags.tag_code as tag_code,
+          asset_tags.bound_at as tag_bound_at,
+          asset_tags.bound_by_operator_id as tag_bound_by_operator_id,
+          asset_tags.unbound_at as tag_unbound_at,
+          asset_tags.unbound_by_operator_id as tag_unbound_by_operator_id
+        from assets
+        join asset_tags on asset_tags.tenant_id = assets.tenant_id
+          and asset_tags.asset_id = assets.id
+          and asset_tags.unbound_at is null
+        where assets.tenant_id = ${tenantId} and assets.status = 'unavailable'
+        order by assets.registered_at
+      `
+      return rows.map((row) => ({
+        asset: mapAsset(row),
+        tag: mapAssetTag({
+          id: row.tag_id,
+          tenant_id: row.tag_tenant_id,
+          asset_id: row.tag_asset_id,
+          tag_code: row.tag_code,
+          bound_at: row.tag_bound_at,
+          bound_by_operator_id: row.tag_bound_by_operator_id,
+          unbound_at: row.tag_unbound_at,
+          unbound_by_operator_id: row.tag_unbound_by_operator_id,
+        }),
+      }))
     },
 
     async insertAsset(tenantId, { assetTypeId, status, operatorId }) {

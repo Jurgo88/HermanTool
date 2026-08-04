@@ -69,4 +69,23 @@ describe.skipIf(!databaseUrl)('QR tag code sequence (integration)', () => {
     const rows = await sql<{ count: string }[]>`select count(*)::text as count from assets where tenant_id = ${tenantId}`
     expect(rows[0]?.count).toBe('5')
   })
+
+  it('listPendingActivation surfaces freshly bulk-registered units (issue #9 follow-up: markAssetRentable had no caller)', async () => {
+    const repo = createPostgresAssetRegistryRepository(sql)
+
+    const units = await bulkRegisterAssets(repo, {
+      tenantId,
+      operatorId,
+      lines: [{ assetTypeId, quantity: 3 }],
+    })
+
+    const pending = await repo.listPendingActivation(tenantId)
+    expect(pending).toHaveLength(3)
+    const pendingAssetIds = pending.map((p) => p.asset.id).sort()
+    expect(pendingAssetIds).toEqual(units.map((u) => u.asset.id).sort())
+    for (const entry of pending) {
+      expect(entry.asset.status).toBe('unavailable')
+      expect(entry.tag.tagCode).toMatch(/^HT-\d{6}$/)
+    }
+  })
 })

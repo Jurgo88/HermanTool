@@ -66,6 +66,14 @@ export const sk = {
     resultCount: 'Vygenerovaných {count} štítkov.',
     printAction: 'Tlačiť hárok',
     emptyCsvError: 'Pridajte aspoň jeden riadok, alebo vložte CSV, pred odoslaním.',
+    pendingHeading: 'Čakajú na uvedenie do prevádzky',
+    pendingIntro:
+      'Tieto kusy sú zaregistrované a označené štítkom, ale ešte nie sú dostupné na rezerváciu — priložte štítok na náradie a potvrďte.',
+    pendingEmpty: 'Žiadne kusy nečakajú na uvedenie do prevádzky.',
+    columnTagCode: 'Kód štítku',
+    markRentableAction: 'Uviesť do prevádzky',
+    markingRentable: 'Uvádzam do prevádzky…',
+    markAllRentableAction: 'Uviesť všetky do prevádzky',
   },
   adminCounter: {
     title: 'Počítadlo',
