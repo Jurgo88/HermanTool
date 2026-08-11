@@ -8,6 +8,19 @@ export const sk = {
   common: {
     somethingWentWrong: 'Niečo sa pokazilo.',
   },
+  // D-52 (UI-D-10): legally blocked copy — OQ #1 (cancellation, terms and
+  // pre-contractual information), FR-38/D-42/IR-13 (privacy text) — lives
+  // in this namespace specifically, wrapped in <DraftNotice> wherever it
+  // is shown (the visible marker). scripts/check-no-draft-copy.mjs fails
+  // the production build while any key below this comment is still
+  // referenced anywhere in app/ — this is not the same "draft" as
+  // publicCatalog/checkout's own pre-commitment reservation draft
+  // (useReservationDraft.ts); the name collision is coincidental, the
+  // two are unrelated concepts.
+  draft: {
+    checkoutTermsNotice: 'Toto je dočasný text — konečné znenie podmienok ešte čaká na právne schválenie.',
+    checkoutTermsAcceptLabel: 'Súhlasím s podmienkami prenájmu (návrh)',
+  },
   // D-50, UIF-03: domain errors carry a stable `code` (the throwing
   // class's own name, attached server-side by every translate*Error
   // function — see e.g. server/utils/asset-registry-deps.ts). Two
@@ -111,8 +124,6 @@ export const sk = {
     createReservationAction: 'Vytvoriť rezerváciu',
     creatingReservation: 'Vytváram rezerváciu…',
     termsHeading: 'Podmienky prenájmu',
-    termsDraftNotice: 'Toto je dočasný text — konečné znenie podmienok ešte čaká na právne schválenie.',
-    termsAcceptLabel: 'Súhlasím s podmienkami prenájmu (návrh)',
     payAction: 'Zaplatiť',
     startingPayment: 'Presmerúvam na platbu…',
     paymentProviderError: 'Platbu sa momentálne nepodarilo spustiť. Skúste to prosím o chvíľu znova.',

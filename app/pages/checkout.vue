@@ -156,11 +156,13 @@ async function acceptTermsAndPay() {
 
     <section v-else>
       <h2>{{ sk.checkout.termsHeading }}</h2>
-      <p>{{ sk.checkout.termsDraftNotice }}</p>
-      <label>
-        <input v-model="termsAccepted" type="checkbox" />
-        {{ sk.checkout.termsAcceptLabel }}
-      </label>
+      <DraftNotice>
+        <p>{{ sk.draft.checkoutTermsNotice }}</p>
+        <label>
+          <input v-model="termsAccepted" type="checkbox" />
+          {{ sk.draft.checkoutTermsAcceptLabel }}
+        </label>
+      </DraftNotice>
       <p>
         <button type="button" :disabled="!termsAccepted || startingPayment" @click="acceptTermsAndPay">
           {{ startingPayment ? sk.checkout.startingPayment : sk.checkout.payAction }}
