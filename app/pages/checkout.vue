@@ -46,9 +46,21 @@ const totalAmount = computed(() =>
   draftLines.value.reduce((sum, line) => sum + line.dayRate.amount * line.quantity, 0),
 )
 
+// Deliberately not `err.data.statusMessage` here (unlike the admin
+// pages) — this is a public, Customer-facing page, and the domain layer's
+// own error messages are English technical text meant for an Operator or
+// a log line, not a Slovak customer (e.g. PaymentProviderUnavailableError,
+// which currently fires on every "Zaplatiť" click in this dev
+// environment because NUXT_STRIPE_SECRET_KEY is unset).
 async function handleFetchError(err: unknown) {
-  const message = (err as { data?: { statusMessage?: string } })?.data?.statusMessage
-  error.value = message ?? sk.common.somethingWentWrong
+  const statusCode = (err as { statusCode?: number })?.statusCode
+  if (statusCode === 502) {
+    error.value = sk.checkout.paymentProviderError
+  } else if (statusCode === 409) {
+    error.value = sk.checkout.conflictError
+  } else {
+    error.value = sk.common.somethingWentWrong
+  }
 }
 
 async function createReservation() {

@@ -19,3 +19,5 @@ ships both files, a new Netlify site should pick up Node 26 without
 extra configuration — but confirm this once the site exists, and if it
 doesn't, set the `NODE_VERSION` environment variable to `26` explicitly
 in Netlify's site settings as a fallback.
+
+## Treba vytvorit UI

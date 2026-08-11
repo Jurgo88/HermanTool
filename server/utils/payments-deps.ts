@@ -12,6 +12,7 @@ import {
   createStripePaymentGateway,
   PaymentNotFoundError,
   PaymentNotRefundableError,
+  PaymentProviderUnavailableError,
   ProviderWebhookSignatureInvalidError,
   ReservationGroupAlreadyPaidError,
   type PaymentGateway,
@@ -50,6 +51,10 @@ export function translatePaymentsError(err: unknown): never {
   }
   if (err instanceof ProviderWebhookSignatureInvalidError) {
     throw createError({ statusCode: 400, statusMessage: err.message })
+  }
+  if (err instanceof PaymentProviderUnavailableError) {
+    console.error('Stripe checkout session creation failed:', err.cause)
+    throw createError({ statusCode: 502, statusMessage: err.message })
   }
   throw err
 }

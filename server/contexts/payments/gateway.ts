@@ -13,7 +13,7 @@
 // entire reason NFR-05 is achievable at all.
 import Stripe from 'stripe'
 import type { MonetaryAmount } from '../_shared'
-import { ProviderWebhookSignatureInvalidError } from './types'
+import { PaymentProviderUnavailableError, ProviderWebhookSignatureInvalidError } from './types'
 
 export interface CheckoutSessionRequest {
   reservationGroupId: number
@@ -52,28 +52,36 @@ export function createStripePaymentGateway(params: { secretKey: string; webhookS
 
   return {
     async createHostedCheckoutSession({ reservationGroupId, amount, successUrl, cancelUrl }) {
-      const session = await stripe.checkout.sessions.create({
-        mode: 'payment',
-        line_items: [
-          {
-            price_data: {
-              currency: amount.currency.toLowerCase(),
-              unit_amount: amount.amount,
-              product_data: { name: `Rental fee — ReservationGroup ${reservationGroupId}` },
+      // eslint-disable-next-line id-denylist -- Stripe's own SDK type name (D-34); not this codebase's domain "Session"
+      let session: Stripe.Checkout.Session
+      try {
+        session = await stripe.checkout.sessions.create({
+          mode: 'payment',
+          line_items: [
+            {
+              price_data: {
+                currency: amount.currency.toLowerCase(),
+                unit_amount: amount.amount,
+                product_data: { name: `Rental fee — ReservationGroup ${reservationGroupId}` },
+              },
+              quantity: 1,
             },
-            quantity: 1,
-          },
-        ],
-        // Correlates a webhook event back to our own Payment row without
-        // trusting the client-supplied ids in the request — metadata is
-        // the provider's own tamper-evident channel for this.
-        metadata: { reservationGroupId: String(reservationGroupId) },
-        success_url: successUrl,
-        cancel_url: cancelUrl,
-      })
+          ],
+          // Correlates a webhook event back to our own Payment row without
+          // trusting the client-supplied ids in the request — metadata is
+          // the provider's own tamper-evident channel for this.
+          metadata: { reservationGroupId: String(reservationGroupId) },
+          success_url: successUrl,
+          cancel_url: cancelUrl,
+        })
+      } catch (err) {
+        // e.g. no/invalid API key (NUXT_STRIPE_SECRET_KEY unset — this
+        // dev environment's own state right now) or a Stripe-side outage.
+        throw new PaymentProviderUnavailableError(err)
+      }
 
       if (!session.url) {
-        throw new Error('Stripe did not return a hosted checkout URL.')
+        throw new PaymentProviderUnavailableError(new Error('Stripe did not return a hosted checkout URL.'))
       }
 
       return { providerReference: session.id, redirectUrl: session.url }

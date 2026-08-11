@@ -34,6 +34,7 @@ export {
   PaymentsError,
   PaymentNotFoundError,
   PaymentNotRefundableError,
+  PaymentProviderUnavailableError,
   ProviderWebhookSignatureInvalidError,
   ReservationGroupAlreadyPaidError,
 } from './types'

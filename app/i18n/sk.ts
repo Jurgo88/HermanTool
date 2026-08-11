@@ -53,6 +53,8 @@ export const sk = {
     termsAcceptLabel: 'Súhlasím s podmienkami prenájmu (návrh)',
     payAction: 'Zaplatiť',
     startingPayment: 'Presmerúvam na platbu…',
+    paymentProviderError: 'Platbu sa momentálne nepodarilo spustiť. Skúste to prosím o chvíľu znova.',
+    conflictError: 'Túto akciu momentálne nie je možné dokončiť. Skúste stránku načítať znova.',
   },
   checkoutResult: {
     successTitle: 'Platba prijatá',
