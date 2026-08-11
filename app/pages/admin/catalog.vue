@@ -5,6 +5,7 @@
 // — a 401 here means the session is missing or expired, so this page
 // sends the Operator back to /login rather than showing an error.
 import { sk } from '~/i18n/sk'
+import { formatMoney } from '~/utils/format'
 
 definePageMeta({ layout: 'admin' })
 
@@ -36,10 +37,6 @@ const form = reactive({
 
 function toMinorUnits(euros: string): number {
   return Math.round(Number(euros) * 100)
-}
-
-function toEuros(minorUnits: number): string {
-  return (minorUnits / 100).toFixed(2)
 }
 
 async function load() {
@@ -125,8 +122,8 @@ await load()
         <tbody>
           <tr v-for="assetType in assetTypes" :key="assetType.id">
             <td>{{ assetType.name }}</td>
-            <td>{{ toEuros(assetType.dayRate.amount) }} {{ assetType.dayRate.currency }}</td>
-            <td>{{ toEuros(assetType.depositAmount.amount) }} {{ assetType.depositAmount.currency }}</td>
+            <td>{{ formatMoney(assetType.dayRate) }}</td>
+            <td>{{ formatMoney(assetType.depositAmount) }}</td>
             <td>{{ assetType.published ? sk.adminCatalog.published : sk.adminCatalog.unpublished }}</td>
             <td>
               <button type="button" @click="togglePublished(assetType)">

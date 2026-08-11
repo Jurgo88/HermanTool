@@ -14,6 +14,7 @@
 // stage 1 collects customer details and creates the ReservationGroup;
 // stage 2 (shown only once that succeeds) is terms + pay.
 import { sk } from '~/i18n/sk'
+import { formatDayRange, formatMoney } from '~/utils/format'
 
 definePageMeta({ layout: 'public' })
 
@@ -38,10 +39,6 @@ const error = ref<string | null>(null)
 const creatingReservation = ref(false)
 const startingPayment = ref(false)
 const reservationGroupId = ref<number | null>(null)
-
-function toEuros(minorUnits: number): string {
-  return (minorUnits / 100).toFixed(2)
-}
 
 const currency = computed(() => draftLines.value[0]?.dayRate.currency ?? 'EUR')
 const totalAmount = computed(() =>
@@ -129,10 +126,10 @@ async function acceptTermsAndPay() {
         <h2>{{ sk.checkout.summaryHeading }}</h2>
         <ul>
           <li v-for="line in draftLines" :key="`${line.assetTypeId}-${line.period.startDay}-${line.period.endDay}`">
-            {{ line.assetTypeName }} × {{ line.quantity }} ({{ line.period.startDay }} – {{ line.period.endDay }})
+            {{ line.assetTypeName }} × {{ line.quantity }} ({{ formatDayRange(line.period.startDay, line.period.endDay) }})
           </li>
         </ul>
-        <p>{{ sk.checkout.totalLabel }}: {{ toEuros(totalAmount) }} {{ currency }}</p>
+        <p>{{ sk.checkout.totalLabel }}: {{ formatMoney({ amount: totalAmount, currency }) }}</p>
       </section>
 
       <section>

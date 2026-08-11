@@ -13,6 +13,7 @@
 // satisfies FR-20's deduction check, and an unconfirmed IdentityEvidence
 // row names an object that may not exist.
 import { sk } from '~/i18n/sk'
+import { formatMoney } from '~/utils/format'
 
 definePageMeta({ layout: 'counter' })
 
@@ -64,14 +65,10 @@ const info = ref<string | null>(null)
 type Panel = 'none' | 'handoverOut' | 'handoverIn' | 'settlement' | 'lookup'
 const panel = ref<Panel>('none')
 
-function toEuros(minorUnits: number): string {
-  return (minorUnits / 100).toFixed(2)
-}
-
 function depositFor(assetTypeId: number): string {
   const assetType = assetTypes.value.find((a) => a.id === assetTypeId)
   if (!assetType) return ''
-  return `${toEuros(assetType.depositAmount.amount)} ${assetType.depositAmount.currency}`
+  return formatMoney(assetType.depositAmount)
 }
 
 async function handleFetchError(err: unknown): Promise<boolean> {

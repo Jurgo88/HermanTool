@@ -12,6 +12,7 @@
 // minimum is the number that actually answers "can I book this."
 import { sk } from '~/i18n/sk'
 import type { DraftReservationLine } from '~/composables/useReservationDraft'
+import { formatDayRange, formatMoney } from '~/utils/format'
 
 definePageMeta({ layout: 'public' })
 
@@ -30,10 +31,6 @@ interface AvailabilityState {
 
 const { lines: draftLines, addLine, removeLine } = useReservationDraft()
 const quantityInputs = reactive<Record<number, string>>({})
-
-function toEuros(minorUnits: number): string {
-  return (minorUnits / 100).toFixed(2)
-}
 
 function toIsoDay(date: Date): string {
   return date.toISOString().slice(0, 10)
@@ -92,7 +89,7 @@ function addToReservation(assetType: AssetTypeView) {
 }
 
 function draftLineTotal(line: DraftReservationLine): string {
-  return toEuros(line.dayRate.amount * line.quantity)
+  return formatMoney({ amount: line.dayRate.amount * line.quantity, currency: line.dayRate.currency })
 }
 </script>
 
@@ -116,8 +113,8 @@ function draftLineTotal(line: DraftReservationLine): string {
         <h2>{{ assetType.name }}</h2>
         <p>{{ assetType.description }}</p>
         <p>
-          {{ toEuros(assetType.dayRate.amount) }} {{ assetType.dayRate.currency }} {{ sk.publicCatalog.dayRateSuffix }}
-          {{ toEuros(assetType.depositAmount.amount) }} {{ assetType.depositAmount.currency }}
+          {{ formatMoney(assetType.dayRate) }} {{ sk.publicCatalog.dayRateSuffix }}
+          {{ formatMoney(assetType.depositAmount) }}
         </p>
         <p v-if="availability[assetType.id]?.status === 'loading'">{{ sk.publicCatalog.availabilityLoading }}</p>
         <p v-else-if="availability[assetType.id]?.status === 'error'">{{ sk.publicCatalog.availabilityError }}</p>
@@ -157,9 +154,9 @@ function draftLineTotal(line: DraftReservationLine): string {
         <tbody>
           <tr v-for="(line, index) in draftLines" :key="`${line.assetTypeId}-${line.period.startDay}-${line.period.endDay}`">
             <td>{{ line.assetTypeName }}</td>
-            <td>{{ line.period.startDay }} – {{ line.period.endDay }}</td>
+            <td>{{ formatDayRange(line.period.startDay, line.period.endDay) }}</td>
             <td>{{ line.quantity }}</td>
-            <td>{{ draftLineTotal(line) }} {{ line.dayRate.currency }}</td>
+            <td>{{ draftLineTotal(line) }}</td>
             <td>
               <button type="button" @click="removeLine(index)">{{ sk.publicCatalog.removeLineAction }}</button>
             </td>
