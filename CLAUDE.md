@@ -13,16 +13,20 @@ NORMATIVE. Read it before implementing anything non-trivial.
 - Part 1 — domain, boundaries, Ubiquitous Language, principles P1–P8
 - Part 2 — user types, workflows W1–W11, event catalogue
 - Part 3 — functional (FR-XX) and non-functional (NFR-XX) requirements
-- Part 4 — risks, technology decisions, ADR log (D-01…D-41)
+- Part 4 — risks, technology decisions, ADR log (D-01…D-53)
 - Part 5 — independent review findings (F1–F12)
 - `docs/reviews/implementation-review-2026-08-04.md` — implementation
   review findings (IR-01…IR-13), reconciled in Part 4 §16.2
+- `docs/design/interface-design-foundation.md` — presentation and
+  interaction layer, decisions promoted to Part 4 §16.3 (D-43…D-53)
 
 ## Precedence when instructions conflict
-1. Part 4 §16.2 implementation-review decisions (D-38…D-41)
-2. Part 4 §16 reconciliation decisions (D-10, D-33…D-37)
-3. Part 3 FR/NFR requirements
-4. Part 2 workflows and event catalogue
+1. Part 4 §16.2 implementation-review decisions (D-38…D-42)
+2. Part 4 §16.3 interface-design decisions (D-43…D-53) — for
+   presentation/interaction questions only; never overrides an FR/NFR
+3. Part 4 §16 reconciliation decisions (D-10, D-33…D-37)
+4. Part 3 FR/NFR requirements
+5. Part 2 workflows and event catalogue
 5. Part 1 Ubiquitous Language and boundaries
 
 ## Banned terms — NEVER use in code, tables, config, or naming
@@ -181,6 +185,29 @@ identifier in commits.
 - Every PR description ends with a closing keyword linking its 
   issue: "Closes #N". This auto-closes the issue on merge to main 
   and links PR ↔ issue for traceability.
+
+## Interface work
+`docs/design/interface-design-foundation.md` governs presentation and
+interaction (Part 4 §16.3, D-43…D-53). It is subordinate to Parts 1–5:
+where it conflicts, they win.
+
+- Never a raw colour, size, radius or font value in a component — tokens only.
+- Never a user-facing string outside app/i18n/sk.ts (D-20), including
+  error text. Server error TEXT is never displayed; map its code.
+- Never format money, a day or a period in a component — app/utils/format.ts.
+- Never compute a date in the UI. Availability & Reservation owns date
+  arithmetic.
+- Banned terms apply to component names, props, CSS classes and i18n keys.
+- The browser never shows a state transition the server has not confirmed.
+- Stored states and derived facts get different visual treatments and are
+  never interchanged (FR-28).
+- Cite a screen (S-xx) and a requirement in every UI commit.
+
+Review checklist for any UI pull request: tokens only · no string
+literals · formatting module used · error codes not text · four states
+on every mutating control · attesting actions PIN-gated · irreversible
+actions confirmed · keyboard and focus verified · contrast checked on
+the surface it ships to · no new domain vocabulary.
 
 ## Implementation workflow (per issue)
 

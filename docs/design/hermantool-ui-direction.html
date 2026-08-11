@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="sk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HermanTool — návrh vizuálneho smeru</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ht-paper:#F4F6F5; --ht-surface:#FFFFFF; --ht-surface-sunk:#EAEDEC;
+    --ht-ink:#14181B; --ht-ink-muted:#58636B; --ht-line:#D3D9D8; --ht-line-strong:#A9B3B2;
+    --ht-signal:#FFC400; --ht-signal-deep:#C99A00; --ht-on-signal:#14181B;
+    --ht-ok:#1F7A4C; --ht-warn:#B85C00; --ht-danger:#B3261E; --ht-info:#1B5E8F;
+    --ht-state-pending:#B85C00; --ht-state-confirmed:#1F7A4C;
+    --ht-derived-overdue:#B3261E; --ht-derived-noshow:#B85C00;
+    --ht-radius-plate:2px; --ht-radius-card:8px;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px;
+    --sans:'IBM Plex Sans', system-ui, sans-serif;
+    --cond:'IBM Plex Sans Condensed','IBM Plex Sans', system-ui, sans-serif;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+  }
+  [data-surface='counter']{
+    --ht-paper:#0F1418; --ht-surface:#192026; --ht-surface-sunk:#131A1F;
+    --ht-ink:#ECF1F3; --ht-ink-muted:#9AA8B2; --ht-line:#2A343C; --ht-line-strong:#3C4952;
+    --ht-ok:#3FB27F; --ht-warn:#FF9633; --ht-danger:#FF6257; --ht-info:#5AA9E6;
+    --ht-derived-overdue:#FF6257; --ht-derived-noshow:#FF9633;
+    --ht-state-confirmed:#3FB27F; --ht-state-pending:#FF9633;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#E7EAE9;color:var(--ht-ink);font-family:var(--sans);font-size:16px;line-height:1.5}
+  .wrap{max-width:1180px;margin:0 auto;padding:var(--s6) var(--s4) var(--s7)}
+  .eyebrow{font-family:var(--cond);font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:12px;color:var(--ht-ink-muted)}
+  h1{font-family:var(--cond);font-weight:600;font-size:34px;letter-spacing:-.01em;margin:var(--s2) 0 var(--s3)}
+  h2{font-family:var(--cond);font-weight:600;font-size:20px;margin:0 0 var(--s3)}
+  h3{font-family:var(--cond);font-weight:600;font-size:16px;margin:0 0 var(--s2)}
+  .lede{max-width:62ch;color:#3A444B}
+  .sheet{background:var(--ht-surface);border:1px solid var(--ht-line);border-radius:var(--ht-radius-card);padding:var(--s5);margin-top:var(--s5)}
+  .grid{display:grid;gap:var(--s5)}
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:var(--s3)}
+  .sw{border:1px solid var(--ht-line);border-radius:var(--ht-radius-plate);overflow:hidden}
+  .sw .chip{height:52px}
+  .sw .meta{padding:var(--s2);font-family:var(--mono);font-size:11px;color:var(--ht-ink-muted)}
+  .sw .meta b{display:block;font-family:var(--sans);font-size:12px;color:var(--ht-ink);font-weight:600}
+  .type-row{display:flex;align-items:baseline;gap:var(--s4);border-bottom:1px solid var(--ht-line);padding:var(--s3) 0}
+  .type-row:last-child{border-bottom:0}
+  .type-row .tag{font-family:var(--mono);font-size:11px;color:var(--ht-ink-muted);min-width:190px}
+  .screens{display:flex;flex-wrap:wrap;gap:var(--s5);align-items:flex-start;margin-top:var(--s5)}
+  .phone{width:372px;background:var(--ht-paper);border:1px solid var(--ht-line-strong);border-radius:18px;padding:10px;box-shadow:0 1px 0 rgba(0,0,0,.06)}
+  .phone[data-surface='counter']{border-color:#0B0F12;background:#0F1418}
+  .screen{background:var(--ht-paper);border-radius:10px;overflow:hidden;color:var(--ht-ink)}
+  .caption{font-family:var(--mono);font-size:11px;color:var(--ht-ink-muted);margin:var(--s2) 0 0;text-align:center}
+
+  /* counter chrome */
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:var(--s3) var(--s4);border-bottom:1px solid var(--ht-line);background:var(--ht-surface-sunk)}
+  .topbar .who{font-family:var(--mono);font-size:12px;color:var(--ht-ink-muted)}
+  .brand{font-family:var(--cond);font-weight:600;letter-spacing:.04em;font-size:14px;text-transform:uppercase}
+  .pad{padding:var(--s4)}
+  .scanplate{position:relative;border:2px solid var(--ht-signal);border-radius:var(--ht-radius-plate);height:190px;background:
+     repeating-linear-gradient(135deg,#161D23 0 10px,#131A20 10px 20px);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:var(--s2)}
+  .scanplate .corner{position:absolute;width:26px;height:26px;border:3px solid var(--ht-signal)}
+  .scanplate .c1{top:10px;left:10px;border-right:0;border-bottom:0}
+  .scanplate .c2{top:10px;right:10px;border-left:0;border-bottom:0}
+  .scanplate .c3{bottom:10px;left:10px;border-right:0;border-top:0}
+  .scanplate .c4{bottom:10px;right:10px;border-left:0;border-top:0}
+  .scanplate .hint{font-family:var(--cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:15px;color:var(--ht-ink)}
+  .scanplate .sub{font-size:13px;color:var(--ht-ink-muted)}
+  .linkish{font-size:14px;color:var(--ht-ink-muted);text-decoration:underline;text-underline-offset:3px;margin-top:var(--s3);display:inline-block}
+  .sect-label{font-family:var(--cond);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--ht-ink-muted);margin:var(--s5) 0 var(--s2)}
+  .row{background:var(--ht-surface);border:1px solid var(--ht-line);border-radius:var(--ht-radius-plate);padding:var(--s3);margin-bottom:var(--s2);display:flex;gap:var(--s3)}
+  .row .body{flex:1;min-width:0}
+  .row .name{font-weight:600;font-size:16px}
+  .clock{display:flex;gap:var(--s2);font-size:13px;color:var(--ht-ink-muted);margin-top:2px}
+  .clock .k{font-family:var(--cond);text-transform:uppercase;letter-spacing:.06em;font-size:11px;min-width:78px;color:var(--ht-ink-muted)}
+  .clock .v{font-family:var(--mono);font-size:12px;color:var(--ht-ink)}
+  .hazard{border-left:6px solid transparent;border-image:repeating-linear-gradient(45deg,var(--ht-derived-overdue) 0 6px,#2A0F0D 6px 12px) 1;padding-left:var(--s3)}
+  .hazard-warn{border-image:repeating-linear-gradient(45deg,var(--ht-derived-noshow) 0 6px,#2A1A08 6px 12px) 1}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:11px;padding:3px 7px;border-radius:var(--ht-radius-plate)}
+  .badge.derived{background:transparent;border:1px dashed var(--ht-derived-overdue);color:var(--ht-derived-overdue)}
+  .badge.derived.warn{border-color:var(--ht-derived-noshow);color:var(--ht-derived-noshow)}
+  .chip{display:inline-block;font-family:var(--cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:11px;padding:3px 7px;border-radius:var(--ht-radius-plate);color:#fff}
+  .chip.confirmed{background:var(--ht-state-confirmed)}
+  .chip.pending{background:var(--ht-state-pending)}
+  .plate{font-family:var(--mono);font-size:12px;background:var(--ht-surface-sunk);border:1px solid var(--ht-line);border-radius:var(--ht-radius-plate);padding:2px 6px;display:inline-block}
+  .btn{display:block;width:100%;border:0;border-radius:var(--ht-radius-plate);font-family:var(--cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:15px;padding:0 var(--s4);height:56px;line-height:56px;text-align:center;cursor:default}
+  .btn.primary{background:var(--ht-signal);color:var(--ht-on-signal)}
+  .btn.secondary{background:transparent;color:var(--ht-ink);border:1px solid var(--ht-line-strong)}
+  .btn.small{height:44px;line-height:44px;font-size:13px}
+  .btn[disabled]{background:var(--ht-surface-sunk);color:var(--ht-ink-muted);border:1px solid var(--ht-line)}
+  .steph{display:flex;align-items:center;gap:var(--s3);padding:var(--s3) var(--s4);border-bottom:1px solid var(--ht-line);background:var(--ht-surface-sunk)}
+  .steph .back{font-family:var(--mono);font-size:20px;line-height:1}
+  .steph .t{font-family:var(--cond);font-weight:600;font-size:16px}
+  .steph .s{font-size:12px;color:var(--ht-ink-muted)}
+  .money{font-family:var(--mono);font-weight:600}
+  .bigmoney{font-family:var(--mono);font-weight:600;font-size:32px;letter-spacing:-.02em}
+  .field{margin-bottom:var(--s4)}
+  .lbl{font-family:var(--cond);font-weight:600;text-transform:uppercase;letter-spacing:.06em;font-size:11px;color:var(--ht-ink-muted);display:block;margin-bottom:var(--s1)}
+  .inp{width:100%;height:52px;border:1px solid var(--ht-line-strong);background:var(--ht-surface);border-radius:var(--ht-radius-plate);padding:0 var(--s3);font-family:var(--mono);font-size:16px;color:var(--ht-ink);display:flex;align-items:center}
+  .photos{display:flex;gap:var(--s2)}
+  .photo{flex:1;aspect-ratio:1;border:1px solid var(--ht-line);border-radius:var(--ht-radius-plate);background:var(--ht-surface-sunk);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:11px;text-align:center;padding:4px}
+  .photo .st{font-family:var(--cond);font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:10px}
+  .photo.ok{border-color:var(--ht-ok)} .photo.ok .st{color:var(--ht-ok)}
+  .photo.up{border-color:var(--ht-info)} .photo.up .st{color:var(--ht-info)}
+  .photo.add{border-style:dashed;color:var(--ht-ink-muted)}
+  .note{font-size:13px;color:var(--ht-ink-muted);margin-top:var(--s2)}
+  .alert{border-left:4px solid var(--ht-danger);background:rgba(179,38,30,.08);padding:var(--s3);border-radius:var(--ht-radius-plate);font-size:14px}
+  .alert.ok{border-color:var(--ht-ok);background:rgba(31,122,76,.08)}
+  .modal-back{position:relative;background:rgba(0,0,0,.55);padding:var(--s5) var(--s4)}
+  .modal{background:var(--ht-surface);border:1px solid var(--ht-line-strong);border-radius:var(--ht-radius-card);padding:var(--s4)}
+  .pins{display:flex;gap:var(--s2);margin:var(--s3) 0}
+  .pins span{flex:1;height:56px;border:1px solid var(--ht-line-strong);border-radius:var(--ht-radius-plate);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:24px}
+  /* public */
+  .pubhead{padding:var(--s4);border-bottom:1px solid var(--ht-line);background:var(--ht-surface);display:flex;justify-content:space-between;align-items:center}
+  .daterow{display:flex;gap:var(--s2);padding:var(--s4);background:var(--ht-surface-sunk);border-bottom:1px solid var(--ht-line)}
+  .daterow .field{flex:1;margin:0}
+  .card{background:var(--ht-surface);border:1px solid var(--ht-line);border-radius:var(--ht-radius-plate);padding:var(--s4);margin-bottom:var(--s3)}
+  .pricegrid{display:flex;gap:var(--s5);margin:var(--s3) 0;border-top:1px solid var(--ht-line);border-bottom:1px solid var(--ht-line);padding:var(--s3) 0}
+  .pricegrid div{flex:1}
+  .avail{display:inline-flex;align-items:center;gap:6px;font-size:13px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ht-ok);display:inline-block}
+  .dot.none{background:var(--ht-line-strong)}
+  .footerbar{position:sticky;bottom:0;background:var(--ht-ink);color:#fff;padding:var(--s3) var(--s4);display:flex;justify-content:space-between;align-items:center}
+  .footerbar .money{color:var(--ht-signal)}
+  .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:var(--s4);margin-top:var(--s4)}
+  .legend .k{font-family:var(--cond);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.06em}
+  .legend p{margin:var(--s1) 0 0;font-size:14px;color:#3A444B}
+  code{font-family:var(--mono);font-size:13px;background:var(--ht-surface-sunk);padding:1px 5px;border-radius:2px}
+  .foot{margin-top:var(--s6);font-size:13px;color:#4B565D}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">HermanTool · návrh rozhrania · 12. 8. 2026</div>
+  <h1>Vizuálny smer: strojový štítok</h1>
+  <p class="lede">Ukážka smeru k dokumentu <em>Interface Design Foundation</em>. Ploché povrchy, vlasové linky, takmer pravé uhly, razené monospace identifikátory a jedna signálna farba, ktorá vždy znamená „konaj tu“. Odvaha je minutá presne na dvoch miestach: <strong>skenovacia platňa</strong> na pulte a <strong>výstražná lišta</strong> pri odvodených faktoch.</p>
+
+  <div class="sheet">
+    <h2>Paleta</h2>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#14181B"></div><div class="meta"><b>ink</b>#14181B</div></div>
+      <div class="sw"><div class="chip" style="background:#58636B"></div><div class="meta"><b>ink-muted</b>#58636B</div></div>
+      <div class="sw"><div class="chip" style="background:#F4F6F5"></div><div class="meta"><b>paper</b>#F4F6F5</div></div>
+      <div class="sw"><div class="chip" style="background:#FFC400"></div><div class="meta"><b>signal</b>#FFC400</div></div>
+      <div class="sw"><div class="chip" style="background:#1F7A4C"></div><div class="meta"><b>ok / confirmed</b>#1F7A4C</div></div>
+      <div class="sw"><div class="chip" style="background:#B85C00"></div><div class="meta"><b>warn / pending</b>#B85C00</div></div>
+      <div class="sw"><div class="chip" style="background:#B3261E"></div><div class="meta"><b>danger / overdue</b>#B3261E</div></div>
+      <div class="sw"><div class="chip" style="background:#0F1418"></div><div class="meta"><b>counter paper</b>#0F1418</div></div>
+      <div class="sw"><div class="chip" style="background:#192026"></div><div class="meta"><b>counter surface</b>#192026</div></div>
+    </div>
+
+    <h2 style="margin-top:32px">Typografia — IBM Plex</h2>
+    <div class="type-row"><span class="tag">Condensed 600 / 34</span><span style="font-family:var(--cond);font-weight:600;font-size:34px">Vydanie náradia</span></div>
+    <div class="type-row"><span class="tag">Condensed 600 / 12 · eyebrow</span><span class="eyebrow">Dnešné vyzdvihnutia</span></div>
+    <div class="type-row"><span class="tag">Sans 400 / 16 · text</span><span>Zálohu 120,00 € vyberte v hotovosti pri odovzdaní. Príďte ďalej.</span></div>
+    <div class="type-row"><span class="tag">Mono 600 / 16 · údaje</span><span class="money">HT-4F2K-9310 · 120,00 € · 12. 8. 2026 09:41</span></div>
+    <p class="note">Monospace nie je ozdoba: označuje hodnoty, ktoré identifikujú fyzický predmet alebo sumu peňazí — teda presne to, čo operátor číta nahlas, porovnáva so štítkom alebo obhajuje pri spore. Diakritika je dôvod pre Plex: pri 12 px zostávajú ď, ľ, ť a ô čitateľné.</p>
+  </div>
+
+  <div class="sheet">
+    <h2>Obrazovky</h2>
+    <div class="screens">
+
+      <!-- 1. counter home -->
+      <div>
+        <div class="phone" data-surface="counter">
+          <div class="screen">
+            <div class="topbar">
+              <span class="brand">HermanTool · pult</span>
+              <span class="who">Herman J.</span>
+            </div>
+            <div class="pad">
+              <div class="scanplate">
+                <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+                <span class="hint">Namierte na štítok</span>
+                <span class="sub">Systém sám rozpozná, či ide o výdaj alebo vrátenie</span>
+              </div>
+              <a class="linkish">Zadať kód štítku ručne</a>
+
+              <div class="sect-label">Dnešné vyzdvihnutia · 2</div>
+              <div class="row">
+                <div class="body">
+                  <div class="name">Vibračná doska 90 kg</div>
+                  <div class="clock"><span class="k">Rezervované</span><span class="v">12. – 14. 8.</span></div>
+                  <div class="clock"><span class="k">Zákazník</span><span class="v">Peter Kováč</span></div>
+                  <div style="margin-top:8px"><span class="chip confirmed">Potvrdené</span> <span class="plate">záloha 120,00 €</span></div>
+                </div>
+              </div>
+              <div class="row hazard hazard-warn">
+                <div class="body">
+                  <div class="name">Búracie kladivo 17 kg</div>
+                  <div class="clock"><span class="k">Rezervované</span><span class="v">11. – 13. 8.</span></div>
+                  <div class="clock"><span class="k">Skutočnosť</span><span class="v">nevyzdvihnuté</span></div>
+                  <div style="margin-top:8px"><span class="badge derived warn">Nedostavil sa</span></div>
+                  <div class="note">Dni zostávajú blokované. Zavolajte zákazníkovi.</div>
+                </div>
+              </div>
+
+              <div class="sect-label">Po termíne · 1</div>
+              <div class="row hazard">
+                <div class="body">
+                  <div class="name">Miešačka 140 l</div>
+                  <div class="clock"><span class="k">Mala byť</span><span class="v">10. 8.</span></div>
+                  <div class="clock"><span class="k">Skutočnosť</span><span class="v">u zákazníka</span></div>
+                  <div style="margin-top:8px"><span class="badge derived">Chýba 2 dni</span></div>
+                  <div class="note">Nedostatok nastane <strong>14. 8.</strong> — vtedy potvrdený dopyt prevýši sklad.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="caption">S-08 · pult, domov (FR-17, FR-42, FR-29)</p>
+      </div>
+
+      <!-- 2. handover out -->
+      <div>
+        <div class="phone" data-surface="counter">
+          <div class="screen">
+            <div class="steph">
+              <span class="back">←</span>
+              <span><span class="t">Vydanie náradia</span><br /><span class="s">Peter Kováč · vibračná doska</span></span>
+            </div>
+            <div class="pad">
+              <div class="alert ok">Totožnosť overená · 12. 8. 09:38 · Herman J.</div>
+
+              <div class="sect-label">Hotovostná záloha</div>
+              <div class="bigmoney">120,00 €</div>
+              <p class="note">Vyberte v hotovosti pred odovzdaním. Platforma peniaze nepresúva — zapisuje len potvrdenie.</p>
+
+              <div class="field" style="margin-top:24px">
+                <span class="lbl">Kus (naskenovať štítok)</span>
+                <div class="inp">HT-4F2K-9310</div>
+              </div>
+
+              <div class="field">
+                <span class="lbl">Fotografie stavu pri odovzdaní</span>
+                <div class="photos">
+                  <div class="photo ok"><span>▣</span><span class="st">Potvrdené</span></div>
+                  <div class="photo up"><span>▣</span><span class="st">Nahráva sa</span></div>
+                  <div class="photo add"><span>+</span><span class="st">Pridať</span></div>
+                </div>
+                <p class="note">Fotografia sa počíta ako dôkaz až po potvrdení uloženia.</p>
+              </div>
+
+              <div class="btn primary">Potvrdiť vydanie</div>
+            </div>
+            <div class="modal-back">
+              <div class="modal">
+                <h3 style="margin:0 0 4px">PIN operátora</h3>
+                <p class="note" style="margin:0">Potvrdenie o prevzatí zálohy a fotodokumentácii sa zapíše na vaše meno.</p>
+                <div class="pins"><span>•</span><span>•</span><span>•</span><span></span></div>
+                <div class="btn primary small">Potvrdiť</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="caption">S-10 · vydanie + PIN pri úkone (W4, FR-36, D-40)</p>
+      </div>
+
+      <!-- 3. public catalog -->
+      <div>
+        <div class="phone">
+          <div class="screen">
+            <div class="pubhead">
+              <span class="brand">HermanTool</span>
+              <span class="plate">Požičovňa náradia</span>
+            </div>
+            <div class="daterow">
+              <div class="field"><span class="lbl">Od</span><div class="inp">12. 8. 2026</div></div>
+              <div class="field"><span class="lbl">Do</span><div class="inp">14. 8. 2026</div></div>
+            </div>
+            <div class="pad">
+              <div class="card">
+                <div class="name" style="font-family:var(--cond);font-weight:600;font-size:20px">Vibračná doska 90 kg</div>
+                <p class="note" style="margin-top:4px">Obojsmerná, na zhutňovanie štrku a zámkovej dlažby.</p>
+                <div class="pricegrid">
+                  <div><span class="lbl">Cena za deň</span><span class="money" style="font-size:20px">28,00 €</span></div>
+                  <div><span class="lbl">Záloha v hotovosti</span><span class="money" style="font-size:20px">120,00 €</span></div>
+                </div>
+                <span class="avail"><span class="dot"></span> Voľné 3 ks pre 12. – 14. 8.</span>
+                <div class="btn primary small" style="margin-top:16px">Pridať k rezervácii</div>
+              </div>
+              <div class="card">
+                <div class="name" style="font-family:var(--cond);font-weight:600;font-size:20px">Búracie kladivo 17 kg</div>
+                <p class="note" style="margin-top:4px">Sekacie a búracie práce, SDS-max, vrátane dvoch sekáčov.</p>
+                <div class="pricegrid">
+                  <div><span class="lbl">Cena za deň</span><span class="money" style="font-size:20px">22,00 €</span></div>
+                  <div><span class="lbl">Záloha v hotovosti</span><span class="money" style="font-size:20px">150,00 €</span></div>
+                </div>
+                <span class="avail"><span class="dot none"></span> Na tieto dni nie je nič voľné</span>
+              </div>
+            </div>
+            <div class="footerbar">
+              <span>1 položka · 3 dni</span>
+              <span class="money">84,00 €</span>
+            </div>
+          </div>
+        </div>
+        <p class="caption">S-01 · katalóg (FR-02, FR-03) — záloha má rovnakú váhu ako cena</p>
+      </div>
+
+      <!-- 4. settlement gate -->
+      <div>
+        <div class="phone" data-surface="counter">
+          <div class="screen">
+            <div class="steph">
+              <span class="back">←</span>
+              <span><span class="t">Vyrovnanie zálohy</span><br /><span class="s">HT-4F2K-9310 · zmluva #2214</span></span>
+            </div>
+            <div class="pad">
+              <div class="row" style="display:block">
+                <div class="clock"><span class="k">Pri výdaji</span><span class="v">4 fotografie · potvrdené</span></div>
+                <div class="clock"><span class="k">Pri vrátení</span><span class="v" style="color:var(--ht-danger)">1 z 3 nepotvrdená</span></div>
+              </div>
+              <div class="alert" style="margin-top:12px">
+                Zrážku zo zálohy nie je možné zapísať, kým nie sú potvrdené fotografie z oboch strán.
+                <br /><a class="linkish">Zopakovať nahratie</a>
+              </div>
+
+              <div class="field" style="margin-top:24px">
+                <span class="lbl">Vrátená suma</span>
+                <div class="inp">120,00 €</div>
+              </div>
+              <div class="field">
+                <span class="lbl">Dôvod zrážky</span>
+                <div class="inp" style="color:var(--ht-ink-muted)">nedostupné</div>
+              </div>
+              <div class="btn secondary">Vrátiť celú zálohu</div>
+              <div class="btn" disabled style="margin-top:8px">Zapísať zrážku</div>
+              <p class="note">Zrážka bez spárovaných fotografií je zamietnutá aj serverom — obrazovka to len povie o desať sekúnd skôr.</p>
+            </div>
+          </div>
+        </div>
+        <p class="caption">S-12 · vyrovnanie, viditeľná brána FR-20 (UI-D-07)</p>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="sheet">
+    <h2>Čo je na tom rozhodnutie, nie ozdoba</h2>
+    <div class="legend">
+      <div><div class="k">Dva ciferníky</div><p>Každý riadok ukazuje <em>rezervované</em> aj <em>skutočnosť</em> ako dva popísané riadky. Nikdy sa nezlejú do jedného stavu.</p></div>
+      <div><div class="k">Plná vs. šrafovaná</div><p>Plný štítok = uložený stav (<code>Potvrdené</code>). Šrafovaná lišta a prerušovaný rám = <em>odvodený</em> fakt (<code>po termíne</code>, <code>nedostavil sa</code>). Vizuálny rozdiel je rozdiel medzi FR-07 a FR-28.</p></div>
+      <div><div class="k">Skenovacia platňa</div><p>Najväčší prvok na najdôležitejšej obrazovke. Písanie kódu štítku zostáva, ale ako záloha pre poškodený štítok a odmietnutú kameru.</p></div>
+      <div><div class="k">Tmavý pult</div><p>Pult vyzerá inak než administratíva zámerne — na tom istom telefóne musí byť na prvý pohľad jasné, že nasledujúci úkon je potvrdenie na moje meno.</p></div>
+      <div><div class="k">Stav fotografie</div><p>Fotografia má vlastný stav až po „potvrdené“. Nepotvrdená sa nikdy netvári ako dôkaz.</p></div>
+      <div><div class="k">Záloha nahlas</div><p>V katalógu má hotovostná záloha rovnakú typografickú váhu ako cena za deň. Prekvapenie pri pulte je najpravdepodobnejšie zlyhanie dôvery v pilote.</p></div>
+    </div>
+  </div>
+
+  <p class="foot">Statická ukážka — žiadna interakcia, žiadne dáta. Písma sú tu načítané z CDN len pre náhľad; v produkte sú self-hosted (UI-D-11). Texty sú návrh a v produkte idú výhradne cez <code>app/i18n/sk.ts</code> (D-20).</p>
+</div>
+</body>
+</html>

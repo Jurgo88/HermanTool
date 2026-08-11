@@ -6,7 +6,7 @@
 | **Status** | Draft — authoritative for technology selection and risk |
 | **Scope** | Sections 13–16 and the Open Questions appendix. Section 17 (Independent Review) is Part 5. Section 16.2 reconciles the 04 August 2026 implementation review (`docs/reviews/implementation-review-2026-08-04.md`, findings `IR-01`…`IR-13`). |
 | **Depends on** | Parts 1, 2 and 3, all **frozen**. Their identifiers are referenced, never restated or renumbered. Section 16 reconciles Part 5's independent review; because Parts 1–3 are frozen, its corrections are expressed here as new decisions and flagged supersessions rather than as edits to those parts. |
-| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-42`. Risks `R-01`…`R-17`. No new Ubiquitous Language. |
+| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-42`; in the §16.3 interface-design pass, `D-43`…`D-53`. Risks `R-01`…`R-17`. No new Ubiquitous Language. |
 | **Prices verified** | 18 July 2026, against vendor pricing pages. Every number below has a date on it because every number below will move. |
 
 ### Flags: two contradictions and two defects
@@ -318,6 +318,17 @@ The map. Every decision from D-01, with its owning part and status. Reasoning is
 | **D-40** | **A photograph counts as evidence only once its object is confirmed stored; presigned uploads are size-bounded.** | P4 §16.2 | accepted — **size value open (OQ #26)** |
 | **D-41** | **Every internal scheduled endpoint records a job run; one ledger serves FR-40 and FR-44.** | P4 §16.2 | accepted |
 | **D-42** | **FR-38's cookie banner is superseded: every cookie this platform sets is strictly necessary, so no consent banner is obligatory.** | P4 §16.2 | accepted — supersedes FR-38; resolves OQ #28 |
+| **D-43** | **Styling: design tokens and an owned component layer. No CSS framework, no UI kit.** | P4 §16.3 | accepted |
+| **D-44** | **The banned-terms list extends to component names, props, CSS classes and i18n keys.** | P4 §16.3 | accepted |
+| **D-45** | **Camera-first scanning at the counter, manual tag entry as the named fallback.** | P4 §16.3 | accepted — **device choice open (UI-OQ-1)** |
+| **D-46** | **The counter is a task stack, not a dashboard.** | P4 §16.3 | accepted |
+| **D-47** | **Two clocks are visible in the interface, and derived facts look derived.** | P4 §16.3 | accepted |
+| **D-48** | **PIN re-confirmation is per attestation, at the moment of attestation.** | P4 §16.3 | accepted |
+| **D-49** | **A photograph shows its confirmation state, and a deduction is unreachable without one.** | P4 §16.3 | accepted |
+| **D-50** | **Two error audiences, one translation table, no raw domain text.** | P4 §16.3 | accepted |
+| **D-51** | **One formatting module. Money, dates and periods are never formatted in a component.** | P4 §16.3 | accepted |
+| **D-52** | **Legally blocked copy occupies a marked slot that cannot ship silently.** | P4 §16.3 | accepted |
+| **D-53** | **No third-party runtime assets in the browser. Fonts self-hosted.** | P4 §16.3 | accepted |
 
 ### Long-term implications and migration difficulty — D-24 to D-32
 
@@ -475,6 +486,122 @@ Parts 1–3 remain frozen. D-38 and D-42 are the only two of these that touch a 
 **Obligation, replacing the banner:** the privacy notice (OQ #4's own paperwork) carries a maintained statement of exactly what is set and why — the three cookies named above, kept current as this inventory would need to be redone if a fourth is ever added.
 
 **Left open:** OQ #4 (controller–processor agreement) is untouched by this decision — Sentry's per-Visitor session beacon, disabled here, is exactly the kind of processor relationship that conversation needs to cover once (if) it is re-enabled.
+
+## 16.3 Interface Design Foundation reconciliation (12 August 2026)
+
+`docs/design/interface-design-foundation.md` proposed the presentation and interaction layer as `UI-D-01`…`UI-D-11`, approved in full. Promoted here as `D-43`…`D-53`, in `UI-D-XX` order; each entry cites its own `UI-D-XX` for traceability back to the fuller reasoning, screen specs and component inventory in that document, which remains the governing reference for *how* these decisions are carried out (tokens, screens `S-01`…`S-24`, components `C-01`…`C-20`) — only the decisions themselves are ADR-log material. Deliberately adds no `FR`/`NFR`/`W`/`P`/`F`/`IR` identifiers: this pass specifies how existing requirements are presented, never what the product does.
+
+### D-43 — Styling: design tokens and an owned component layer (`UI-D-01`)
+
+**Considered:** (a) CSS custom properties in one global stylesheet plus a small owned component layer; (b) Tailwind; (c) a component kit — Nuxt UI, PrimeVue, Vuetify.
+
+**Trade-offs:** (c) imports a vocabulary this project has spent five documents constraining — kits ship `Card`, `Item`, `Menu`, and their prop names will put `item` in templates the same week `CLAUDE.md` bans it — and it makes `D-34`'s mechanical enforcement fight the dependency instead of the developer. (b) is defensible — no runtime, easy to delete — but its cost is that consistency lives in habit rather than in one file. (a) costs about 300 lines of CSS and roughly twenty small components, the same amount of work either way, with every colour, size and radius in one greppable file.
+
+**Recommended: (a).** Tokens as CSS custom properties in `app/assets/css/tokens.css`, a base layer in `base.css`, components in `app/components/`. Scoped styles per component, tokens only — a raw hex or px value in a component is a review failure, exactly as a Slovak literal is under `D-20`.
+
+**Why:** it is the option whose enforcement is mechanical and whose vocabulary is ours.
+
+**Obliges:** `tokens.css` is the single source of colour, spacing, type and radius; no third-party CSS or font CDN at runtime (`D-53`); components named from Part 1's Ubiquitous Language (`D-44`).
+
+### D-44 — The banned-terms list extends to component names, props, CSS classes and i18n keys (`UI-D-02`)
+
+**Considered:** (a) domain vocabulary applies to server code only; (b) it applies to everything the repository contains.
+
+**Trade-offs:** (a) is how `Item`, `Order` and `Cart` re-enter through the back door — a `CartSummary.vue` teaches the next agent that a cart exists. `useReservationDraft.ts` already got this right, deliberately, and its own comment explains why.
+
+**Recommended: (b).** Extend `D-34`'s CI grep to `app/**`, including component filenames, prop names, CSS class names and i18n keys. **Note on current state:** `id-denylist` already runs against `**/*.{js,ts,vue}`, so identifiers in `<script>` blocks in `app/` are already checked — the gap this closes is narrower than a first read suggests: CSS class-name strings and `sk.ts` object keys, neither of which `id-denylist` reaches today.
+
+**Why:** the vocabulary is `NFR-13`'s main instrument. A vocabulary that stops at the server boundary has a hole where the UI lives.
+
+### D-45 — Camera-first scanning at the counter, manual tag entry as the named fallback (`UI-D-03`)
+
+**Considered:** (a) keep the typed tag-code field; (b) `BarcodeDetector` (native, no dependency) with the typed field retained as fallback; (c) a JS decoder library (`zxing`/`jsQR`) with the typed field as fallback.
+
+**Trade-offs:** (a) is the current state and forfeits the product's reason to exist — `P3` and `NFR-02` name scan-to-resolution as the one latency requirement worth having, and the interface currently makes the Operator read an opaque code off a sticker and type it while holding a drill. (b) costs one API call and no dependency, resolves in tens of milliseconds, and is unavailable on some browsers (notably Safari). (c) works everywhere and costs a decoding library plus a camera pipeline.
+
+**Recommended: (b), with (c) held in reserve, decided by the actual counter device (`UI-OQ-1`).** The typed field never goes away — it is the fallback for a damaged tag, a dead camera and a denied permission — but it stops being the primary path.
+
+**Why:** `NFR-01` already accepts the counter cannot work without connectivity; it does not follow that it should also not work without typing. This is the single highest-value UI change in the reconciliation.
+
+**Obliges:** a scan component owns camera permission, the no-camera state, the decode-failed state and the manual fallback in one place; a decoded tag code follows exactly the same path as a typed one (`POST /api/handover/scan`) — `FR-17`'s "the domain resolves the intent" is untouched.
+
+### D-46 — The counter is a task stack, not a dashboard (`UI-D-04`)
+
+**Considered:** (a) worklist and task panels on one scrolling screen (current shape); (b) a stack — worklist is home, a task takes the whole screen and returns.
+
+**Trade-offs:** (a) shows more and is worse: during a handover the Operator has photos in flight and a customer waiting, and the surrounding worklist is an invitation to lose the task. (b) costs an explicit back affordance and a guard against abandoning in-flight uploads.
+
+**Recommended: (b).** One task on screen, a visible step header naming the workflow and the Customer. Back is explicit and warns when uploads are incomplete or a PIN prompt is pending.
+
+**Why:** `W4` and `W5` are strictly sequenced workflows and the interface should look like the workflow, not like an inventory of what is available.
+
+### D-47 — Two clocks are visible in the interface, and derived facts look derived (`UI-D-05`)
+
+**Considered:** (a) show a single status per row; (b) show the commercial expectation and the physical reality as two distinct rails, with derived facts rendered differently from stored states.
+
+**Trade-offs:** (a) is what every rental UI does and is the exact failure `P1` names: a row that says "Overdue" as if that were a status trains everyone, including the next agent, to believe it is one. It is not — `FR-28` derives it, stores it and emits nothing.
+
+**Recommended: (b).** Stored states (`Pending`, `Confirmed`, `Cancelled`, `Expired`; Asset statuses) render as solid chips. Derived facts (`Overdue`, `NoShow`, shortfall risk) render in a visually distinct hazard treatment never used for a stored state. Where both clocks are relevant, expected and actual are two labelled lines, never merged into one.
+
+**Why:** this is the project's central architectural insight made visible, and the interface is where it would otherwise be silently reversed.
+
+### D-48 — PIN re-confirmation is per attestation, at the moment of attestation (`UI-D-06`)
+
+**Considered:** (a) PIN once on entering the counter surface; (b) PIN at the moment each attesting action is submitted; (c) PIN once per Customer interaction.
+
+**Trade-offs:** (a) and (c) turn `F8`'s answer back into a session, which is the thing `NFR-06` is worried about when the phone is left on the counter. (b) costs one modal and one extra tap per attestation, on a workflow that has at most three.
+
+**Recommended: (b).** A modal invoked by the submit action for `DepositTaken`, `DepositReturned`, ConditionReport and LostAsset declaration (`FR-36`). Never prefilled, never remembered, cleared on close, `autocomplete="off"`, `inputmode="numeric"`.
+
+**Why:** the PIN's whole purpose is to bind *this attestation* to *this human* (`D-16`, `FR-34`). A PIN entered ten minutes ago attests to nothing.
+
+### D-49 — A photograph shows its confirmation state, and a deduction is unreachable without one (`UI-D-07`)
+
+**Considered:** (a) show the photo when the upload completes; (b) show each photo's own state through `D-40`'s sequence — requested → uploading → confirmed — with retry, and gate the settlement deduction path on confirmed pairs.
+
+**Trade-offs:** (a) is the current behaviour and produces the exact failure `D-40` was written for: the Operator believes evidence exists, the row exists, the object does not, and the discovery happens during a dispute. (b) costs a per-file state machine in one component.
+
+**Recommended: (b).** The Settlement screen shows the paired-evidence status for the RentalAgreement and disables the deduction path when `FR-20` would reject it, with the reason stated, never a silently dead control.
+
+**Why:** `FR-20` is a domain rule the Operator experiences as a refusal at the worst possible moment. The interface should make the refusal predictable ten seconds earlier.
+
+### D-50 — Two error audiences, one translation table, no raw domain text (`UI-D-08`)
+
+**Considered:** (a) show `statusMessage` to Operators, friendly copy to Customers (current); (b) never show server-authored text to anyone; map error codes to Slovak strings in the catalogue.
+
+**Trade-offs:** (a) is why an Operator can be shown `RetentionWindowNotConfiguredError` verbatim. It also drifts: the domain's error text is written for a log, and changing a log message becomes an unnoticed UI change. (b) requires server routes to return a stable code, the only server change this pass asks for.
+
+**Recommended: (b).** Domain errors carry a stable code; `app/i18n/sk.ts` holds `errors.<code>` in two registers where they differ — Operator-facing (specific, actionable) and Customer-facing (plain, never technical). Unknown code → `common.somethingWentWrong`, and the code goes to Sentry, not to the screen.
+
+**Why:** `D-20` says no user-facing string outside the catalogue. English domain-error text on a Slovak counter is a user-facing string outside the catalogue.
+
+### D-51 — One formatting module: money, dates and periods are never formatted in a component (`UI-D-09`)
+
+**Considered:** (a) per-page helpers (current — `toEuros` reimplemented in four files); (b) `app/utils/format.ts` with `formatMoney`, `formatDay`, `formatDayRange`, `formatDateTime`, all Slovak-locale, all currency-aware.
+
+**Recommended: (b).** `formatMoney({amount, currency})` → `12,50 €` via `Intl.NumberFormat('sk-SK')`; days as `12. 8. 2026`; ranges as `12. – 14. 8. 2026`; timestamps in `Europe/Bratislava`, never raw ISO. Date *arithmetic* stays where Part 4 already puts it — the UI formats, it does not compute.
+
+**Why:** `D-21` says every amount carries its currency; four private implementations are four places to forget it.
+
+### D-52 — Legally blocked copy occupies a marked slot that cannot ship silently (`UI-D-10`)
+
+**Considered:** (a) plausible placeholder text; (b) a visibly marked draft slot, plus a build-time guard.
+
+**Trade-offs:** (a) is how a draft terms text reaches a real Customer. `checkout.vue` currently does this honestly — the notice says the wording is provisional — but honesty in a comment is not a mechanism.
+
+**Recommended: (b).** Blocked copy (`OQ #1` terms and pre-contractual information, cancellation, `FR-38`/`D-42`/`IR-13` privacy text) lives in `sk.ts` under a `draft.` prefix with a visible in-page marker, and a CI check fails a production build while any `draft.` key is referenced.
+
+**Why:** it is the cheapest possible closure of the one failure mode that is silent, the same argument `NFR-14` makes for `FR-40`.
+
+### D-53 — No third-party runtime assets in the browser; fonts self-hosted (`UI-D-11`)
+
+**Considered:** (a) Google Fonts / CDN; (b) self-hosted subset fonts, no third-party requests at all from the platform's own pages.
+
+**Trade-offs:** (a) is one line and puts a third-party request — carrying an IP address and a referrer — on every page a Visitor loads, precisely the category of thing `FR-38`'s banner exists to ask about. (b) costs two `woff2` files and a `@font-face` block.
+
+**Recommended: (b).** IBM Plex, subset to Latin Extended-A. Stripe is a redirect to a hosted page (`NFR-05`), not an embed, so it adds no third-party request to the platform's own pages.
+
+**Why:** this is the fact that makes `D-42`'s conclusion architectural rather than incidental — if the browser makes no third-party request and sets nothing but a strictly necessary session cookie, there is no non-essential consent to collect.
 
 ## Appendix — Open Questions
 
