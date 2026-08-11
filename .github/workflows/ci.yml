@@ -39,6 +39,9 @@ jobs:
       - name: Lint (banned terms, dependency direction — D-34, D-02)
         run: pnpm lint
 
+      - name: Banned terms in app/ (filenames, CSS classes, i18n keys — D-44)
+        run: pnpm check:banned-terms
+
       - name: Typecheck
         run: pnpm typecheck
 
