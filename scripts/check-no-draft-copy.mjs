@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // D-52 (UI-D-10): legally blocked copy (OQ #1 terms and pre-contractual
 // information, cancellation, FR-38/D-42/IR-13 privacy text) lives in
-// app/i18n/sk.ts under a `draft.` prefix. This fails `pnpm build` --
-// the command Netlify's own production deploy runs -- while any
-// `sk.draft.*` key is still referenced anywhere in app/. `nuxt dev`
-// (local development) is untouched; only the production build path is
-// gated. Removing this failure is a deliberate act: delete the
-// draft.* entry once real, lawyer-approved content replaces it -- never
-// silence this script instead.
+// app/i18n/sk.ts under a `draft.` prefix. Run via `pnpm check:no-draft-copy`;
+// fails while any `sk.draft.*` key is still referenced anywhere in app/.
+//
+// NOT currently wired into `pnpm build` -- by request, since real terms
+// content is still pending from the Tenant's lawyer and blocking every
+// deploy on that in the meantime isn't wanted yet. Re-wire it by
+// prefixing package.json's "build" script with
+// `node scripts/check-no-draft-copy.mjs && ` once that changes.
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
