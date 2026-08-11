@@ -16,17 +16,25 @@ function todayAsRentalDay(): string {
 // requireInternalJobSecret gates this, not requireOperator, mirroring
 // server/api/internal/notification/dispatch-return-reminders.post.ts
 // exactly.
+//
+// createNotificationDeps is constructed INSIDE runScheduledJob's own
+// callback, not alongside the other deps below — its gateway construction
+// throws synchronously when NUXT_RESEND_API_KEY is unset (`new
+// Resend('')`), and constructing it outside the wrapper meant that throw
+// happened before runScheduledJob ever started, so it never wrote a
+// job_runs row — exactly the silent failure D-41 exists to close, and
+// exactly what has been happening on the deployed schedule.
 export default defineEventHandler(async (event) => {
   requireInternalJobSecret(event)
 
   const availability = createAvailabilityReservationDeps(event)
   const handover = createHandoverPossessionDeps(event)
   const customerIdentity = createCustomerIdentityComplianceDeps(event)
-  const notification = createNotificationDeps(event)
 
   try {
     const tenantId = await getSeededTenantId(availability.sql)
     return await runScheduledJob(availability.sql, { tenantId, jobName: 'overdue_reminder_dispatch' }, async () => {
+      const notification = createNotificationDeps(event)
       const dispatched = await dispatchDueOverdueReminders(
         {
           availabilityRepo: availability.repo,
@@ -44,6 +52,6 @@ export default defineEventHandler(async (event) => {
       }
     })
   } finally {
-    await Promise.all([availability.close(), handover.close(), customerIdentity.close(), notification.close()])
+    await Promise.all([availability.close(), handover.close(), customerIdentity.close()])
   }
 })

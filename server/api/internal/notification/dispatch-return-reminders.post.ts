@@ -17,17 +17,24 @@ function todayAsRentalDay(): string {
 // server/api/internal/reservations/sweep-expired.post.ts (FR-08) and
 // server/api/internal/customer-identity-compliance/erase-expired-evidence.post.ts
 // (FR-16) exactly.
+//
+// createNotificationDeps is constructed INSIDE runScheduledJob's own
+// callback, not alongside the other deps below — see
+// dispatch-overdue-reminders.post.ts's own comment for why (its
+// Resend-client construction throws synchronously when
+// NUXT_RESEND_API_KEY is unset, and outside the wrapper that throw never
+// wrote a job_runs row).
 export default defineEventHandler(async (event) => {
   requireInternalJobSecret(event)
 
   const availability = createAvailabilityReservationDeps(event)
   const handover = createHandoverPossessionDeps(event)
   const customerIdentity = createCustomerIdentityComplianceDeps(event)
-  const notification = createNotificationDeps(event)
 
   try {
     const tenantId = await getSeededTenantId(availability.sql)
     return await runScheduledJob(availability.sql, { tenantId, jobName: 'return_reminder_dispatch' }, async () => {
+      const notification = createNotificationDeps(event)
       const dispatched = await dispatchDueReturnReminders(
         {
           availabilityRepo: availability.repo,
@@ -44,6 +51,6 @@ export default defineEventHandler(async (event) => {
       }
     })
   } finally {
-    await Promise.all([availability.close(), handover.close(), customerIdentity.close(), notification.close()])
+    await Promise.all([availability.close(), handover.close(), customerIdentity.close()])
   }
 })
