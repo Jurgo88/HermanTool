@@ -6,6 +6,8 @@
 // ordinary D-18/FR-08 sweep (same "no saga machinery" stance as
 // checkout.post.ts's own comment); nothing to undo here.
 import { sk } from '~/i18n/sk'
+
+definePageMeta({ layout: 'public' })
 </script>
 
 <template>

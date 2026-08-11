@@ -111,7 +111,7 @@ export function translateHandoverPossessionError(err: unknown): never {
     err instanceof RentalAgreementNotFoundError ||
     err instanceof ConditionReportNotFoundError
   ) {
-    throw createError({ statusCode: 404, statusMessage: err.message })
+    throw createError({ statusCode: 404, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   if (
     err instanceof EmptyConditionReportError ||
@@ -120,7 +120,7 @@ export function translateHandoverPossessionError(err: unknown): never {
     err instanceof BackdateReasonRequiredError ||
     err instanceof LostAssetReasonRequiredError
   ) {
-    throw createError({ statusCode: 400, statusMessage: err.message })
+    throw createError({ statusCode: 400, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   if (
     err instanceof ReservationNotConfirmedError ||
@@ -138,10 +138,10 @@ export function translateHandoverPossessionError(err: unknown): never {
     err instanceof RentalAgreementAlreadyDeclaredLostError ||
     err instanceof AssetRetiredError
   ) {
-    throw createError({ statusCode: 409, statusMessage: err.message })
+    throw createError({ statusCode: 409, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   if (err instanceof HandoverPossessionError) {
-    throw createError({ statusCode: 400, statusMessage: err.message })
+    throw createError({ statusCode: 400, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   throw err
 }

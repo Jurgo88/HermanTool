@@ -7,6 +7,8 @@
 // than this redirect. This page deliberately does not poll for or claim
 // a confirmed status; it only acknowledges the payment step completed.
 import { sk } from '~/i18n/sk'
+
+definePageMeta({ layout: 'public' })
 </script>
 
 <template>

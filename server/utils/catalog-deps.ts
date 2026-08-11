@@ -45,10 +45,10 @@ export function getAssetTypeIdParam(event: H3Event): number {
 // rather than letting a CatalogError surface as an unhandled 500.
 export function translateCatalogError(err: unknown): never {
   if (err instanceof AssetTypeNotFoundError) {
-    throw createError({ statusCode: 404, statusMessage: err.message })
+    throw createError({ statusCode: 404, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   if (err instanceof AssetTypeNameRequiredError) {
-    throw createError({ statusCode: 400, statusMessage: err.message })
+    throw createError({ statusCode: 400, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   throw err
 }

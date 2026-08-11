@@ -5,6 +5,8 @@
 // Supabase token directly (D-25, D-31: no client-side supabase-js).
 import { sk } from '~/i18n/sk'
 
+definePageMeta({ layout: 'admin' })
+
 const email = ref('')
 const password = ref('')
 const error = ref<string | null>(null)

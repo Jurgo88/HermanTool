@@ -5,6 +5,10 @@
 // — a 401 here means the session is missing or expired, so this page
 // sends the Operator back to /login rather than showing an error.
 import { sk } from '~/i18n/sk'
+import { getErrorCode } from '~/utils/error-code'
+import { formatMoney } from '~/utils/format'
+
+definePageMeta({ layout: 'admin' })
 
 interface AssetTypeView {
   id: number
@@ -23,7 +27,7 @@ const nuxtApp = useNuxtApp()
 const requestFetch = useRequestFetch()
 
 const assetTypes = ref<AssetTypeView[]>([])
-const error = ref<string | null>(null)
+const errorCode = ref<string | null>(null)
 
 const form = reactive({
   name: '',
@@ -34,10 +38,6 @@ const form = reactive({
 
 function toMinorUnits(euros: string): number {
   return Math.round(Number(euros) * 100)
-}
-
-function toEuros(minorUnits: number): string {
-  return (minorUnits / 100).toFixed(2)
 }
 
 async function load() {
@@ -64,11 +64,11 @@ async function handleFetchError(err: unknown) {
     await nuxtApp.runWithContext(() => navigateTo('/login'))
     return
   }
-  error.value = sk.common.somethingWentWrong
+  errorCode.value = getErrorCode(err) ?? 'UNKNOWN'
 }
 
 async function createAssetType() {
-  error.value = null
+  errorCode.value = null
   try {
     await $fetch('/api/catalog/asset-types', {
       method: 'POST',
@@ -90,7 +90,7 @@ async function createAssetType() {
 }
 
 async function togglePublished(assetType: AssetTypeView) {
-  error.value = null
+  errorCode.value = null
   const action = assetType.published ? 'unpublish' : 'publish'
   try {
     await $fetch(`/api/catalog/asset-types/${assetType.id}/${action}`, { method: 'POST' })
@@ -106,7 +106,7 @@ await load()
 <template>
   <main>
     <h1>{{ sk.adminCatalog.title }}</h1>
-    <p v-if="error" role="alert">{{ error }}</p>
+    <AppAlert :code="errorCode" />
 
     <section>
       <h2>{{ sk.adminCatalog.assetTypesHeading }}</h2>
@@ -123,8 +123,8 @@ await load()
         <tbody>
           <tr v-for="assetType in assetTypes" :key="assetType.id">
             <td>{{ assetType.name }}</td>
-            <td>{{ toEuros(assetType.dayRate.amount) }} {{ assetType.dayRate.currency }}</td>
-            <td>{{ toEuros(assetType.depositAmount.amount) }} {{ assetType.depositAmount.currency }}</td>
+            <td>{{ formatMoney(assetType.dayRate) }}</td>
+            <td>{{ formatMoney(assetType.depositAmount) }}</td>
             <td>{{ assetType.published ? sk.adminCatalog.published : sk.adminCatalog.unpublished }}</td>
             <td>
               <button type="button" @click="togglePublished(assetType)">

@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     return { ok: true }
   } catch (err) {
     if (err instanceof PinTooShortError) {
-      throw createError({ statusCode: 400, statusMessage: err.message })
+      throw createError({ statusCode: 400, statusMessage: err.message, data: { code: err.constructor.name } })
     }
     throw err
   } finally {

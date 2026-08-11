@@ -6,6 +6,8 @@
 // error, mirroring ./catalog.vue exactly.
 import { sk } from '~/i18n/sk'
 
+definePageMeta({ layout: 'admin' })
+
 type JobName =
   | 'expiry_sweep'
   | 'evidence_erasure'

@@ -44,17 +44,17 @@ export function getAppBaseUrl(event: H3Event): string {
 // The HTTP layer translates typed domain errors into responses (CLAUDE.md).
 export function translatePaymentsError(err: unknown): never {
   if (err instanceof PaymentNotFoundError) {
-    throw createError({ statusCode: 404, statusMessage: err.message })
+    throw createError({ statusCode: 404, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   if (err instanceof ReservationGroupAlreadyPaidError || err instanceof PaymentNotRefundableError) {
-    throw createError({ statusCode: 409, statusMessage: err.message })
+    throw createError({ statusCode: 409, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   if (err instanceof ProviderWebhookSignatureInvalidError) {
-    throw createError({ statusCode: 400, statusMessage: err.message })
+    throw createError({ statusCode: 400, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   if (err instanceof PaymentProviderUnavailableError) {
     console.error('Stripe checkout session creation failed:', err.cause)
-    throw createError({ statusCode: 502, statusMessage: err.message })
+    throw createError({ statusCode: 502, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   throw err
 }

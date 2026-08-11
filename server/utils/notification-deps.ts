@@ -37,7 +37,7 @@ export function createNotificationDeps(event: H3Event): {
 // The HTTP layer translates typed domain errors into responses (CLAUDE.md).
 export function translateNotificationError(err: unknown): never {
   if (err instanceof NotificationError) {
-    throw createError({ statusCode: 502, statusMessage: err.message })
+    throw createError({ statusCode: 502, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   throw err
 }
