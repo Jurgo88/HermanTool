@@ -8,6 +8,68 @@ export const sk = {
   common: {
     somethingWentWrong: 'Niečo sa pokazilo.',
   },
+  // D-50, UIF-03: domain errors carry a stable `code` (the throwing
+  // class's own name, attached server-side by every translate*Error
+  // function — see e.g. server/utils/asset-registry-deps.ts). Two
+  // registers because the same failure needs different words for an
+  // Operator (specific, actionable) than for a Customer (plain, never
+  // technical) — see AppAlert (C-03). An unknown code falls back to
+  // common.somethingWentWrong; the code itself goes to Sentry, never to
+  // the screen. Seeded with the codes reachable from shipped surfaces
+  // (admin/asset-registry.vue, admin/catalog.vue, admin/counter.vue) —
+  // not every domain error in the codebase has a translation yet, and
+  // that is fine, that is what the fallback is for.
+  errors: {
+    operator: {
+      AssetTypeNotFoundError: 'Tento typ náradia neexistuje.',
+      AssetNotFoundError: 'Tento kus náradia neexistuje.',
+      AssetTypeNameRequiredError: 'Zadajte názov typu náradia.',
+      InvalidBulkRegistrationLineError: 'Neplatný riadok v zozname — skontrolujte typ náradia a počet kusov.',
+      EmptyBulkRegistrationError: 'Zoznam na registráciu je prázdny.',
+      MalformedCsvRowError: 'Nesprávny formát CSV riadku.',
+      TagAlreadyBoundError: 'Tento štítok je už priradený k inému kusu.',
+      AssetRetiredError: 'Tento kus je vyradený z prevádzky.',
+      AssetNotTaggedError: 'Tento kus nemá priradený štítok.',
+      InvalidPinError: 'Nesprávny PIN.',
+      ScanEventTagNotBoundError: 'Tento štítok nie je priradený k žiadnemu kusu.',
+      RentalAgreementNotFoundError: 'Táto zmluva o prenájme neexistuje.',
+      ConditionReportNotFoundError: 'Fotodokumentácia stavu neexistuje.',
+      EmptyConditionReportError: 'Priložte aspoň jednu fotografiu stavu.',
+      DeductionReasonRequiredError: 'Zadajte dôvod zrážky.',
+      DepositReturnExceedsTakenError: 'Vrátená suma nemôže presiahnuť vybratú zálohu.',
+      BackdateReasonRequiredError: 'Zadajte dôvod dodatočného záznamu.',
+      LostAssetReasonRequiredError: 'Zadajte dôvod straty.',
+      ReservationNotConfirmedError: 'Táto rezervácia ešte nie je potvrdená.',
+      CustomerReservationMismatchError: 'Táto rezervácia nepatrí tomuto zákazníkovi.',
+      IdentityVerificationRequiredError: 'Najprv overte totožnosť zákazníka.',
+      UnexpectedScanResolutionError: 'Naskenovaný štítok sa nedá priradiť k žiadnej akcii.',
+      AssetTypeMismatchError: 'Naskenovaný kus nezodpovedá typu náradia z rezervácie.',
+      NoOpenRentalAgreementError: 'Pre tento kus nie je otvorená žiadna zmluva o prenájme.',
+      RentalAgreementNotHandedInError: 'Toto náradie ešte nebolo vrátené.',
+      RentalAgreementAlreadySettledError: 'Táto zmluva je už vyrovnaná.',
+      DeductionRequiresPairedConditionReportsError:
+        'Zrážku nie je možné zapísať, kým nie sú potvrdené fotografie z oboch strán.',
+      SettlementNotCompleteError: 'Vyrovnanie ešte nie je dokončené.',
+      AssetNotYetReturnableError: 'Tento kus zatiaľ nie je možné vrátiť do dostupných.',
+      RentalAgreementAlreadyHandedInError: 'Toto náradie už bolo vrátené.',
+      RentalAgreementAlreadyDeclaredLostError: 'Tento kus je už nahlásený ako stratený.',
+      CustomerNotFoundError: 'Tento zákazník neexistuje.',
+      IdentityEvidenceNotFoundError: 'Doklad totožnosti neexistuje.',
+      InvalidCustomerDetailsError: 'Neplatné údaje zákazníka.',
+      IdentityVerificationReasonRequiredError: 'Zadajte dôvod zamietnutia.',
+      CustomerAlreadyExistsForGroupError: 'Pre túto rezerváciu už zákazník existuje.',
+      ReservationGroupNotConfirmedError: 'Táto rezervácia ešte nie je potvrdená platbou.',
+      RetentionWindowNotConfiguredError: 'Nahratie dokladu momentálne nie je možné. Kontaktujte správcu.',
+      IdentityEvidenceCustomerMismatchError: 'Tento doklad nepatrí tomuto zákazníkovi.',
+    },
+    customer: {
+      PaymentProviderUnavailableError: 'Platbu sa momentálne nepodarilo spustiť. Skúste to prosím o chvíľu znova.',
+      ReservationGroupAlreadyPaidError: 'Táto rezervácia je už zaplatená.',
+      TermsNotAcceptedError: 'Najprv potvrďte podmienky prenájmu.',
+      ReservationGroupNotFoundError: 'Túto rezerváciu sa nepodarilo nájsť.',
+      RetentionWindowNotConfiguredError: 'Nahratie dokladu momentálne nie je možné. Skúste to prosím neskôr.',
+    },
+  },
   login: {
     title: 'Prihlásenie operátora',
     email: 'Email',
@@ -186,9 +248,6 @@ export const sk = {
     submitSettlementAction: 'Potvrdiť vyrovnanie',
     submittingSettlement: 'Vyrovnávam…',
     settlementSuccess: 'Depozit vyrovnaný.',
-
-    invalidPin: 'Nesprávny PIN.',
-    genericError: 'Akciu sa nepodarilo dokončiť.',
   },
   adminJobRuns: {
     title: 'Stav naplánovaných úloh',

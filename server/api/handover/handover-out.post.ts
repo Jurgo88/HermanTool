@@ -76,10 +76,10 @@ export default defineEventHandler(async (event) => {
     )
   } catch (err) {
     if (err instanceof InvalidPinError) {
-      throw createError({ statusCode: 401, statusMessage: err.message })
+      throw createError({ statusCode: 401, statusMessage: err.message, data: { code: err.constructor.name } })
     }
     if (err instanceof AssetTypeNotFoundError) {
-      throw createError({ statusCode: 404, statusMessage: err.message })
+      throw createError({ statusCode: 404, statusMessage: err.message, data: { code: err.constructor.name } })
     }
     translateHandoverPossessionError(err)
   } finally {

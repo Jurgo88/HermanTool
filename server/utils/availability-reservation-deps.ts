@@ -46,21 +46,21 @@ export function getReservationGroupIdParam(event: H3Event): number {
 // The HTTP layer translates typed domain errors into responses (CLAUDE.md).
 export function translateAvailabilityReservationError(err: unknown): never {
   if (err instanceof ReservationGroupNotFoundError || err instanceof ReservationNotFoundError) {
-    throw createError({ statusCode: 404, statusMessage: err.message })
+    throw createError({ statusCode: 404, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   if (
     err instanceof EmptyReservationGroupError ||
     err instanceof InvalidRentalPeriodError ||
     err instanceof InvalidTermsVersionError
   ) {
-    throw createError({ statusCode: 400, statusMessage: err.message })
+    throw createError({ statusCode: 400, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   if (
     err instanceof AssetTypeUnavailableError ||
     err instanceof TermsNotAcceptedError ||
     err instanceof ReservationNotActiveError
   ) {
-    throw createError({ statusCode: 409, statusMessage: err.message })
+    throw createError({ statusCode: 409, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   throw err
 }

@@ -13,6 +13,7 @@
 // satisfies FR-20's deduction check, and an unconfirmed IdentityEvidence
 // row names an object that may not exist.
 import { sk } from '~/i18n/sk'
+import { getErrorCode } from '~/utils/error-code'
 import { formatMoney } from '~/utils/format'
 
 definePageMeta({ layout: 'counter' })
@@ -59,7 +60,7 @@ const requestFetch = useRequestFetch()
 const pickups = ref<TodaysPickupView[]>([])
 const returns = ref<TodaysReturnView[]>([])
 const assetTypes = ref<AssetTypeView[]>([])
-const error = ref<string | null>(null)
+const errorCode = ref<string | null>(null)
 const info = ref<string | null>(null)
 
 type Panel = 'none' | 'handoverOut' | 'handoverIn' | 'settlement' | 'lookup'
@@ -73,12 +74,19 @@ function depositFor(assetTypeId: number): string {
 
 async function handleFetchError(err: unknown): Promise<boolean> {
   const statusCode = (err as { statusCode?: number })?.statusCode
-  if (statusCode === 401) {
+  const code = getErrorCode(err)
+  // D-50/UIF-03, and a real bug this surfaced: verifyOperatorPin's wrong-PIN
+  // rejection and requireOperator's session-expired rejection are both a
+  // 401 — indistinguishable without the code. Treating every 401 as
+  // "redirect to /login" silently discarded an in-progress HandoverOut/
+  // HandoverIn/Settlement (uploaded photos, scanned tag) the moment an
+  // Operator mistyped a PIN. Only a genuine session expiry (no code — it
+  // never goes through a translate*Error function) redirects.
+  if (statusCode === 401 && code !== 'InvalidPinError') {
     await nuxtApp.runWithContext(() => navigateTo('/login'))
     return true
   }
-  const message = (err as { data?: { statusMessage?: string } })?.data?.statusMessage
-  error.value = message ?? sk.adminCounter.genericError
+  errorCode.value = code ?? 'UNKNOWN'
   return false
 }
 
@@ -111,7 +119,7 @@ const scanning = ref(false)
 const lookupResult = ref<ScanResolutionView | null>(null)
 
 async function submitScan() {
-  error.value = null
+  errorCode.value = null
   info.value = null
   scanning.value = true
   try {
@@ -134,7 +142,7 @@ async function submitScan() {
 
 function resetToWorklist() {
   panel.value = 'none'
-  error.value = null
+  errorCode.value = null
   info.value = null
   scanTagCode.value = ''
   lookupResult.value = null
@@ -156,7 +164,7 @@ const outPhotos = ref<File[]>([])
 const submittingHandoverOut = ref(false)
 
 async function startHandoverOut(pickup: TodaysPickupView) {
-  error.value = null
+  errorCode.value = null
   info.value = null
   activePickup.value = pickup
   verificationDone.value = false
@@ -179,7 +187,7 @@ async function startHandoverOut(pickup: TodaysPickupView) {
 
 async function viewEvidence(identityEvidenceId: number) {
   if (!activePickup.value?.customerId) return
-  error.value = null
+  errorCode.value = null
   try {
     const { readUrl } = await $fetch<{ readUrl: string }>(
       `/api/handover/customers/${activePickup.value.customerId}/identity-evidence/${identityEvidenceId}/read-url`,
@@ -196,7 +204,7 @@ function onEvidenceFileChange(event: Event) {
 
 async function captureEvidenceFallback() {
   if (!activePickup.value?.customerId || !evidenceFile.value) return
-  error.value = null
+  errorCode.value = null
   uploadingEvidence.value = true
   try {
     const customerId = activePickup.value.customerId
@@ -221,7 +229,7 @@ async function captureEvidenceFallback() {
 
 async function recordVerification(identityEvidenceId: number, outcome: 'verified' | 'rejected') {
   if (!activePickup.value?.customerId) return
-  error.value = null
+  errorCode.value = null
   try {
     await $fetch(`/api/handover/customers/${activePickup.value.customerId}/identity-verification`, {
       method: 'POST',
@@ -247,7 +255,7 @@ function onOutPhotosChange(event: Event) {
 
 async function submitHandoverOut() {
   if (!activePickup.value) return
-  error.value = null
+  errorCode.value = null
   submittingHandoverOut.value = true
   try {
     const pickup = activePickup.value
@@ -292,7 +300,7 @@ const submittingHandoverIn = ref(false)
 const settlingAgreementId = ref<number | null>(null)
 
 function startHandoverIn(tagCode: string) {
-  error.value = null
+  errorCode.value = null
   info.value = null
   inTagCode.value = tagCode
   inPin.value = ''
@@ -306,7 +314,7 @@ function onInPhotosChange(event: Event) {
 }
 
 async function submitHandoverIn() {
-  error.value = null
+  errorCode.value = null
   submittingHandoverIn.value = true
   try {
     const result = await $fetch<{
@@ -342,7 +350,7 @@ const submittingSettlement = ref(false)
 
 async function submitSettlement() {
   if (!settlingAgreementId.value) return
-  error.value = null
+  errorCode.value = null
   submittingSettlement.value = true
   try {
     await $fetch(`/api/handover/rental-agreements/${settlingAgreementId.value}/settlement`, {
@@ -371,7 +379,7 @@ async function submitSettlement() {
 <template>
   <main>
     <h1>{{ sk.adminCounter.title }}</h1>
-    <p v-if="error" role="alert">{{ error }}</p>
+    <AppAlert :code="errorCode" />
     <p v-if="info">{{ info }}</p>
 
     <section v-if="panel === 'none'">

@@ -63,14 +63,14 @@ export default defineEventHandler(async (event) => {
     return { redirectUrl }
   } catch (err) {
     if (err instanceof AssetTypeNotFoundError || err instanceof ReservationGroupNotFoundError) {
-      throw createError({ statusCode: 404, statusMessage: err.message })
+      throw createError({ statusCode: 404, statusMessage: err.message, data: { code: err.constructor.name } })
     }
     if (err instanceof TermsNotAcceptedError || err instanceof ReservationGroupAlreadyPaidError) {
-      throw createError({ statusCode: 409, statusMessage: err.message })
+      throw createError({ statusCode: 409, statusMessage: err.message, data: { code: err.constructor.name } })
     }
     if (err instanceof PaymentProviderUnavailableError) {
       console.error('Stripe checkout session creation failed:', err.cause)
-      throw createError({ statusCode: 502, statusMessage: err.message })
+      throw createError({ statusCode: 502, statusMessage: err.message, data: { code: err.constructor.name } })
     }
     throw err
   } finally {

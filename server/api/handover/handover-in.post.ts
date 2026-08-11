@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
     )
   } catch (err) {
     if (err instanceof InvalidPinError) {
-      throw createError({ statusCode: 401, statusMessage: err.message })
+      throw createError({ statusCode: 401, statusMessage: err.message, data: { code: err.constructor.name } })
     }
     translateHandoverPossessionError(err)
   } finally {

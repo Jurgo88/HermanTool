@@ -20,6 +20,7 @@
 // hood before submitting.
 import QRCode from 'qrcode'
 import { sk } from '~/i18n/sk'
+import { getErrorCode } from '~/utils/error-code'
 
 definePageMeta({ layout: 'admin' })
 
@@ -60,7 +61,8 @@ const selectedAssetTypeId = ref<number | null>(null)
 const quantityInput = ref('')
 
 const csv = ref('')
-const error = ref<string | null>(null)
+const errorCode = ref<string | null>(null)
+const errorMessage = ref<string | null>(null)
 const submitting = ref(false)
 const entries = ref<TagSheetEntry[]>([])
 
@@ -73,13 +75,13 @@ function assetTypeName(assetTypeId: number): string {
 }
 
 async function handleFetchError(err: unknown) {
-  const statusCode = (err as { statusCode?: number; data?: { statusMessage?: string } })?.statusCode
+  const statusCode = (err as { statusCode?: number })?.statusCode
   if (statusCode === 401) {
     await nuxtApp.runWithContext(() => navigateTo('/login'))
     return
   }
-  const message = (err as { data?: { statusMessage?: string } })?.data?.statusMessage
-  error.value = message ?? sk.common.somethingWentWrong
+  errorMessage.value = null
+  errorCode.value = getErrorCode(err) ?? 'UNKNOWN'
 }
 
 async function loadAssetTypes() {
@@ -92,11 +94,12 @@ async function loadAssetTypes() {
 }
 
 function addLine() {
-  error.value = null
+  errorCode.value = null
+  errorMessage.value = null
   const assetTypeId = selectedAssetTypeId.value
   const quantity = Number(quantityInput.value)
   if (!assetTypeId || !Number.isInteger(quantity) || quantity <= 0) {
-    error.value = sk.adminAssetRegistry.invalidLineError
+    errorMessage.value = sk.adminAssetRegistry.invalidLineError
     return
   }
 
@@ -129,10 +132,11 @@ function buildCsv(): string {
 }
 
 async function submit() {
-  error.value = null
+  errorCode.value = null
+  errorMessage.value = null
   const body = buildCsv()
   if (!body.trim()) {
-    error.value = sk.adminAssetRegistry.emptyCsvError
+    errorMessage.value = sk.adminAssetRegistry.emptyCsvError
     return
   }
 
@@ -170,7 +174,8 @@ async function loadPending() {
 }
 
 async function markRentable(assetId: number) {
-  error.value = null
+  errorCode.value = null
+  errorMessage.value = null
   markingRentableAssetId.value = assetId
   try {
     await $fetch(`/api/asset-registry/assets/${assetId}/mark-rentable`, { method: 'POST' })
@@ -183,7 +188,8 @@ async function markRentable(assetId: number) {
 }
 
 async function markAllRentable() {
-  error.value = null
+  errorCode.value = null
+  errorMessage.value = null
   markingAllRentable.value = true
   try {
     for (const entry of [...pending.value]) {
@@ -205,7 +211,7 @@ await loadPending()
   <main>
     <h1>{{ sk.adminAssetRegistry.title }}</h1>
     <p>{{ sk.adminAssetRegistry.intro }}</p>
-    <p v-if="error" role="alert">{{ error }}</p>
+    <AppAlert :code="errorCode" :message="errorMessage" />
 
     <section class="no-print">
       <h2>{{ sk.adminAssetRegistry.builderHeading }}</h2>
