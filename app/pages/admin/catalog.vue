@@ -6,6 +6,8 @@
 // sends the Operator back to /login rather than showing an error.
 import { sk } from '~/i18n/sk'
 
+definePageMeta({ layout: 'admin' })
+
 interface AssetTypeView {
   id: number
   name: string

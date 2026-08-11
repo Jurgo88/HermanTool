@@ -14,6 +14,8 @@
 // row names an object that may not exist.
 import { sk } from '~/i18n/sk'
 
+definePageMeta({ layout: 'counter' })
+
 interface ReservationView {
   id: number
   assetTypeId: number

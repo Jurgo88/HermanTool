@@ -1,0 +1,91 @@
+/* Design tokens (D-43; docs/design/interface-design-foundation.md §4.3).
+ * Single source of colour, spacing, type and radius — a raw hex or px
+ * value in a component is a review failure, exactly as a Slovak literal
+ * outside app/i18n/sk.ts is under D-20. Semantic names only. */
+:root {
+  /* Ink & surface — light surfaces (public, admin) */
+  --ht-paper: #f4f6f5; /* page */
+  --ht-surface: #ffffff; /* card */
+  --ht-surface-sunk: #eaedec; /* inset, table stripe */
+  --ht-ink: #14181b; /* primary text, primary button */
+  --ht-ink-muted: #58636b; /* secondary text */
+  --ht-line: #d3d9d8; /* hairline */
+  --ht-line-strong: #a9b3b2;
+
+  /* Signal — the one accent. Action at the counter, attention elsewhere. */
+  --ht-signal: #ffc400;
+  --ht-signal-deep: #c99a00; /* text on light, focus ring */
+  --ht-on-signal: #14181b;
+
+  /* Semantic */
+  --ht-ok: #1f7a4c;
+  --ht-warn: #b85c00;
+  --ht-danger: #b3261e;
+  --ht-info: #1b5e8f;
+
+  /* Reservation states (FR-07) — solid chips, stored facts */
+  --ht-state-pending: #b85c00;
+  --ht-state-confirmed: #1f7a4c;
+  --ht-state-cancelled: #58636b;
+  --ht-state-expired: #8a6a00;
+
+  /* Derived facts (FR-28) — hazard treatment, never a chip */
+  --ht-derived-overdue: #b3261e;
+  --ht-derived-noshow: #b85c00;
+
+  /* Geometry */
+  --ht-radius-plate: 2px; /* identifiers, chips, inputs */
+  --ht-radius-card: 8px;
+  --ht-space-1: 4px;
+  --ht-space-2: 8px;
+  --ht-space-3: 12px;
+  --ht-space-4: 16px;
+  --ht-space-5: 24px;
+  --ht-space-6: 32px;
+  --ht-space-7: 48px;
+  --ht-hit-min: 44px; /* admin, public */
+  --ht-hit-counter: 56px; /* counter primary controls */
+  --ht-motion: 120ms;
+
+  /* Typography (§4.2) */
+  --ht-font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --ht-font-condensed: 'IBM Plex Sans Condensed', 'IBM Plex Sans', system-ui, sans-serif;
+  --ht-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Type scale (§4.2): 12 · 14 · 16 · 20 · 26 · 34, rem @ base 16.
+   * Counter overrides below shift every step up ~2px (glare, gloves),
+   * never a uniform rem multiplier — the two scales are not proportional. */
+  --ht-text-1: 0.75rem; /* 12px — eyebrow, caption, plate meta */
+  --ht-text-2: 0.875rem; /* 14px — small, meta */
+  --ht-text-3: 1rem; /* 16px — body, minimum on both surfaces */
+  --ht-text-4: 1.25rem; /* 20px — section heading */
+  --ht-text-5: 1.625rem; /* 26px */
+  --ht-text-6: 2.125rem; /* 34px — screen title */
+}
+
+/* Counter surface — dark, applied by the counter layout only */
+[data-surface='counter'] {
+  --ht-paper: #0f1418;
+  --ht-surface: #192026;
+  --ht-surface-sunk: #131a1f;
+  --ht-ink: #ecf1f3;
+  --ht-ink-muted: #9aa8b2;
+  --ht-line: #2a343c;
+  --ht-line-strong: #3c4952;
+  --ht-ok: #3fb27f;
+  --ht-warn: #ff9633;
+  --ht-danger: #ff6257;
+  --ht-info: #5aa9e6;
+  --ht-derived-overdue: #ff6257;
+  --ht-derived-noshow: #ff9633;
+  --ht-state-confirmed: #3fb27f;
+  --ht-state-pending: #ff9633;
+
+  /* Counter type scale: 14 · 16 · 18 · 22 · 28 · 36 */
+  --ht-text-1: 0.875rem;
+  --ht-text-2: 1rem;
+  --ht-text-3: 1.125rem;
+  --ht-text-4: 1.375rem;
+  --ht-text-5: 1.75rem;
+  --ht-text-6: 2.25rem;
+}

@@ -3,6 +3,25 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-07-21',
   modules: ['@nuxt/eslint', '@sentry/nuxt/module'],
 
+  // D-53: self-hosted fonts, Latin Extended-A subset only (Slovak
+  // diacritics — ď ĺ ľ ň ŕ š ť ž ô — need latin-ext, not the plain latin
+  // subset). Via @fontsource, not a Google Fonts <link>/@import, so the
+  // browser makes zero third-party requests for typography — the fact
+  // D-42 leans on to conclude FR-38's cookie banner isn't owed here.
+  // Weights match docs/design/interface-design-foundation.md §4.2's
+  // three roles: Sans 400/500/600 (body), Condensed 600 (display/label),
+  // Mono 400/600 (data — tag codes, Asset IDs, amounts).
+  css: [
+    '@fontsource/ibm-plex-sans/latin-ext-400.css',
+    '@fontsource/ibm-plex-sans/latin-ext-500.css',
+    '@fontsource/ibm-plex-sans/latin-ext-600.css',
+    '@fontsource/ibm-plex-sans-condensed/latin-ext-600.css',
+    '@fontsource/ibm-plex-mono/latin-ext-400.css',
+    '@fontsource/ibm-plex-mono/latin-ext-600.css',
+    '~/assets/css/tokens.css',
+    '~/assets/css/base.css',
+  ],
+
   typescript: {
     strict: true,
     typeCheck: false, // run via `pnpm typecheck` (nuxi typecheck) instead of per-build

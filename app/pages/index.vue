@@ -13,6 +13,8 @@
 import { sk } from '~/i18n/sk'
 import type { DraftReservationLine } from '~/composables/useReservationDraft'
 
+definePageMeta({ layout: 'public' })
+
 interface AssetTypeView {
   id: number
   name: string

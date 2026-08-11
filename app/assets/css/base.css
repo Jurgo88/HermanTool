@@ -1,0 +1,87 @@
+/* Base layer (D-43; docs/design/interface-design-foundation.md §4).
+ * Global element defaults built on tokens.css — no component styling
+ * here, no raw colour/size/radius/font value (tokens only). */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--ht-paper);
+  color: var(--ht-ink);
+  font-family: var(--ht-font-sans);
+  font-size: var(--ht-text-3);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--ht-font-condensed);
+  font-weight: 600;
+}
+
+h1 {
+  font-size: var(--ht-text-6);
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: var(--ht-text-4);
+}
+
+h3 {
+  font-size: var(--ht-text-3);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* NFR-11: visible focus ring everywhere, never outline: none. */
+:focus-visible {
+  outline: 2px solid var(--ht-signal-deep);
+  outline-offset: 2px;
+}
+
+/* §4.3: state transitions only, 120ms ease-out — no page transitions, no
+ * entrance animation, no skeleton shimmer. */
+@media (prefers-reduced-motion: no-preference) {
+  .ht-transition {
+    transition-duration: var(--ht-motion);
+    transition-timing-function: ease-out;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

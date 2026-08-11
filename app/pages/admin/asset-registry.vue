@@ -21,6 +21,8 @@
 import QRCode from 'qrcode'
 import { sk } from '~/i18n/sk'
 
+definePageMeta({ layout: 'admin' })
+
 interface AssetTypeOption {
   id: number
   name: string

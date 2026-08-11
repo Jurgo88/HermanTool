@@ -17,6 +17,8 @@
 // before the row counts as evidence.
 import { sk } from '~/i18n/sk'
 
+definePageMeta({ layout: 'public' })
+
 interface ReservationView {
   id: number
   assetTypeId: number

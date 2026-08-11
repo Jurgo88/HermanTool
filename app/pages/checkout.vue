@@ -15,6 +15,8 @@
 // stage 2 (shown only once that succeeds) is terms + pay.
 import { sk } from '~/i18n/sk'
 
+definePageMeta({ layout: 'public' })
+
 // D-35, F1 KNOWN GAP: the mechanics of terms acceptance are built and
 // tested (server/contexts/availability-reservation/reservation.ts), but
 // no lawyer has reviewed the actual terms content or the pre-contractual
