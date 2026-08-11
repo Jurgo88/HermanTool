@@ -6,7 +6,7 @@
 | **Status** | Draft — authoritative for technology selection and risk |
 | **Scope** | Sections 13–16 and the Open Questions appendix. Section 17 (Independent Review) is Part 5. Section 16.2 reconciles the 04 August 2026 implementation review (`docs/reviews/implementation-review-2026-08-04.md`, findings `IR-01`…`IR-13`). |
 | **Depends on** | Parts 1, 2 and 3, all **frozen**. Their identifiers are referenced, never restated or renumbered. Section 16 reconciles Part 5's independent review; because Parts 1–3 are frozen, its corrections are expressed here as new decisions and flagged supersessions rather than as edits to those parts. |
-| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-41`. Risks `R-01`…`R-17`. No new Ubiquitous Language. |
+| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-42`. Risks `R-01`…`R-17`. No new Ubiquitous Language. |
 | **Prices verified** | 18 July 2026, against vendor pricing pages. Every number below has a date on it because every number below will move. |
 
 ### Flags: two contradictions and two defects
@@ -317,6 +317,7 @@ The map. Every decision from D-01, with its owning part and status. Reasoning is
 | **D-39** | **Reused database client and locally verified Operator sessions on the request path; remote verification retained for evidence access.** | P4 §16.2 | accepted — **token lifetime open (OQ #25)** |
 | **D-40** | **A photograph counts as evidence only once its object is confirmed stored; presigned uploads are size-bounded.** | P4 §16.2 | accepted — **size value open (OQ #26)** |
 | **D-41** | **Every internal scheduled endpoint records a job run; one ledger serves FR-40 and FR-44.** | P4 §16.2 | accepted |
+| **D-42** | **FR-38's cookie banner is superseded: every cookie this platform sets is strictly necessary, so no consent banner is obligatory.** | P4 §16.2 | accepted — supersedes FR-38; resolves OQ #28 |
 
 ### Long-term implications and migration difficulty — D-24 to D-32
 
@@ -389,7 +390,7 @@ Every non-trivial code change must cite at least one governing identifier in com
 
 The codebase was reviewed against Parts 1–5 after milestone M4. The findings are in `docs/reviews/implementation-review-2026-08-04.md` as `IR-01`…`IR-13`; four of them require a decision rather than a task, and those four are written here. The rest are implementation work against decisions and requirements that already exist — IR-03 is D-34, IR-04 is D-32, IR-05 is D-29, IR-08 is FR-02, IR-11 is FR-10 mechanics — and are tracked as issues rather than as new ADRs, because a decision that already says what to do does not need restating in order to be done.
 
-Parts 1–3 remain frozen. D-38 is the only one of these that touches a frozen part's language, and it does so as a supersession of a reading rather than of a decision; that is stated inside it.
+Parts 1–3 remain frozen. D-38 and D-42 are the only two of these that touch a frozen part's language, and both do so as a stated supersession — of a reading, for D-38; of the requirement itself, for D-42 — rather than as an edit to Parts 1–3.
 
 ### D-38 — Availability capacity is the rentable pool, not the current Rentable status count
 
@@ -453,6 +454,28 @@ Parts 1–3 remain frozen. D-38 is the only one of these that touches a frozen p
 
 **Boundary:** this is an operations record, not a domain event. It is not in Part 2's catalogue, nothing reacts to it, and it carries no Tenant-scoped domain meaning — it is platform housekeeping, in the same category as a log.
 
+### D-42 — FR-38's cookie banner is superseded by an accurate cookie inventory
+
+**Raised by:** IR-13 (Low), OQ #28.
+
+**Considered:** (a) implement FR-38 as written — a banner declining non-essential cookies by default; (b) run the cookie inventory FR-38's own issue asked for once IR-05 (Sentry) and IR-12 (frontend) landed, and let the inventory's result decide whether a banner is the accurate obligation.
+
+**Trade-offs:** (a) builds a UI surface, a consent-state cookie of its own, and a piece of user friction against cookies that, on inspection, need no consent in the first place — training Visitors to click through a banner that protects nothing is worse than not asking, because it teaches the same reflex for the day a banner *does* matter. (b) costs one audit.
+
+**The inventory.** Every cookie this platform sets, found by grepping every `setCookie` call in `server/`: `ht_operator_at` / `ht_operator_rt` (`server/utils/operator-session.ts` — the Operator's own session, D-22) and `ht_checkout_group` (`server/utils/checkout-session.ts` — scopes the checkout → accept-terms → pay sequence to the browser that started it, D-14). All three are httpOnly, first-party, and set only in service of an action the person in front of the browser explicitly took (logging in as an Operator; starting a checkout) — the ePrivacy Directive Article 5(3) "strictly necessary for the service explicitly requested" exemption, which is what FR-38 exists to satisfy compliance with in the first place. No analytics, no advertising, no third-party embed sets anything. Client-side code sets no cookie of its own (`app/` has no `document.cookie` or `useCookie` call).
+
+**A second thing the inventory found, and where it does *not* belong.** `sentry.client.config.ts` (D-29/IR-05) shipped with Sentry's default client integrations, which include automatic browser-session tracking — a network beacon to Sentry on every page load and route change, for every Visitor, not only ones who error. Read directly against the installed SDK: this touches no cookie and no `localStorage`/`sessionStorage`, so it does not implicate FR-38 at all. It is real, though — it is a per-Visitor request to a third-party processor — and it belongs in OQ #4's controller-processor conversation, not this one. Disabled pending that conversation (issue #81), since NFR-04 already scoped Sentry to "error tracking only" and nobody had opted into session tracking specifically.
+
+**Recommended: (b), with the answer now known.** No cookie this platform sets requires consent. FR-38 is superseded: no banner is built.
+
+**Why:** a banner is the mechanism FR-38 named to satisfy the underlying legal obligation (consent for non-essential storage) — it was never the obligation itself. Where the underlying obligation doesn't bind, building its named mechanism anyway is cargo-culting a compliance UI onto a system that doesn't need one, at the direct cost Part 1 §4 warns against elsewhere in this spec: a control that exists for its own sake trains the person subject to it to stop reading it.
+
+**What this supersedes, precisely.** FR-38 itself ("A cookie banner, declining non-essential by default"), not NFR-10 (the ePrivacy compliance obligation NFR-10 points at) — NFR-10 is satisfied *by* this inventory, not superseded by it. If a future cookie is ever added that is not strictly necessary (a real analytics tool, a marketing pixel), this decision no longer covers it and FR-38's obligation re-attaches to that specific addition.
+
+**Obligation, replacing the banner:** the privacy notice (OQ #4's own paperwork) carries a maintained statement of exactly what is set and why — the three cookies named above, kept current as this inventory would need to be redone if a fourth is ever added.
+
+**Left open:** OQ #4 (controller–processor agreement) is untouched by this decision — Sentry's per-Visitor session beacon, disabled here, is exactly the kind of processor relationship that conversation needs to cover once (if) it is re-enabled.
+
 ## Appendix — Open Questions
 
 The pre-build checklist. Everything still open across Parts 1–4, flattest form, with where the context lives.
@@ -509,4 +532,3 @@ The pattern P3 named holds: almost every trigger is "the second Tenant", and non
 | 21 | Does the Tenant get access to the R2 backup bucket, or does the bus factor stay fully with you? | R-07 · D-32 |
 | 22 | Measure cold-start scan-to-resolution against NFR-02 before launch. Not a question — a task with a go/no-go attached. | R-08 · NFR-02 |
 | 23 | Run a concurrent-booking test: two simultaneous holds on the last available unit, prove one succeeds and one fails without oversell. | D-33 · D-08 |
-| 28 | Does FR-38's cookie banner survive an actual cookie inventory, or is the accurate obligation a privacy-notice statement rather than a banner? Fold into #4's conversation. | FR-38 · NFR-10 · IR-13 |
