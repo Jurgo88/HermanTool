@@ -31,6 +31,7 @@ describe('dispatchReservationConfirmation (D-28, FR-32, issue #35)', () => {
         to: 'jana@example.sk',
         customerName: 'Jana Nováková',
         lines: [{ assetTypeId: 1, startDay: '2026-03-05', endDay: '2026-03-07' }],
+        accessLinkUrl: 'https://example.test/reservations/access/tok',
       },
     )
 
@@ -53,6 +54,7 @@ describe('dispatchReservationConfirmation (D-28, FR-32, issue #35)', () => {
         to: 'jana@example.sk',
         customerName: 'Jana Nováková',
         lines: [{ assetTypeId: 1, startDay: '2026-03-05', endDay: '2026-03-07' }],
+        accessLinkUrl: 'https://example.test/reservations/access/tok',
       },
     )
 
@@ -65,6 +67,7 @@ describe('dispatchReservationConfirmation (D-28, FR-32, issue #35)', () => {
         to: 'jana@example.sk',
         customerName: 'Jana Nováková',
         lines: [{ assetTypeId: 1, startDay: '2026-03-05', endDay: '2026-03-07' }],
+        accessLinkUrl: 'https://example.test/reservations/access/tok',
       },
     )
 
@@ -76,11 +79,11 @@ describe('dispatchReservationConfirmation (D-28, FR-32, issue #35)', () => {
   it('dispatches independently per ReservationGroup', async () => {
     await dispatchReservationConfirmation(
       { repo, gateway },
-      { tenantId: tenantA, customerId, reservationGroupId: 1, to: 'a@example.sk', customerName: 'A', lines: [] },
+      { tenantId: tenantA, customerId, reservationGroupId: 1, to: 'a@example.sk', customerName: 'A', lines: [], accessLinkUrl: 'https://example.test/reservations/access/tok-a' },
     )
     await dispatchReservationConfirmation(
       { repo, gateway },
-      { tenantId: tenantA, customerId, reservationGroupId: 2, to: 'b@example.sk', customerName: 'B', lines: [] },
+      { tenantId: tenantA, customerId, reservationGroupId: 2, to: 'b@example.sk', customerName: 'B', lines: [], accessLinkUrl: 'https://example.test/reservations/access/tok-b' },
     )
 
     expect(gateway.sentEmails).toHaveLength(2)
@@ -137,7 +140,7 @@ describe('dispatchReturnReminder (A-08, FR-32, issue #35)', () => {
   it("a confirmation and a return reminder for the same reference id are independent kinds — neither blocks the other", async () => {
     await dispatchReservationConfirmation(
       { repo, gateway },
-      { tenantId: tenantA, customerId, reservationGroupId: 42, to: 'jana@example.sk', customerName: 'Jana', lines: [] },
+      { tenantId: tenantA, customerId, reservationGroupId: 42, to: 'jana@example.sk', customerName: 'Jana', lines: [], accessLinkUrl: 'https://example.test/reservations/access/tok' },
     )
     const result = await dispatchReturnReminder(
       { repo, gateway },
