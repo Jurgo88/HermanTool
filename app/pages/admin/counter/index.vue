@@ -555,6 +555,12 @@ async function confirmSettlement(pin: string) {
           :actual-value="sk.adminCounter.actualValueWithCustomer"
         />
       </section>
+
+      <section>
+        <h2>{{ sk.adminCounter.worklistNavHeading }}</h2>
+        <NuxtLink to="/admin/counter/overdue">{{ sk.adminCounter.overdueNavAction }}</NuxtLink>
+        <NuxtLink to="/admin/counter/no-shows">{{ sk.adminCounter.noShowsNavAction }}</NuxtLink>
+      </section>
     </section>
 
     <section v-else-if="panel === 'lookup'">

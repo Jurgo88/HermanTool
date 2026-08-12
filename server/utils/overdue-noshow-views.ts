@@ -12,13 +12,18 @@
 // This file only answers the query; nothing here sends anything.
 import type { AssetRegistryRepository } from '../contexts/asset-registry'
 import type { AvailabilityReservationRepository, Reservation } from '../contexts/availability-reservation'
+import type { CatalogRepository } from '../contexts/catalog'
+import type { CustomerIdentityComplianceRepository } from '../contexts/customer-identity-compliance'
 import type { HandoverPossessionRepository, RentalAgreement } from '../contexts/handover-possession'
 import type { TenantId } from '../contexts/_shared'
+import { describeReservation } from './operator-counter-views'
 
 export interface OverdueNoShowViewsDeps {
   availabilityRepo: AvailabilityReservationRepository
   handoverRepo: HandoverPossessionRepository
   assetRegistryRepo: AssetRegistryRepository
+  catalogRepo: CatalogRepository
+  identityRepo: CustomerIdentityComplianceRepository
 }
 
 export interface OverdueEntry {
@@ -30,10 +35,14 @@ export interface OverdueEntry {
   // AssetType. Null means "unaffected" within the scan horizon —
   // ranked last, per Finding 12's proposed wording, not urgent right now.
   shortfallDay: string | null
+  assetTypeName: string
+  customerName: string
 }
 
 export interface NoShowEntry {
   reservation: Reservation
+  assetTypeName: string
+  customerName: string
 }
 
 function addOneDay(day: string): string {
@@ -98,11 +107,14 @@ export async function listOverdue(
       shortfallByAssetType.set(reservation.assetTypeId, shortfallDay)
     }
 
+    const { assetTypeName, customerName } = await describeReservation(deps, tenantId, reservation)
     entries.push({
       reservation,
       rentalAgreement,
       daysOverdue: daysBetween(reservation.period.endDay, today),
       shortfallDay: shortfallByAssetType.get(reservation.assetTypeId)!,
+      assetTypeName,
+      customerName,
     })
   }
 
@@ -120,7 +132,7 @@ export async function listOverdue(
 // the RentalDays; that would be W11's cancellation policy (OQ #1,
 // launch-blocking, untouched here).
 export async function listNoShows(
-  deps: Pick<OverdueNoShowViewsDeps, 'availabilityRepo' | 'handoverRepo'>,
+  deps: Pick<OverdueNoShowViewsDeps, 'availabilityRepo' | 'handoverRepo' | 'catalogRepo' | 'identityRepo'>,
   params: { tenantId: TenantId; today: string },
 ): Promise<NoShowEntry[]> {
   const { tenantId, today } = params
@@ -130,7 +142,8 @@ export async function listNoShows(
   for (const reservation of candidates) {
     const rentalAgreement = await deps.handoverRepo.getRentalAgreementByReservation(tenantId, reservation.id)
     if (rentalAgreement) continue // already handed out — not a NoShow
-    entries.push({ reservation })
+    const { assetTypeName, customerName } = await describeReservation(deps, tenantId, reservation)
+    entries.push({ reservation, assetTypeName, customerName })
   }
   return entries
 }

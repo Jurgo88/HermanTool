@@ -38,8 +38,10 @@ export interface TodaysReturn {
   customerId: number | null
 }
 
-async function describeReservation(
-  deps: OperatorCounterViewsDeps,
+// Exported for server/utils/overdue-noshow-views.ts's own reuse — same
+// lookup, same composition-root reasoning, no reason to duplicate it.
+export async function describeReservation(
+  deps: Pick<OperatorCounterViewsDeps, 'catalogRepo' | 'identityRepo'>,
   tenantId: TenantId,
   reservation: Reservation,
 ): Promise<{ assetTypeName: string; customerName: string; customerId: number | null }> {
