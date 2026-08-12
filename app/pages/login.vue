@@ -1,11 +1,12 @@
 <script setup lang="ts">
-// Operator login (D-22, A-09: low-frequency admin surface, distinct from
-// the high-frequency counter interaction). Posts to /api/auth/login,
-// which sets an httpOnly session cookie — this page never handles a
-// Supabase token directly (D-25, D-31: no client-side supabase-js).
+// S-18, D-22, A-09: low-frequency admin surface, distinct from the
+// high-frequency counter interaction. Restyle only — behaviour
+// unchanged. Posts to /api/auth/login, which sets an httpOnly session
+// cookie — this page never handles a Supabase token directly (D-25,
+// D-31: no client-side supabase-js).
 import { sk } from '~/i18n/sk'
 
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'auth' })
 
 const email = ref('')
 const password = ref('')
@@ -30,19 +31,32 @@ async function submit() {
 </script>
 
 <template>
-  <main>
+  <main class="login">
     <h1>{{ sk.login.title }}</h1>
     <form @submit.prevent="submit">
-      <label>
-        {{ sk.login.email }}
-        <input v-model="email" type="email" autocomplete="username" required />
-      </label>
-      <label>
-        {{ sk.login.password }}
-        <input v-model="password" type="password" autocomplete="current-password" required />
-      </label>
-      <button type="submit" :disabled="submitting">{{ sk.login.submit }}</button>
+      <AppField :label="sk.login.email">
+        <template #default="slotProps">
+          <input :id="slotProps.id" v-model="email" type="email" autocomplete="username" required />
+        </template>
+      </AppField>
+      <AppField :label="sk.login.password">
+        <template #default="slotProps">
+          <input :id="slotProps.id" v-model="password" type="password" autocomplete="current-password" required />
+        </template>
+      </AppField>
+      <AppButton type="submit" variant="primary" :pending="submitting">{{ sk.login.submit }}</AppButton>
     </form>
-    <p v-if="error" role="alert">{{ error }}</p>
+    <AppAlert :message="error" />
   </main>
 </template>
+
+<style scoped>
+.login {
+  max-width: 360px;
+  margin: var(--ht-space-7) auto;
+  padding: var(--ht-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-4);
+}
+</style>
