@@ -320,7 +320,7 @@ The map. Every decision from D-01, with its owning part and status. Reasoning is
 | **D-42** | **FR-38's cookie banner is superseded: every cookie this platform sets is strictly necessary, so no consent banner is obligatory.** | P4 §16.2 | accepted — supersedes FR-38; resolves OQ #28 |
 | **D-43** | **Styling: design tokens and an owned component layer. No CSS framework, no UI kit.** | P4 §16.3 | accepted |
 | **D-44** | **The banned-terms list extends to component names, props, CSS classes and i18n keys.** | P4 §16.3 | accepted |
-| **D-45** | **Camera-first scanning at the counter, manual tag entry as the named fallback.** | P4 §16.3 | accepted — **device choice open (UI-OQ-1)** |
+| **D-45** | **Camera-first scanning at the counter, manual tag entry as the named fallback.** | P4 §16.3 | accepted — **UI-OQ-1 resolved: (b) and (c) both built, see below** |
 | **D-46** | **The counter is a task stack, not a dashboard.** | P4 §16.3 | accepted |
 | **D-47** | **Two clocks are visible in the interface, and derived facts look derived.** | P4 §16.3 | accepted |
 | **D-48** | **PIN re-confirmation is per attestation, at the moment of attestation.** | P4 §16.3 | accepted |
@@ -524,6 +524,8 @@ Parts 1–3 remain frozen. D-38 and D-42 are the only two of these that touch a 
 **Why:** `NFR-01` already accepts the counter cannot work without connectivity; it does not follow that it should also not work without typing. This is the single highest-value UI change in the reconciliation.
 
 **Obliges:** a scan component owns camera permission, the no-camera state, the decode-failed state and the manual fallback in one place; a decoded tag code follows exactly the same path as a typed one (`POST /api/handover/scan`) — `FR-17`'s "the domain resolves the intent" is untouched.
+
+**`UI-OQ-1` resolved (2026-08-12):** confirmed on a real device — `BarcodeDetector` is a Chromium-only API; no WebKit engine implements it, so it is absent from every browser on iOS (Apple requires all of them, including Chrome, to run on Safari's engine). Rather than a single device-dependent choice between (b) and (c), both are now built as tiers: native `BarcodeDetector` where it exists (hardware-backed, costs nothing), `jsQR` decoding the same video frame via canvas everywhere it doesn't, typed entry as the final fallback unchanged. See `app/components/ScanTarget.vue`.
 
 ### D-46 — The counter is a task stack, not a dashboard (`UI-D-04`)
 
