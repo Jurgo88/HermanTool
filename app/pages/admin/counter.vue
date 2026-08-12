@@ -13,14 +13,24 @@
 // satisfies FR-20's deduction check, and an unconfirmed IdentityEvidence
 // row names an object that may not exist.
 import { sk } from '~/i18n/sk'
+import type { PhotoState } from '~/components/PhotoCapture.vue'
 import { getErrorCode } from '~/utils/error-code'
-import { formatMoney } from '~/utils/format'
+import { formatDayRange, formatMoney } from '~/utils/format'
 
 definePageMeta({ layout: 'counter' })
+
+const photoStateLabels: Record<PhotoState, string> = {
+  requested: sk.adminCounter.photoStateRequested,
+  uploading: sk.adminCounter.photoStateUploading,
+  uploaded: sk.adminCounter.photoStateUploaded,
+  confirmed: sk.adminCounter.photoStateConfirmed,
+  error: sk.adminCounter.photoStateError,
+}
 
 interface ReservationView {
   id: number
   assetTypeId: number
+  period: { startDay: string; endDay: string }
 }
 
 interface TodaysPickupView {
@@ -61,6 +71,7 @@ const pickups = ref<TodaysPickupView[]>([])
 const returns = ref<TodaysReturnView[]>([])
 const assetTypes = ref<AssetTypeView[]>([])
 const errorCode = ref<string | null>(null)
+const errorMessage = ref<string | null>(null)
 const info = ref<string | null>(null)
 
 type Panel = 'none' | 'handoverOut' | 'handoverIn' | 'settlement' | 'lookup'
@@ -86,6 +97,7 @@ async function handleFetchError(err: unknown): Promise<boolean> {
     await nuxtApp.runWithContext(() => navigateTo('/login'))
     return true
   }
+  errorMessage.value = null
   errorCode.value = code ?? 'UNKNOWN'
   return false
 }
@@ -114,21 +126,21 @@ await loadWorklist()
 // Global scan (handover_in / asset_lookup — handover_out needs a
 // worklist row's reservation+customer context first, see below).
 // ---------------------------------------------------------------------
-const scanTagCode = ref('')
 const scanning = ref(false)
 const lookupResult = ref<ScanResolutionView | null>(null)
 
-async function submitScan() {
+async function submitScan(tagCode: string) {
   errorCode.value = null
+  errorMessage.value = null
   info.value = null
   scanning.value = true
   try {
     const result = await $fetch<ScanResolutionView>('/api/handover/scan', {
       method: 'POST',
-      body: { tagCode: scanTagCode.value },
+      body: { tagCode },
     })
     if (result.kind === 'handover_in') {
-      startHandoverIn(scanTagCode.value)
+      startHandoverIn(tagCode)
     } else {
       lookupResult.value = result
       panel.value = 'lookup'
@@ -143,8 +155,8 @@ async function submitScan() {
 function resetToWorklist() {
   panel.value = 'none'
   errorCode.value = null
+  errorMessage.value = null
   info.value = null
-  scanTagCode.value = ''
   lookupResult.value = null
 }
 
@@ -159,18 +171,32 @@ const uploadingEvidence = ref(false)
 const rejectionReason = ref('')
 
 const outTagCode = ref('')
-const outPin = ref('')
 const outPhotos = ref<File[]>([])
+const outPhotoStates = ref<PhotoState[]>([])
+const outUploadUrls = ref<string[]>([])
+const outConditionReportId = ref<number | null>(null)
+const outRentalAgreementId = ref<number | null>(null)
 const submittingHandoverOut = ref(false)
+const showOutPinPrompt = ref(false)
+
+watch(outPhotos, (files) => {
+  outPhotoStates.value = files.map((_, i) => outPhotoStates.value[i] ?? 'requested')
+})
+
+const handoverOutBackGuard = computed(() =>
+  uploadingEvidence.value || outPhotos.value.length > 0
+    ? 'Rozrobené vydanie náradia sa stratí. Naozaj chcete odísť?'
+    : null,
+)
 
 async function startHandoverOut(pickup: TodaysPickupView) {
   errorCode.value = null
+  errorMessage.value = null
   info.value = null
   activePickup.value = pickup
   verificationDone.value = false
   evidenceFile.value = null
   outTagCode.value = ''
-  outPin.value = ''
   outPhotos.value = []
   panel.value = 'handoverOut'
 
@@ -188,6 +214,7 @@ async function startHandoverOut(pickup: TodaysPickupView) {
 async function viewEvidence(identityEvidenceId: number) {
   if (!activePickup.value?.customerId) return
   errorCode.value = null
+  errorMessage.value = null
   try {
     const { readUrl } = await $fetch<{ readUrl: string }>(
       `/api/handover/customers/${activePickup.value.customerId}/identity-evidence/${identityEvidenceId}/read-url`,
@@ -205,6 +232,7 @@ function onEvidenceFileChange(event: Event) {
 async function captureEvidenceFallback() {
   if (!activePickup.value?.customerId || !evidenceFile.value) return
   errorCode.value = null
+  errorMessage.value = null
   uploadingEvidence.value = true
   try {
     const customerId = activePickup.value.customerId
@@ -230,6 +258,7 @@ async function captureEvidenceFallback() {
 async function recordVerification(identityEvidenceId: number, outcome: 'verified' | 'rejected') {
   if (!activePickup.value?.customerId) return
   errorCode.value = null
+  errorMessage.value = null
   try {
     await $fetch(`/api/handover/customers/${activePickup.value.customerId}/identity-verification`, {
       method: 'POST',
@@ -248,14 +277,42 @@ async function recordVerification(identityEvidenceId: number, outcome: 'verified
   }
 }
 
-function onOutPhotosChange(event: Event) {
-  const files = (event.target as HTMLInputElement).files
-  outPhotos.value = files ? Array.from(files) : []
+async function uploadOneOutPhoto(index: number) {
+  const file = outPhotos.value[index]
+  const url = outUploadUrls.value[index]
+  if (!file || !url) return
+  outPhotoStates.value[index] = 'uploading'
+  try {
+    await uploadFile(url, file)
+    outPhotoStates.value[index] = 'uploaded'
+  } catch {
+    outPhotoStates.value[index] = 'error'
+  }
 }
 
-async function submitHandoverOut() {
+async function finishHandoverOut() {
+  if (!outConditionReportId.value || !outRentalAgreementId.value) return
+  try {
+    await $fetch(`/api/handover/condition-reports/${outConditionReportId.value}/confirm`, { method: 'POST' })
+    outPhotoStates.value = outPhotoStates.value.map(() => 'confirmed')
+    info.value = sk.adminCounter.handoverOutSuccess.replace('{id}', String(outRentalAgreementId.value))
+    panel.value = 'none'
+    activePickup.value = null
+    await loadWorklist()
+  } catch (err: unknown) {
+    await handleFetchError(err)
+  }
+}
+
+async function retryOutPhoto(index: number) {
+  await uploadOneOutPhoto(index)
+  if (outPhotoStates.value.every((s) => s === 'uploaded')) await finishHandoverOut()
+}
+
+async function confirmHandoverOut(pin: string) {
   if (!activePickup.value) return
   errorCode.value = null
+  errorMessage.value = null
   submittingHandoverOut.value = true
   try {
     const pickup = activePickup.value
@@ -270,23 +327,27 @@ async function submitHandoverOut() {
         reservationId: pickup.reservation.id,
         customerId: pickup.customerId,
         conditionPhotoContentTypes: outPhotos.value.map((f) => f.type),
-        pin: outPin.value,
+        pin,
       },
     })
 
-    await Promise.all(
-      outPhotos.value.map((file, i) => uploadFile(result.conditionPhotoUploadUrls[i]!, file)),
-    )
-    await $fetch(`/api/handover/condition-reports/${result.conditionReport.id}/confirm`, { method: 'POST' })
+    outUploadUrls.value = result.conditionPhotoUploadUrls
+    outConditionReportId.value = result.conditionReport.id
+    outRentalAgreementId.value = result.rentalAgreement.id
 
-    info.value = sk.adminCounter.handoverOutSuccess.replace('{id}', String(result.rentalAgreement.id))
-    panel.value = 'none'
-    activePickup.value = null
-    await loadWorklist()
+    await Promise.all(outPhotos.value.map((_, i) => uploadOneOutPhoto(i)))
+    if (outPhotoStates.value.every((s) => s === 'uploaded')) {
+      await finishHandoverOut()
+    } else {
+      errorCode.value = null
+      errorMessage.value = null
+      errorMessage.value = sk.adminCounter.photoUploadFailed
+    }
   } catch (err: unknown) {
     await handleFetchError(err)
   } finally {
     submittingHandoverOut.value = false
+    showOutPinPrompt.value = false
   }
 }
 
@@ -294,27 +355,65 @@ async function submitHandoverOut() {
 // HandoverIn (W5) then Settlement
 // ---------------------------------------------------------------------
 const inTagCode = ref('')
-const inPin = ref('')
 const inPhotos = ref<File[]>([])
+const inPhotoStates = ref<PhotoState[]>([])
+const inUploadUrls = ref<string[]>([])
+const inConditionReportId = ref<number | null>(null)
 const submittingHandoverIn = ref(false)
+const showInPinPrompt = ref(false)
+
+watch(inPhotos, (files) => {
+  inPhotoStates.value = files.map((_, i) => inPhotoStates.value[i] ?? 'requested')
+})
+
+const handoverInBackGuard = computed(() =>
+  inPhotos.value.length > 0 ? 'Rozrobené vrátenie náradia sa stratí. Naozaj chcete odísť?' : null,
+)
 const settlingAgreementId = ref<number | null>(null)
 
 function startHandoverIn(tagCode: string) {
   errorCode.value = null
+  errorMessage.value = null
   info.value = null
   inTagCode.value = tagCode
-  inPin.value = ''
   inPhotos.value = []
   panel.value = 'handoverIn'
 }
 
-function onInPhotosChange(event: Event) {
-  const files = (event.target as HTMLInputElement).files
-  inPhotos.value = files ? Array.from(files) : []
+async function uploadOneInPhoto(index: number) {
+  const file = inPhotos.value[index]
+  const url = inUploadUrls.value[index]
+  if (!file || !url) return
+  inPhotoStates.value[index] = 'uploading'
+  try {
+    await uploadFile(url, file)
+    inPhotoStates.value[index] = 'uploaded'
+  } catch {
+    inPhotoStates.value[index] = 'error'
+  }
 }
 
-async function submitHandoverIn() {
+async function finishHandoverIn() {
+  if (!inConditionReportId.value || !settlingAgreementId.value) return
+  try {
+    await $fetch(`/api/handover/condition-reports/${inConditionReportId.value}/confirm`, { method: 'POST' })
+    inPhotoStates.value = inPhotoStates.value.map(() => 'confirmed')
+    info.value = sk.adminCounter.handoverInSuccess
+    panel.value = 'settlement'
+    await loadPairedEvidenceStatus(settlingAgreementId.value)
+  } catch (err: unknown) {
+    await handleFetchError(err)
+  }
+}
+
+async function retryInPhoto(index: number) {
+  await uploadOneInPhoto(index)
+  if (inPhotoStates.value.every((s) => s === 'uploaded')) await finishHandoverIn()
+}
+
+async function confirmHandoverIn(pin: string) {
   errorCode.value = null
+  errorMessage.value = null
   submittingHandoverIn.value = true
   try {
     const result = await $fetch<{
@@ -326,31 +425,57 @@ async function submitHandoverIn() {
       body: {
         tagCode: inTagCode.value,
         conditionPhotoContentTypes: inPhotos.value.map((f) => f.type),
-        pin: inPin.value,
+        pin,
       },
     })
 
-    await Promise.all(inPhotos.value.map((file, i) => uploadFile(result.conditionPhotoUploadUrls[i]!, file)))
-    await $fetch(`/api/handover/condition-reports/${result.conditionReport.id}/confirm`, { method: 'POST' })
-
-    info.value = sk.adminCounter.handoverInSuccess
+    inUploadUrls.value = result.conditionPhotoUploadUrls
+    inConditionReportId.value = result.conditionReport.id
     settlingAgreementId.value = result.rentalAgreement.id
-    panel.value = 'settlement'
+
+    await Promise.all(inPhotos.value.map((_, i) => uploadOneInPhoto(i)))
+    if (inPhotoStates.value.every((s) => s === 'uploaded')) {
+      await finishHandoverIn()
+    } else {
+      errorCode.value = null
+      errorMessage.value = sk.adminCounter.photoUploadFailed
+    }
   } catch (err: unknown) {
     await handleFetchError(err)
   } finally {
     submittingHandoverIn.value = false
+    showInPinPrompt.value = false
   }
 }
 
 const returnedAmountEuros = ref('')
 const deductionReason = ref('')
-const settlingPin = ref('')
 const submittingSettlement = ref(false)
+const showSettlementPinPrompt = ref(false)
 
-async function submitSettlement() {
+// D-49, FR-20: shown before a deduction is attempted, not only found out
+// from the server's own refusal — the check itself still lives
+// exclusively in completeSettlement.
+const pairedEvidenceOut = ref(false)
+const pairedEvidenceIn = ref(false)
+const pairedEvidenceComplete = computed(() => pairedEvidenceOut.value && pairedEvidenceIn.value)
+
+async function loadPairedEvidenceStatus(rentalAgreementId: number) {
+  try {
+    const reports = await requestFetch<{ stage: string; confirmedAt: string | null }[]>(
+      `/api/handover/rental-agreements/${rentalAgreementId}/condition-reports`,
+    )
+    pairedEvidenceOut.value = reports.some((r) => r.stage === 'handover_out' && r.confirmedAt !== null)
+    pairedEvidenceIn.value = reports.some((r) => r.stage === 'handover_in' && r.confirmedAt !== null)
+  } catch (err: unknown) {
+    await handleFetchError(err)
+  }
+}
+
+async function confirmSettlement(pin: string) {
   if (!settlingAgreementId.value) return
   errorCode.value = null
+  errorMessage.value = null
   submittingSettlement.value = true
   try {
     await $fetch(`/api/handover/rental-agreements/${settlingAgreementId.value}/settlement`, {
@@ -358,7 +483,7 @@ async function submitSettlement() {
       body: {
         returnedAmount: { amount: Math.round(Number(returnedAmountEuros.value) * 100), currency: 'EUR' },
         deductionReason: deductionReason.value || undefined,
-        pin: settlingPin.value,
+        pin,
       },
     })
     info.value = sk.adminCounter.settlementSuccess
@@ -366,12 +491,14 @@ async function submitSettlement() {
     settlingAgreementId.value = null
     returnedAmountEuros.value = ''
     deductionReason.value = ''
-    settlingPin.value = ''
+    pairedEvidenceOut.value = false
+    pairedEvidenceIn.value = false
     await loadWorklist()
   } catch (err: unknown) {
     await handleFetchError(err)
   } finally {
     submittingSettlement.value = false
+    showSettlementPinPrompt.value = false
   }
 }
 </script>
@@ -379,78 +506,70 @@ async function submitSettlement() {
 <template>
   <main>
     <h1>{{ sk.adminCounter.title }}</h1>
-    <AppAlert :code="errorCode" />
+    <AppAlert :code="errorCode" :message="errorMessage" />
     <p v-if="info">{{ info }}</p>
 
     <section v-if="panel === 'none'">
       <section>
         <h2>{{ sk.adminCounter.scanHeading }}</h2>
-        <form @submit.prevent="submitScan">
-          <label>
-            {{ sk.adminCounter.scanLabel }}
-            <input v-model="scanTagCode" type="text" required autofocus />
-          </label>
-          <button type="submit" :disabled="scanning">
-            {{ scanning ? sk.adminCounter.scanning : sk.adminCounter.scanAction }}
-          </button>
-        </form>
+        <ScanTarget
+          :hint-text="sk.adminCounter.scanHint"
+          :denied-text="sk.adminCounter.scanCameraDenied"
+          :unsupported-text="sk.adminCounter.scanCameraUnsupported"
+          :manual-label="sk.adminCounter.scanLabel"
+          :manual-action="sk.adminCounter.scanAction"
+          :scanning-label="sk.adminCounter.scanning"
+          :pending="scanning"
+          @scan="submitScan"
+        />
       </section>
 
       <section>
         <h2>{{ sk.adminCounter.pickupsHeading }}</h2>
-        <p v-if="pickups.length === 0">{{ sk.adminCounter.noPickups }}</p>
-        <table v-else>
-          <thead>
-            <tr>
-              <th>{{ sk.adminCounter.columnCustomer }}</th>
-              <th>{{ sk.adminCounter.columnAssetType }}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="pickup in pickups" :key="pickup.reservation.id">
-              <td>{{ pickup.customerName }}</td>
-              <td>{{ pickup.assetTypeName }}</td>
-              <td>
-                <button type="button" @click="startHandoverOut(pickup)">
-                  {{ sk.adminCounter.handoverOutAction }}
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <EmptyState v-if="pickups.length === 0" :message="sk.adminCounter.noPickups" />
+        <TwoClockRow
+          v-for="pickup in pickups"
+          :key="pickup.reservation.id"
+          :title="`${pickup.customerName} — ${pickup.assetTypeName}`"
+          :expected-label="sk.adminCounter.expectedLabel"
+          :expected-value="formatDayRange(pickup.reservation.period.startDay, pickup.reservation.period.endDay)"
+          :actual-label="sk.adminCounter.actualLabelPickup"
+          :actual-value="sk.adminCounter.actualValueNotPickedUp"
+        >
+          <AppButton variant="secondary" @click="startHandoverOut(pickup)">
+            {{ sk.adminCounter.handoverOutAction }}
+          </AppButton>
+        </TwoClockRow>
       </section>
 
       <section>
         <h2>{{ sk.adminCounter.returnsHeading }}</h2>
-        <p v-if="returns.length === 0">{{ sk.adminCounter.noReturns }}</p>
-        <table v-else>
-          <thead>
-            <tr>
-              <th>{{ sk.adminCounter.columnCustomer }}</th>
-              <th>{{ sk.adminCounter.columnAssetType }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="ret in returns" :key="ret.reservation.id">
-              <td>{{ ret.customerName }}</td>
-              <td>{{ ret.assetTypeName }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <EmptyState v-if="returns.length === 0" :message="sk.adminCounter.noReturns" />
+        <TwoClockRow
+          v-for="ret in returns"
+          :key="ret.reservation.id"
+          :title="`${ret.customerName} — ${ret.assetTypeName}`"
+          :expected-label="sk.adminCounter.expectedLabel"
+          :expected-value="formatDayRange(ret.reservation.period.startDay, ret.reservation.period.endDay)"
+          :actual-label="sk.adminCounter.actualLabelReturn"
+          :actual-value="sk.adminCounter.actualValueWithCustomer"
+        />
       </section>
     </section>
 
     <section v-else-if="panel === 'lookup'">
+      <StepHeader :title="sk.adminCounter.lookupHeading" @back="resetToWorklist" />
       <p v-if="lookupResult">
         {{ sk.adminCounter.assetLookupResult.replace('{assetId}', String(lookupResult.asset.id)).replace('{status}', lookupResult.asset.status) }}
       </p>
-      <button type="button" @click="resetToWorklist">{{ sk.adminCounter.backAction }}</button>
     </section>
 
     <section v-else-if="panel === 'handoverOut' && activePickup">
-      <h2>{{ sk.adminCounter.handoverOutHeading.replace('{customerName}', activePickup.customerName) }}</h2>
-      <button type="button" @click="resetToWorklist">{{ sk.adminCounter.backAction }}</button>
+      <StepHeader
+        :title="sk.adminCounter.handoverOutHeading.replace('{customerName}', activePickup.customerName)"
+        :guard-message="handoverOutBackGuard"
+        @back="resetToWorklist"
+      />
 
       <section v-if="!verificationDone">
         <h3>{{ sk.adminCounter.identityVerificationHeading }}</h3>
@@ -483,67 +602,88 @@ async function submitSettlement() {
         </button>
       </section>
 
-      <form v-else @submit.prevent="submitHandoverOut">
+      <form v-else @submit.prevent="outPhotos.length > 0 && (showOutPinPrompt = true)">
         <p>{{ sk.adminCounter.depositLabel.replace('{amount}', depositFor(activePickup.reservation.assetTypeId)) }}</p>
         <label>
           {{ sk.adminCounter.tagCodeLabel }}
           <input v-model="outTagCode" type="text" required autofocus />
         </label>
-        <label>
-          {{ sk.adminCounter.conditionPhotosLabel }}
-          <input type="file" accept="image/*" capture="environment" multiple required @change="onOutPhotosChange" />
-        </label>
-        <label>
-          {{ sk.adminCounter.pinLabel }}
-          <input v-model="outPin" type="password" inputmode="numeric" required />
-        </label>
-        <button type="submit" :disabled="submittingHandoverOut">
-          {{ submittingHandoverOut ? sk.adminCounter.submittingHandoverOut : sk.adminCounter.submitHandoverOutAction }}
-        </button>
+        <PhotoCapture
+          v-model="outPhotos"
+          :states="outPhotoStates"
+          :label="sk.adminCounter.conditionPhotosLabel"
+          :add-label="sk.adminCounter.conditionPhotosAddAction"
+          :state-labels="photoStateLabels"
+          @retry="retryOutPhoto"
+        />
+        <AppButton type="submit" size="counter" :disabled="outPhotos.length === 0">
+          {{ sk.adminCounter.submitHandoverOutAction }}
+        </AppButton>
       </form>
+      <PinPrompt
+        :open="showOutPinPrompt"
+        :pending="submittingHandoverOut"
+        :pending-label="sk.adminCounter.submittingHandoverOut"
+        @confirm="confirmHandoverOut"
+        @close="showOutPinPrompt = false"
+      />
     </section>
 
     <section v-else-if="panel === 'handoverIn'">
-      <h2>{{ sk.adminCounter.handoverInHeading }}</h2>
-      <button type="button" @click="resetToWorklist">{{ sk.adminCounter.backAction }}</button>
-      <form @submit.prevent="submitHandoverIn">
+      <StepHeader :title="sk.adminCounter.handoverInHeading" :guard-message="handoverInBackGuard" @back="resetToWorklist" />
+      <form @submit.prevent="inPhotos.length > 0 && (showInPinPrompt = true)">
         <label>
           {{ sk.adminCounter.tagCodeLabel }}
           <input v-model="inTagCode" type="text" readonly />
         </label>
-        <label>
-          {{ sk.adminCounter.conditionPhotosInLabel }}
-          <input type="file" accept="image/*" capture="environment" multiple required @change="onInPhotosChange" />
-        </label>
-        <label>
-          {{ sk.adminCounter.pinLabel }}
-          <input v-model="inPin" type="password" inputmode="numeric" required />
-        </label>
-        <button type="submit" :disabled="submittingHandoverIn">
-          {{ submittingHandoverIn ? sk.adminCounter.submittingHandoverIn : sk.adminCounter.submitHandoverInAction }}
-        </button>
+        <PhotoCapture
+          v-model="inPhotos"
+          :states="inPhotoStates"
+          :label="sk.adminCounter.conditionPhotosInLabel"
+          :add-label="sk.adminCounter.conditionPhotosAddAction"
+          :state-labels="photoStateLabels"
+          @retry="retryInPhoto"
+        />
+        <AppButton type="submit" size="counter" :disabled="inPhotos.length === 0">
+          {{ sk.adminCounter.submitHandoverInAction }}
+        </AppButton>
       </form>
+      <PinPrompt
+        :open="showInPinPrompt"
+        :pending="submittingHandoverIn"
+        :pending-label="sk.adminCounter.submittingHandoverIn"
+        @confirm="confirmHandoverIn"
+        @close="showInPinPrompt = false"
+      />
     </section>
 
     <section v-else-if="panel === 'settlement'">
-      <h2>{{ sk.adminCounter.settlementHeading }}</h2>
-      <form @submit.prevent="submitSettlement">
+      <StepHeader :title="sk.adminCounter.settlementHeading" :show-back="false" />
+      <p>
+        {{ sk.adminCounter.pairedEvidenceOutLabel }}:
+        {{ pairedEvidenceOut ? sk.adminCounter.pairedEvidenceOk : sk.adminCounter.pairedEvidenceMissing }}
+        · {{ sk.adminCounter.pairedEvidenceInLabel }}:
+        {{ pairedEvidenceIn ? sk.adminCounter.pairedEvidenceOk : sk.adminCounter.pairedEvidenceMissing }}
+      </p>
+      <p v-if="!pairedEvidenceComplete">{{ sk.adminCounter.pairedEvidenceIncompleteNote }}</p>
+      <form @submit.prevent="showSettlementPinPrompt = true">
         <label>
           {{ sk.adminCounter.returnedAmountLabel }}
           <input v-model="returnedAmountEuros" type="number" min="0" step="0.01" required />
         </label>
         <label>
           {{ sk.adminCounter.deductionReasonLabel }}
-          <input v-model="deductionReason" type="text" />
+          <input v-model="deductionReason" type="text" :disabled="!pairedEvidenceComplete" />
         </label>
-        <label>
-          {{ sk.adminCounter.pinLabel }}
-          <input v-model="settlingPin" type="password" inputmode="numeric" required />
-        </label>
-        <button type="submit" :disabled="submittingSettlement">
-          {{ submittingSettlement ? sk.adminCounter.submittingSettlement : sk.adminCounter.submitSettlementAction }}
-        </button>
+        <AppButton type="submit" size="counter">{{ sk.adminCounter.submitSettlementAction }}</AppButton>
       </form>
+      <PinPrompt
+        :open="showSettlementPinPrompt"
+        :pending="submittingSettlement"
+        :pending-label="sk.adminCounter.submittingSettlement"
+        @confirm="confirmSettlement"
+        @close="showSettlementPinPrompt = false"
+      />
     </section>
   </main>
 </template>
