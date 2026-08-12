@@ -1,5 +1,6 @@
 import { dispatchDueOverdueReminders } from '../../../utils/overdue-reminder-dispatch'
 import { createAvailabilityReservationDeps } from '../../../utils/availability-reservation-deps'
+import { createCatalogDeps } from '../../../utils/catalog-deps'
 import { createCustomerIdentityComplianceDeps } from '../../../utils/customer-identity-compliance-deps'
 import { createHandoverPossessionDeps } from '../../../utils/handover-possession-deps'
 import { requireInternalJobSecret } from '../../../utils/internal-job-session'
@@ -29,6 +30,7 @@ export default defineEventHandler(async (event) => {
 
   const availability = createAvailabilityReservationDeps(event)
   const handover = createHandoverPossessionDeps(event)
+  const catalog = createCatalogDeps(event)
   const customerIdentity = createCustomerIdentityComplianceDeps(event)
 
   try {
@@ -40,6 +42,7 @@ export default defineEventHandler(async (event) => {
           availabilityRepo: availability.repo,
           handoverRepo: handover.repo,
           assetRegistryRepo: handover.assetRegistryRepo,
+          catalogRepo: catalog.repo,
           identityRepo: customerIdentity.repo,
           notificationRepo: notification.repo,
           notificationGateway: notification.gateway,
@@ -52,6 +55,6 @@ export default defineEventHandler(async (event) => {
       }
     })
   } finally {
-    await Promise.all([availability.close(), handover.close(), customerIdentity.close()])
+    await Promise.all([availability.close(), handover.close(), catalog.close(), customerIdentity.close()])
   }
 })

@@ -14,6 +14,7 @@
 // whichever scan first found it.
 import type { AssetRegistryRepository } from '../contexts/asset-registry'
 import type { AvailabilityReservationRepository } from '../contexts/availability-reservation'
+import type { CatalogRepository } from '../contexts/catalog'
 import type { CustomerIdentityComplianceRepository } from '../contexts/customer-identity-compliance'
 import type { HandoverPossessionRepository } from '../contexts/handover-possession'
 import { dispatchOverdueReminder, type NotificationDispatch, type NotificationGateway, type NotificationRepository } from '../contexts/notification'
@@ -24,6 +25,7 @@ export interface DispatchDueOverdueRemindersDeps {
   availabilityRepo: AvailabilityReservationRepository
   handoverRepo: HandoverPossessionRepository
   assetRegistryRepo: AssetRegistryRepository
+  catalogRepo: CatalogRepository
   identityRepo: CustomerIdentityComplianceRepository
   notificationRepo: NotificationRepository
   notificationGateway: NotificationGateway
@@ -33,10 +35,10 @@ export async function dispatchDueOverdueReminders(
   deps: DispatchDueOverdueRemindersDeps,
   params: { tenantId: TenantId; today: string },
 ): Promise<NotificationDispatch[]> {
-  const { availabilityRepo, handoverRepo, assetRegistryRepo, identityRepo, notificationRepo, notificationGateway } = deps
+  const { availabilityRepo, handoverRepo, assetRegistryRepo, catalogRepo, identityRepo, notificationRepo, notificationGateway } = deps
   const { tenantId, today } = params
 
-  const overdue = await listOverdue({ availabilityRepo, handoverRepo, assetRegistryRepo }, { tenantId, today })
+  const overdue = await listOverdue({ availabilityRepo, handoverRepo, assetRegistryRepo, catalogRepo, identityRepo }, { tenantId, today })
   const dispatched: NotificationDispatch[] = []
 
   for (const entry of overdue) {

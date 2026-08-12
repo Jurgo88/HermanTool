@@ -10,11 +10,15 @@ import {
   createFakeAvailabilityReservationRepository,
   type FakeAvailabilityReservationRepository,
 } from '../contexts/availability-reservation/fake-repository'
+import { createFakeCatalogRepository } from '../contexts/catalog/fake-repository'
+import { createFakeCustomerIdentityComplianceRepository } from '../contexts/customer-identity-compliance/fake-repository'
 import {
   createFakeHandoverPossessionRepository,
   type FakeHandoverPossessionRepository,
 } from '../contexts/handover-possession/fake-repository'
 import { listNoShows, listOverdue, type OverdueNoShowViewsDeps } from '../../../server/utils/overdue-noshow-views'
+import type { CatalogRepository } from '../../../server/contexts/catalog'
+import type { CustomerIdentityComplianceRepository } from '../../../server/contexts/customer-identity-compliance'
 
 const tenantA = '11111111-1111-1111-1111-111111111111' as TenantId
 const operatorId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -26,6 +30,8 @@ describe('listNoShows (FR-28, FR-30, W7)', () => {
   let availabilityRepo: FakeAvailabilityReservationRepository
   let handoverRepo: FakeHandoverPossessionRepository
   let assetRegistry: FakeAssetRegistryRepository
+  let catalogRepo: CatalogRepository
+  let identityRepo: CustomerIdentityComplianceRepository
 
   beforeEach(() => {
     assetRegistry = createFakeAssetRegistryRepository()
@@ -33,6 +39,8 @@ describe('listNoShows (FR-28, FR-30, W7)', () => {
     availabilityRepo = createFakeAvailabilityReservationRepository()
     availabilityRepo.seedCapacity(HAMMER, 10)
     handoverRepo = createFakeHandoverPossessionRepository(assetRegistry)
+    catalogRepo = createFakeCatalogRepository()
+    identityRepo = createFakeCustomerIdentityComplianceRepository()
   })
 
   async function confirmedReservation(startDay: string, endDay: string) {
@@ -48,7 +56,7 @@ describe('listNoShows (FR-28, FR-30, W7)', () => {
   it('lists a Confirmed Reservation whose period began without a HandoverOut', async () => {
     const reservation = await confirmedReservation(TODAY, '2026-03-12')
 
-    const noShows = await listNoShows({ availabilityRepo, handoverRepo }, { tenantId: tenantA, today: TODAY })
+    const noShows = await listNoShows({ availabilityRepo, handoverRepo, catalogRepo, identityRepo }, { tenantId: tenantA, today: TODAY })
 
     expect(noShows.map((e) => e.reservation.id)).toEqual([reservation.id])
   })
@@ -56,7 +64,7 @@ describe('listNoShows (FR-28, FR-30, W7)', () => {
   it('stays a NoShow however many days have passed since the pickup day (D-17: no automatic timeout)', async () => {
     const reservation = await confirmedReservation('2026-03-01', '2026-03-03')
 
-    const noShows = await listNoShows({ availabilityRepo, handoverRepo }, { tenantId: tenantA, today: TODAY })
+    const noShows = await listNoShows({ availabilityRepo, handoverRepo, catalogRepo, identityRepo }, { tenantId: tenantA, today: TODAY })
 
     expect(noShows.map((e) => e.reservation.id)).toEqual([reservation.id])
   })
@@ -76,14 +84,14 @@ describe('listNoShows (FR-28, FR-30, W7)', () => {
       handoverOutBackdateReason: null,
     })
 
-    const noShows = await listNoShows({ availabilityRepo, handoverRepo }, { tenantId: tenantA, today: TODAY })
+    const noShows = await listNoShows({ availabilityRepo, handoverRepo, catalogRepo, identityRepo }, { tenantId: tenantA, today: TODAY })
     expect(noShows).toHaveLength(0)
   })
 
   it('excludes a Reservation whose pickup day has not arrived yet', async () => {
     await confirmedReservation('2026-03-15', '2026-03-17')
 
-    const noShows = await listNoShows({ availabilityRepo, handoverRepo }, { tenantId: tenantA, today: TODAY })
+    const noShows = await listNoShows({ availabilityRepo, handoverRepo, catalogRepo, identityRepo }, { tenantId: tenantA, today: TODAY })
     expect(noShows).toHaveLength(0)
   })
 
@@ -93,7 +101,7 @@ describe('listNoShows (FR-28, FR-30, W7)', () => {
       lines: [{ assetTypeId: HAMMER, period: { startDay: TODAY, endDay: '2026-03-12' } }],
     })
 
-    const noShows = await listNoShows({ availabilityRepo, handoverRepo }, { tenantId: tenantA, today: TODAY })
+    const noShows = await listNoShows({ availabilityRepo, handoverRepo, catalogRepo, identityRepo }, { tenantId: tenantA, today: TODAY })
     expect(noShows).toHaveLength(0)
   })
 })
@@ -102,6 +110,8 @@ describe('listOverdue (FR-28, FR-29, D-17, W6, Finding 12)', () => {
   let availabilityRepo: FakeAvailabilityReservationRepository
   let handoverRepo: FakeHandoverPossessionRepository
   let assetRegistry: FakeAssetRegistryRepository
+  let catalogRepo: CatalogRepository
+  let identityRepo: CustomerIdentityComplianceRepository
   let deps: OverdueNoShowViewsDeps
 
   beforeEach(() => {
@@ -112,7 +122,9 @@ describe('listOverdue (FR-28, FR-29, D-17, W6, Finding 12)', () => {
     availabilityRepo.seedCapacity(HAMMER, 10)
     availabilityRepo.seedCapacity(SCAFFOLD, 10)
     handoverRepo = createFakeHandoverPossessionRepository(assetRegistry)
-    deps = { availabilityRepo, handoverRepo, assetRegistryRepo: assetRegistry }
+    catalogRepo = createFakeCatalogRepository()
+    identityRepo = createFakeCustomerIdentityComplianceRepository()
+    deps = { availabilityRepo, handoverRepo, assetRegistryRepo: assetRegistry, catalogRepo, identityRepo }
   })
 
   async function confirmedReservation(assetTypeId: number, startDay: string, endDay: string) {

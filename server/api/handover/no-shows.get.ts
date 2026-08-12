@@ -1,5 +1,7 @@
 import { listNoShows } from '../../utils/overdue-noshow-views'
 import { createAvailabilityReservationDeps } from '../../utils/availability-reservation-deps'
+import { createCatalogDeps } from '../../utils/catalog-deps'
+import { createCustomerIdentityComplianceDeps } from '../../utils/customer-identity-compliance-deps'
 import { createHandoverPossessionDeps } from '../../utils/handover-possession-deps'
 import { requireOperator } from '../../utils/operator-session'
 
@@ -16,14 +18,21 @@ export default defineEventHandler(async (event) => {
 
   const availability = createAvailabilityReservationDeps(event)
   const handover = createHandoverPossessionDeps(event)
+  const catalog = createCatalogDeps(event)
+  const customerIdentity = createCustomerIdentityComplianceDeps(event)
 
   try {
     const noShows = await listNoShows(
-      { availabilityRepo: availability.repo, handoverRepo: handover.repo },
+      {
+        availabilityRepo: availability.repo,
+        handoverRepo: handover.repo,
+        catalogRepo: catalog.repo,
+        identityRepo: customerIdentity.repo,
+      },
       { tenantId: operator.tenantId, today: todayAsRentalDay() },
     )
     return { noShows }
   } finally {
-    await Promise.all([availability.close(), handover.close()])
+    await Promise.all([availability.close(), handover.close(), catalog.close(), customerIdentity.close()])
   }
 })

@@ -12,6 +12,7 @@ import {
   createFakeAvailabilityReservationRepository,
   type FakeAvailabilityReservationRepository,
 } from '../contexts/availability-reservation/fake-repository'
+import { createFakeCatalogRepository } from '../contexts/catalog/fake-repository'
 import {
   createFakeCustomerIdentityComplianceRepository,
   type FakeCustomerIdentityComplianceRepository,
@@ -22,6 +23,7 @@ import {
 } from '../contexts/handover-possession/fake-repository'
 import { createFakeNotificationGateway, type FakeNotificationGateway } from '../contexts/notification/fake-gateway'
 import { createFakeNotificationRepository, type FakeNotificationRepository } from '../contexts/notification/fake-repository'
+import type { CatalogRepository } from '../../../server/contexts/catalog'
 
 const tenantA = '11111111-1111-1111-1111-111111111111' as TenantId
 const operatorId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -32,19 +34,29 @@ describe('dispatchDueOverdueReminders (D-17, W6, FR-41, issue #36)', () => {
   let assetRegistry: FakeAssetRegistryRepository
   let availabilityRepo: FakeAvailabilityReservationRepository
   let handoverRepo: FakeHandoverPossessionRepository
+  let catalogRepo: CatalogRepository
   let identityRepo: FakeCustomerIdentityComplianceRepository
   let notificationRepo: FakeNotificationRepository
   let notificationGateway: FakeNotificationGateway
 
-  beforeEach(() => {
+  beforeEach(async () => {
     assetRegistry = createFakeAssetRegistryRepository()
     assetRegistry.seedAssetType(tenantA, HAMMER)
     availabilityRepo = createFakeAvailabilityReservationRepository()
     availabilityRepo.seedCapacity(HAMMER, 5)
     handoverRepo = createFakeHandoverPossessionRepository(assetRegistry)
+    catalogRepo = createFakeCatalogRepository()
     identityRepo = createFakeCustomerIdentityComplianceRepository()
     notificationRepo = createFakeNotificationRepository()
     notificationGateway = createFakeNotificationGateway()
+
+    await catalogRepo.insertAssetType(tenantA, {
+      name: 'Rotary Hammer',
+      description: '',
+      dayRate: { amount: 1000, currency: 'EUR' },
+      depositAmount: { amount: 5000, currency: 'EUR' },
+      operatorId,
+    })
   })
 
   function deps() {
@@ -52,6 +64,7 @@ describe('dispatchDueOverdueReminders (D-17, W6, FR-41, issue #36)', () => {
       availabilityRepo,
       handoverRepo,
       assetRegistryRepo: assetRegistry,
+      catalogRepo,
       identityRepo,
       notificationRepo,
       notificationGateway,
