@@ -1,10 +1,19 @@
-<!-- C-10 (D-45; docs/design/interface-design-foundation.md §3, §5). Camera
-  first via BarcodeDetector, typed field as the permanent fallback for a
-  damaged tag, a dead camera, or a denied permission. Emits the same
-  `scan` event either way — the caller (counter.vue) sends it to
-  POST /api/handover/scan unchanged (FR-17: the domain resolves it). -->
+<!-- C-10 (D-45, UI-OQ-1; docs/design/interface-design-foundation.md §3, §5).
+  Camera first, typed field as the permanent fallback for a damaged tag, a
+  dead camera, or a denied permission. Two decode tiers behind the camera:
+  native BarcodeDetector where it exists (Chromium only — hardware-backed,
+  costs nothing), jsQR reading the same video frame via canvas everywhere
+  else (every WebKit browser, i.e. every browser on iOS, since Apple
+  requires all of them to use Safari's engine — confirmed on a real
+  iPhone: Chrome for iOS never exposes BarcodeDetector). Emits the same
+  `scan` event regardless of which tier decoded it — the caller
+  (counter.vue) sends it to POST /api/handover/scan unchanged (FR-17: the
+  domain resolves it). -->
 <script setup lang="ts">
+import jsQR from 'jsqr'
+
 type CameraState = 'idle' | 'requesting' | 'active' | 'denied' | 'unsupported' | 'error'
+type DecodeMode = 'native' | 'js'
 
 // D-20: no fallback copy baked in here — every string is a required
 // prop, so a caller can't accidentally end up with placeholder text.
@@ -29,7 +38,16 @@ const videoRef = ref<HTMLVideoElement | null>(null)
 
 let stream: MediaStream | null = null
 let detector: BarcodeDetector | null = null
+let decodeMode: DecodeMode = 'native'
 let rafId: number | null = null
+
+// jsQR decode tier only: a software decoder run every animation frame at
+// full camera resolution is the kind of thing that makes an older phone
+// noticeably hot — downscaled once per frame instead. Native
+// BarcodeDetector is hardware-backed and untouched by this.
+const JS_DECODE_MAX_WIDTH = 640
+let canvas: HTMLCanvasElement | null = null
+let canvasCtx: CanvasRenderingContext2D | null = null
 
 function stopCamera() {
   if (rafId !== null) cancelAnimationFrame(rafId)
@@ -38,25 +56,51 @@ function stopCamera() {
   stream = null
 }
 
+function decodeJsFrame(): string | null {
+  const video = videoRef.value
+  if (!video || video.videoWidth === 0) return null
+  if (!canvas) {
+    canvas = document.createElement('canvas')
+    canvasCtx = canvas.getContext('2d', { willReadFrequently: true })
+  }
+  if (!canvasCtx) return null
+  const scale = Math.min(1, JS_DECODE_MAX_WIDTH / video.videoWidth)
+  canvas.width = Math.round(video.videoWidth * scale)
+  canvas.height = Math.round(video.videoHeight * scale)
+  canvasCtx.drawImage(video, 0, 0, canvas.width, canvas.height)
+  const frame = canvasCtx.getImageData(0, 0, canvas.width, canvas.height)
+  return jsQR(frame.data, frame.width, frame.height)?.data ?? null
+}
+
 async function scanLoop() {
-  if (!videoRef.value || !detector) return
-  try {
-    const codes = await detector.detect(videoRef.value)
-    if (codes.length > 0) {
-      emit('scan', codes[0]!.rawValue)
+  if (!videoRef.value) return
+  if (decodeMode === 'native' && detector) {
+    try {
+      const codes = await detector.detect(videoRef.value)
+      if (codes.length > 0) {
+        emit('scan', codes[0]!.rawValue)
+        stopCamera()
+        cameraState.value = 'idle'
+        return
+      }
+    } catch {
+      // A frame with nothing decodable throws on some implementations —
+      // expected on most frames, not a failure worth surfacing.
+    }
+  } else {
+    const decoded = decodeJsFrame()
+    if (decoded) {
+      emit('scan', decoded)
       stopCamera()
       cameraState.value = 'idle'
       return
     }
-  } catch {
-    // A frame with nothing decodable throws on some implementations —
-    // expected on most frames, not a failure worth surfacing.
   }
   rafId = requestAnimationFrame(scanLoop)
 }
 
 async function startCamera() {
-  if (typeof window === 'undefined' || !window.BarcodeDetector) {
+  if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
     cameraState.value = 'unsupported'
     return
   }
@@ -66,7 +110,12 @@ async function startCamera() {
     if (!videoRef.value) throw new Error('video element not mounted')
     videoRef.value.srcObject = stream
     await videoRef.value.play()
-    detector = new window.BarcodeDetector({ formats: ['qr_code'] })
+    if (window.BarcodeDetector) {
+      detector = new window.BarcodeDetector({ formats: ['qr_code'] })
+      decodeMode = 'native'
+    } else {
+      decodeMode = 'js'
+    }
     cameraState.value = 'active'
     scanLoop()
   } catch {

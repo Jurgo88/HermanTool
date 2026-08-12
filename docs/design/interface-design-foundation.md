@@ -489,7 +489,7 @@ Six work packages. The ordering rule is: shared foundations first so nothing is 
 
 | ID | Question | Needed by | Who answers |
 |---|---|---|---|
-| `UI-OQ-1` | Which physical device is the counter phone (make, OS, browser)? Decides `UI-D-03`'s (b) vs (c) and the contrast floor in daylight. | WP-2 | you / the pilot Tenant |
+| `UI-OQ-1` | ~~Which physical device is the counter phone (make, OS, browser)? Decides `UI-D-03`'s (b) vs (c)~~ — **resolved 2026-08-12:** both built as tiers (native `BarcodeDetector`, `jsQR` fallback for WebKit/iOS), so no single device choice is needed for decoding. The contrast-floor-in-daylight half stays open. | WP-2 | you / the pilot Tenant |
 | `UI-OQ-2` | Is the counter device shared or one per Operator? `F8` assumed shared; if it is one each, the PIN cadence in `UI-D-06` could relax — I would still not relax it. | WP-2 | you |
 | `UI-OQ-3` | Do you want a HermanTool wordmark and colour of your own, or is `§4` the identity? The direction survives a logo drop-in either way. | WP-4 | you |
 | `UI-OQ-4` | Which physical label stock for QR tags (size, sheet layout, laminated?) — the print stylesheet is worthless without it. | WP-5 | pilot Tenant |
