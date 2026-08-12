@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// QR tag generation & 200-asset pilot bootstrap (F10, FR-25, FR-26, W9;
-// issue #9). Posts a CSV of (assetTypeId, quantity) lines to
+// QR tag generation & 200-asset pilot bootstrap (F10, FR-25, FR-26, W9,
+// S-20; issue #9). Posts a CSV of (assetTypeId, quantity) lines to
 // /api/asset-registry/bulk-register, which registers each Asset and
 // generates+binds a fresh opaque tag code (server/contexts/asset-registry/tag-code.ts)
 // for it — this page's only job is turning the returned tag codes into
@@ -18,6 +18,12 @@
 // from a spreadsheet — the backend's parseBulkRegistrationCsv is
 // unchanged; the builder just generates the same CSV text under the
 // hood before submitting.
+//
+// UI-OQ-4 (label stock — size, sheet layout, laminated?) is still
+// unanswered, so the print stylesheet below is a reasonable default
+// grid, not "sized to the actual physical label sheet" as WP-5.5 asks
+// for — that specific sizing needs the label stock decided first
+// (docs/design/interface-design-foundation.md §13).
 import QRCode from 'qrcode'
 import { sk } from '~/i18n/sk'
 import { getErrorCode } from '~/utils/error-code'
@@ -208,30 +214,34 @@ await loadPending()
 </script>
 
 <template>
-  <main>
+  <main class="admin-asset-registry">
     <h1>{{ sk.adminAssetRegistry.title }}</h1>
     <p>{{ sk.adminAssetRegistry.intro }}</p>
     <AppAlert :code="errorCode" :message="errorMessage" />
 
-    <section class="no-print">
+    <section class="no-print admin-asset-registry__builder">
       <h2>{{ sk.adminAssetRegistry.builderHeading }}</h2>
-      <p v-if="assetTypes.length === 0">{{ sk.adminAssetRegistry.noAssetTypes }}</p>
+      <EmptyState v-if="assetTypes.length === 0" :message="sk.adminAssetRegistry.noAssetTypes" />
       <template v-else>
-        <label>
-          {{ sk.adminAssetRegistry.assetTypeLabel }}
-          <select v-model.number="selectedAssetTypeId">
-            <option v-for="assetType in assetTypes" :key="assetType.id" :value="assetType.id">
-              {{ assetType.name }}
-            </option>
-          </select>
-        </label>
-        <label>
-          {{ sk.adminAssetRegistry.quantityLabel }}
-          <input v-model="quantityInput" type="number" min="1" step="1" />
-        </label>
-        <button type="button" @click="addLine">{{ sk.adminAssetRegistry.addLineAction }}</button>
+        <div class="admin-asset-registry__builder-row">
+          <AppField :label="sk.adminAssetRegistry.assetTypeLabel">
+            <template #default="slotProps">
+              <select :id="slotProps.id" v-model.number="selectedAssetTypeId">
+                <option v-for="assetType in assetTypes" :key="assetType.id" :value="assetType.id">
+                  {{ assetType.name }}
+                </option>
+              </select>
+            </template>
+          </AppField>
+          <AppField :label="sk.adminAssetRegistry.quantityLabel">
+            <template #default="slotProps">
+              <input :id="slotProps.id" v-model="quantityInput" type="number" min="1" step="1" />
+            </template>
+          </AppField>
+          <AppButton variant="secondary" @click="addLine">{{ sk.adminAssetRegistry.addLineAction }}</AppButton>
+        </div>
 
-        <table v-if="lines.length > 0">
+        <AppTable v-if="lines.length > 0">
           <thead>
             <tr>
               <th>{{ sk.adminAssetRegistry.columnAssetType }}</th>
@@ -244,41 +254,39 @@ await loadPending()
               <td>{{ line.assetTypeName }}</td>
               <td>{{ line.quantity }}</td>
               <td>
-                <button type="button" @click="removeLine(index)">{{ sk.adminAssetRegistry.removeLineAction }}</button>
+                <AppButton variant="quiet" @click="removeLine(index)">{{ sk.adminAssetRegistry.removeLineAction }}</AppButton>
               </td>
             </tr>
           </tbody>
-        </table>
+        </AppTable>
       </template>
 
       <details>
         <summary>{{ sk.adminAssetRegistry.advancedToggle }}</summary>
-        <label>
-          {{ sk.adminAssetRegistry.csvFileLabel }}
-          <input type="file" accept=".csv,text/csv" @change="onFileChange" />
-        </label>
-        <label>
-          {{ sk.adminAssetRegistry.csvTextareaLabel }}
-          <textarea v-model="csv" rows="6" placeholder="assetTypeId,quantity&#10;1,50&#10;2,20"></textarea>
-        </label>
+        <AppField :label="sk.adminAssetRegistry.csvFileLabel">
+          <template #default="slotProps">
+            <input :id="slotProps.id" type="file" accept=".csv,text/csv" @change="onFileChange" />
+          </template>
+        </AppField>
+        <AppField :label="sk.adminAssetRegistry.csvTextareaLabel">
+          <template #default="slotProps">
+            <textarea :id="slotProps.id" v-model="csv" rows="6" placeholder="assetTypeId,quantity&#10;1,50&#10;2,20"></textarea>
+          </template>
+        </AppField>
       </details>
 
-      <p>
-        <button type="button" :disabled="submitting" @click="submit">
-          {{ submitting ? sk.adminAssetRegistry.submitting : sk.adminAssetRegistry.submitAction }}
-        </button>
-      </p>
+      <AppButton variant="primary" size="counter" :pending="submitting" @click="submit">
+        {{ submitting ? sk.adminAssetRegistry.submitting : sk.adminAssetRegistry.submitAction }}
+      </AppButton>
     </section>
 
     <section v-if="pending.length > 0" class="no-print">
       <h2>{{ sk.adminAssetRegistry.pendingHeading }}</h2>
       <p>{{ sk.adminAssetRegistry.pendingIntro }}</p>
-      <p>
-        <button type="button" :disabled="markingAllRentable" @click="markAllRentable">
-          {{ markingAllRentable ? sk.adminAssetRegistry.markingRentable : sk.adminAssetRegistry.markAllRentableAction }}
-        </button>
-      </p>
-      <table>
+      <AppButton variant="secondary" :pending="markingAllRentable" @click="markAllRentable">
+        {{ markingAllRentable ? sk.adminAssetRegistry.markingRentable : sk.adminAssetRegistry.markAllRentableAction }}
+      </AppButton>
+      <AppTable>
         <thead>
           <tr>
             <th>{{ sk.adminAssetRegistry.columnAssetType }}</th>
@@ -289,11 +297,12 @@ await loadPending()
         <tbody>
           <tr v-for="entry in pending" :key="entry.assetId">
             <td>{{ assetTypeName(entry.assetTypeId) }}</td>
-            <td>{{ entry.tagCode }}</td>
+            <td><TagCodePlate>{{ entry.tagCode }}</TagCodePlate></td>
             <td>
-              <button
-                type="button"
-                :disabled="markingRentableAssetId === entry.assetId || markingAllRentable"
+              <AppButton
+                variant="secondary"
+                :disabled="markingAllRentable"
+                :pending="markingRentableAssetId === entry.assetId"
                 @click="markRentable(entry.assetId)"
               >
                 {{
@@ -301,25 +310,25 @@ await loadPending()
                     ? sk.adminAssetRegistry.markingRentable
                     : sk.adminAssetRegistry.markRentableAction
                 }}
-              </button>
+              </AppButton>
             </td>
           </tr>
         </tbody>
-      </table>
+      </AppTable>
     </section>
-    <p v-else class="no-print">{{ sk.adminAssetRegistry.pendingEmpty }}</p>
+    <EmptyState v-else class="no-print" :message="sk.adminAssetRegistry.pendingEmpty" />
 
     <section v-if="entries.length > 0">
       <h2 class="no-print">{{ sk.adminAssetRegistry.resultHeading }}</h2>
       <p class="no-print">
         {{ sk.adminAssetRegistry.resultCount.replace('{count}', String(entries.length)) }}
-        <button type="button" @click="print">{{ sk.adminAssetRegistry.printAction }}</button>
+        <AppButton variant="secondary" @click="print">{{ sk.adminAssetRegistry.printAction }}</AppButton>
       </p>
 
       <div class="tag-sheet">
         <figure v-for="entry in entries" :key="entry.assetId" class="tag-card">
           <img :src="entry.qrDataUrl" :alt="entry.tagCode" width="160" height="160" />
-          <figcaption>{{ entry.tagCode }}</figcaption>
+          <figcaption><TagCodePlate>{{ entry.tagCode }}</TagCodePlate></figcaption>
         </figure>
       </div>
     </section>
@@ -327,20 +336,46 @@ await loadPending()
 </template>
 
 <style scoped>
+.admin-asset-registry {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--ht-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-6);
+}
+
+.admin-asset-registry__builder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-3);
+}
+
+.admin-asset-registry__builder-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ht-space-3);
+}
+
 .tag-sheet {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: var(--ht-space-4);
 }
 
 .tag-card {
   text-align: center;
   margin: 0;
+  break-inside: avoid;
 }
 
 @media print {
   .no-print {
     display: none;
+  }
+
+  .tag-sheet {
+    gap: 8mm;
   }
 }
 </style>
