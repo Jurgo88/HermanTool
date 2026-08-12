@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { formatDay, formatDateTime, formatDayRange, formatMoney } from '../../../app/utils/format'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { formatDay, formatDateTime, formatDayRange, formatMoney, todayInBratislava } from '../../../app/utils/format'
 
 // sk-SK's Intl currency format separates the amount and the symbol with
 // U+00A0 (no-break space), not a plain space — matters for exact
@@ -62,5 +62,25 @@ describe('formatDateTime (D-51)', () => {
 
   it('accepts a Date instance directly', () => {
     expect(formatDateTime(new Date('2026-08-12T10:30:00.000Z'))).toBe('12. 8. 2026 12:30')
+  })
+})
+
+describe('todayInBratislava (D-51, UIF-01)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('is already tomorrow in UTC terms, past midnight Bratislava time — the exact UIF-01 bug', () => {
+    // 22:30 UTC on the 11th is 00:30 CEST on the 12th. .toISOString()
+    // would say "2026-08-11" here; this must say "2026-08-12".
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-11T22:30:00.000Z'))
+    expect(todayInBratislava()).toBe('2026-08-12')
+  })
+
+  it('matches the UTC day outside the midnight boundary window', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-08-12T10:00:00.000Z'))
+    expect(todayInBratislava()).toBe('2026-08-12')
   })
 })

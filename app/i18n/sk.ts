@@ -22,6 +22,10 @@ export const sk = {
   draft: {
     checkoutTermsNotice: 'Toto je dočasný text — konečné znenie podmienok ešte čaká na právne schválenie.',
     checkoutTermsAcceptLabel: 'Súhlasím s podmienkami prenájmu (návrh)',
+    termsPageBody:
+      'Toto je dočasný text — konečné znenie podmienok prenájmu, vrátane storno a reklamačných pravidiel, ešte čaká na právne schválenie (OQ #1).',
+    privacyPageBody:
+      'Toto je dočasný text — konečné znenie zásad ochrany súkromia, vrátane doby uchovávania dokladov totožnosti a údajov zákazníka, ešte čaká na právne schválenie (OQ #2, OQ #4, OQ #27).',
   },
   // D-50, UIF-03: domain errors carry a stable `code` (the throwing
   // class's own name, attached server-side by every translate*Error
@@ -94,7 +98,8 @@ export const sk = {
   },
   publicCatalog: {
     title: 'HermanTool',
-    dayRateSuffix: '/ deň, depozit',
+    dayRateLabel: 'Cena za deň',
+    depositLabel: 'Depozit',
     empty: 'Zatiaľ nie je publikované žiadne náradie.',
     fromLabel: 'Od',
     toLabel: 'Do',
@@ -126,10 +131,13 @@ export const sk = {
     createReservationAction: 'Vytvoriť rezerváciu',
     creatingReservation: 'Vytváram rezerváciu…',
     termsHeading: 'Podmienky prenájmu',
+    depositRestatedLabel: 'Záloha, ktorú vyberieme v hotovosti',
+    depositRestatedNote: 'Záloha sa neplatí kartou — táto platba je len za prenájom. Zálohu vyberieme v hotovosti priamo pri vyzdvihnutí náradia.',
     payAction: 'Zaplatiť',
     startingPayment: 'Presmerúvam na platbu…',
     paymentProviderError: 'Platbu sa momentálne nepodarilo spustiť. Skúste to prosím o chvíľu znova.',
     conflictError: 'Túto akciu momentálne nie je možné dokončiť. Skúste stránku načítať znova.',
+    termsPageLinkAction: 'Podmienky prenájmu (celé znenie)',
   },
   checkoutResult: {
     successTitle: 'Platba prijatá',
@@ -153,6 +161,7 @@ export const sk = {
     },
     uploadHeading: 'Doklad totožnosti',
     uploadIntro: 'Nahrajte prosím fotografiu dokladu totožnosti — overíme ju pri vyzdvihnutí náradia.',
+    uploadWhySentence: 'Doklad potrebujeme, aby sme pri vyzdvihnutí overili, že náradie preberá skutočne ten, kto si ho rezervoval — bez tohto kroku vám ho na mieste nemôžeme vydať.',
     fileLabel: 'Súbor',
     uploadAction: 'Nahrať',
     uploading: 'Nahrávam…',
@@ -160,6 +169,18 @@ export const sk = {
     uploadNotConfirmedError: 'Nahratie sa nepodarilo potvrdiť, skúste to prosím znova.',
     uploadUnavailableError: 'Nahratie dokladu momentálne nie je možné. Skúste to prosím neskôr alebo nás kontaktujte.',
     uploadGenericError: 'Nahratie sa nepodarilo, skúste to prosím znova.',
+  },
+  publicFooter: {
+    termsLink: 'Podmienky prenájmu',
+    privacyLink: 'Ochrana súkromia',
+  },
+  legalTerms: {
+    title: 'Podmienky prenájmu',
+    backToCatalogAction: 'Späť do katalógu',
+  },
+  legalPrivacy: {
+    title: 'Ochrana súkromia',
+    backToCatalogAction: 'Späť do katalógu',
   },
   adminCatalog: {
     title: 'Správa katalógu',

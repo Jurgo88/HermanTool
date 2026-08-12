@@ -1,20 +1,20 @@
 <script setup lang="ts">
 // W1/W2, FR-06, FR-09, D-14, D-26, D-35; issue #93 follow-up (IR-12
-// Checkout). Takes the draft reservation lines assembled on ./index.vue
-// and drives them through the three server routes that already existed
-// with no UI in front of them: POST /api/reservations/checkout (creates
-// the ReservationGroup + Reservations + Customer, D-14's "Visitor becomes
-// a Customer"), POST /api/reservations/:groupId/accept-terms (D-35 —
-// mechanics only, see the placeholder note below), then POST
-// /api/payments/checkout-session, which redirects to Stripe's hosted
-// page (NFR-05: this app never touches card data).
+// Checkout), S-03. Takes the draft reservation lines assembled on
+// ./index.vue and drives them through the three server routes that
+// already existed with no UI in front of them: POST
+// /api/reservations/checkout (creates the ReservationGroup +
+// Reservations + Customer, D-14's "Visitor becomes a Customer"), POST
+// /api/reservations/:groupId/accept-terms (D-35 — mechanics only, see
+// the placeholder note below), then POST /api/payments/checkout-session,
+// which redirects to Stripe's hosted page (NFR-05: this app never
+// touches card data).
 //
 // Two stages on one page, matching W1's own sequencing ("Before payment
 // begins, the Customer is shown rental terms... then accepts them"):
 // stage 1 collects customer details and creates the ReservationGroup;
 // stage 2 (shown only once that succeeds) is terms + pay.
 import { sk } from '~/i18n/sk'
-import { formatDayRange, formatMoney } from '~/utils/format'
 
 definePageMeta({ layout: 'public' })
 
@@ -41,9 +41,14 @@ const startingPayment = ref(false)
 const reservationGroupId = ref<number | null>(null)
 
 const currency = computed(() => draftLines.value[0]?.dayRate.currency ?? 'EUR')
-const totalAmount = computed(() =>
-  draftLines.value.reduce((sum, line) => sum + line.dayRate.amount * line.quantity, 0),
-)
+const totalAmount = computed(() => draftLines.value.reduce((sum, line) => sum + line.dayRate.amount * line.quantity, 0))
+// D-07/FR-21: restated at stage 2 (S-03) — the platform moves no deposit
+// money, so the Customer must see, right before paying by card, that
+// this total is separate cash handed over at the counter. Captured here
+// (not recomputed at stage 2) because clearLines() below empties
+// draftLines the moment stage 1 succeeds.
+const depositTotal = computed(() => draftLines.value.reduce((sum, line) => sum + line.depositAmount.amount * line.quantity, 0))
+const reservationDepositTotal = ref(0)
 
 // Deliberately not `err.data.statusMessage` here (unlike the admin
 // pages) — this is a public, Customer-facing page, and the domain layer's
@@ -80,6 +85,7 @@ async function createReservation() {
       method: 'POST',
       body,
     })
+    reservationDepositTotal.value = depositTotal.value
     reservationGroupId.value = result.reservationGroupId
     clearLines()
   } catch (err: unknown) {
@@ -112,9 +118,9 @@ async function acceptTermsAndPay() {
 </script>
 
 <template>
-  <main>
+  <main class="checkout">
     <h1>{{ sk.checkout.title }}</h1>
-    <p v-if="error" role="alert">{{ error }}</p>
+    <AppAlert :message="error" />
 
     <p v-if="draftLines.length === 0 && !reservationGroupId">
       {{ sk.checkout.emptyDraft }}
@@ -122,39 +128,43 @@ async function acceptTermsAndPay() {
     </p>
 
     <template v-else-if="!reservationGroupId">
-      <section>
+      <section class="checkout__section">
         <h2>{{ sk.checkout.summaryHeading }}</h2>
-        <ul>
+        <ul class="checkout__summary-list">
           <li v-for="line in draftLines" :key="`${line.assetTypeId}-${line.period.startDay}-${line.period.endDay}`">
-            {{ line.assetTypeName }} × {{ line.quantity }} ({{ formatDayRange(line.period.startDay, line.period.endDay) }})
+            <span>{{ line.assetTypeName }} × {{ line.quantity }}</span>
+            <DayRange :start-day="line.period.startDay" :end-day="line.period.endDay" />
           </li>
         </ul>
-        <p>{{ sk.checkout.totalLabel }}: {{ formatMoney({ amount: totalAmount, currency }) }}</p>
+        <p class="checkout__total">
+          {{ sk.checkout.totalLabel }}: <MoneyAmount :amount="{ amount: totalAmount, currency }" size="large" />
+        </p>
       </section>
 
-      <section>
+      <section class="checkout__section">
         <h2>{{ sk.checkout.customerDetailsHeading }}</h2>
-        <label>
-          {{ sk.checkout.nameLabel }}
-          <input v-model="customerName" type="text" autocomplete="name" />
-        </label>
-        <label>
-          {{ sk.checkout.emailLabel }}
-          <input v-model="customerEmail" type="email" autocomplete="email" />
-        </label>
-        <label>
-          {{ sk.checkout.phoneLabel }}
-          <input v-model="customerPhone" type="tel" autocomplete="tel" />
-        </label>
-        <p>
-          <button type="button" :disabled="creatingReservation" @click="createReservation">
-            {{ creatingReservation ? sk.checkout.creatingReservation : sk.checkout.createReservationAction }}
-          </button>
-        </p>
+        <AppField :label="sk.checkout.nameLabel">
+          <template #default="slotProps">
+            <input :id="slotProps.id" v-model="customerName" type="text" autocomplete="name" />
+          </template>
+        </AppField>
+        <AppField :label="sk.checkout.emailLabel">
+          <template #default="slotProps">
+            <input :id="slotProps.id" v-model="customerEmail" type="email" autocomplete="email" />
+          </template>
+        </AppField>
+        <AppField :label="sk.checkout.phoneLabel">
+          <template #default="slotProps">
+            <input :id="slotProps.id" v-model="customerPhone" type="tel" autocomplete="tel" />
+          </template>
+        </AppField>
+        <AppButton variant="primary" :pending="creatingReservation" @click="createReservation">
+          {{ creatingReservation ? sk.checkout.creatingReservation : sk.checkout.createReservationAction }}
+        </AppButton>
       </section>
     </template>
 
-    <section v-else>
+    <section v-else class="checkout__section">
       <h2>{{ sk.checkout.termsHeading }}</h2>
       <DraftNotice>
         <p>{{ sk.draft.checkoutTermsNotice }}</p>
@@ -163,11 +173,68 @@ async function acceptTermsAndPay() {
           {{ sk.draft.checkoutTermsAcceptLabel }}
         </label>
       </DraftNotice>
-      <p>
-        <button type="button" :disabled="!termsAccepted || startingPayment" @click="acceptTermsAndPay">
-          {{ startingPayment ? sk.checkout.startingPayment : sk.checkout.payAction }}
-        </button>
+      <p><NuxtLink to="/podmienky" target="_blank">{{ sk.checkout.termsPageLinkAction }}</NuxtLink></p>
+
+      <p class="checkout__deposit-note">
+        {{ sk.checkout.depositRestatedLabel }}: <MoneyAmount :amount="{ amount: reservationDepositTotal, currency }" size="large" />
       </p>
+      <p class="checkout__deposit-hint">{{ sk.checkout.depositRestatedNote }}</p>
+
+      <AppButton variant="primary" size="counter" :pending="startingPayment" :disabled="!termsAccepted" @click="acceptTermsAndPay">
+        {{ startingPayment ? sk.checkout.startingPayment : sk.checkout.payAction }}
+      </AppButton>
     </section>
   </main>
 </template>
+
+<style scoped>
+.checkout {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--ht-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-5);
+}
+
+.checkout__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-3);
+}
+
+.checkout__summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+}
+
+.checkout__summary-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ht-space-3);
+  padding: var(--ht-space-2) 0;
+  border-bottom: 1px solid var(--ht-line);
+}
+
+.checkout__total {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ht-space-2);
+}
+
+.checkout__deposit-note {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ht-space-2);
+  margin-top: var(--ht-space-3);
+}
+
+.checkout__deposit-hint {
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-2);
+}
+</style>

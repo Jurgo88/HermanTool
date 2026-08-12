@@ -65,3 +65,14 @@ export function formatDateTime(isoTimestamp: string | Date): string {
     timeZone: TIME_ZONE,
   }).format(instant)
 }
+
+// UIF-01: the one narrow exception to "this module never computes" — a
+// default value for the public catalog's date range has to come from
+// somewhere, and `.toISOString()` (UTC) silently shows yesterday's
+// inventory between 00:00 and ~02:00 Bratislava time. This reads the
+// clock in the right zone; it still never adds/subtracts a day — that
+// stays Availability & Reservation's job server-side. `en-CA`'s date
+// format is exactly `YYYY-MM-DD`.
+export function todayInBratislava(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(new Date())
+}
