@@ -14,6 +14,8 @@ const props = defineProps<{
   label: string
   addLabel: string
   stateLabels: Record<PhotoState, string>
+  retryLabel: string
+  removeLabel: string
 }>()
 const emit = defineEmits<{ 'update:modelValue': [File[]]; retry: [index: number] }>()
 
@@ -55,8 +57,13 @@ function previewUrl(file: File): string {
       >
         <img :src="previewUrl(file)" :alt="file.name" class="photo-capture__preview" />
         <span class="photo-capture__state">{{ stateLabels[states[index] ?? 'requested'] }}</span>
-        <button v-if="states[index] === 'error'" type="button" @click="emit('retry', index)">↻</button>
-        <button v-if="states[index] !== 'uploading' && states[index] !== 'confirmed'" type="button" @click="remove(index)">
+        <button v-if="states[index] === 'error'" type="button" :aria-label="retryLabel" @click="emit('retry', index)">↻</button>
+        <button
+          v-if="states[index] !== 'uploading' && states[index] !== 'confirmed'"
+          type="button"
+          :aria-label="removeLabel"
+          @click="remove(index)"
+        >
           ×
         </button>
       </div>
@@ -133,6 +140,16 @@ function previewUrl(file: File): string {
   height: 20px;
   line-height: 1;
   cursor: pointer;
+}
+
+/* NFR-11: a visually 20px control on an 88px thumbnail stays compact,
+   but the actual tap target is expanded to the accessibility floor's
+   44px minimum via an invisible pseudo-element rather than growing the
+   button itself and crowding the preview. */
+.photo-capture__photo button::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
 }
 
 .photo-capture__photo button:first-of-type {

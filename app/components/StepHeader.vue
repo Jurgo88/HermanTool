@@ -1,7 +1,12 @@
-<!-- C-17 (D-46; docs/design/interface-design-foundation.md §3 UI-D-04).
-  Counter task-stack header: workflow name, Customer, explicit back.
-  `guardMessage` is shown via confirm() before back actually fires, for
-  in-flight uploads or a pending PIN. -->
+<!-- C-17 (D-46, NFR-11; docs/design/interface-design-foundation.md §3
+  UI-D-04, §8). Counter task-stack header: workflow name, Customer,
+  explicit back. `guardMessage` is shown via confirm() before back
+  actually fires, for in-flight uploads or a pending PIN. `title` renders
+  as an `<h1>` — this is a screen's own name, the accessibility floor's
+  "one h1 per screen" landmark, not decoration. Callers that also render
+  their own unconditional page `<h1>` (admin/counter/index.vue) must
+  make it conditional on this component not being on screen instead, so
+  the two never coexist. -->
 <script setup lang="ts">
 import { sk } from '~/i18n/sk'
 
@@ -23,7 +28,7 @@ function handleBack() {
       ←
     </button>
     <div class="step-header__text">
-      <span class="step-header__title">{{ title }}</span>
+      <h1 class="step-header__title">{{ title }}</h1>
       <span v-if="subtitle" class="step-header__subtitle">{{ subtitle }}</span>
     </div>
   </header>
@@ -40,6 +45,9 @@ function handleBack() {
 }
 
 .step-header__back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   background: transparent;
   color: var(--ht-ink);
@@ -47,7 +55,10 @@ function handleBack() {
   font-size: var(--ht-text-4);
   line-height: 1;
   cursor: pointer;
-  padding: var(--ht-space-1);
+  /* NFR-11: 44px minimum tap target — this is the counter's most
+     frequently pressed control, not decoration. */
+  min-width: var(--ht-hit-min);
+  min-height: var(--ht-hit-min);
 }
 
 .step-header__text {

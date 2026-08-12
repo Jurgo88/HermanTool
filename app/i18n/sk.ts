@@ -238,7 +238,7 @@ export const sk = {
   adminAssetRegistry: {
     title: 'Hromadná registrácia a QR štítky',
     intro:
-      'Pre každý kus sa vytvorí Asset a vygeneruje sa nový QR štítok. Vyberte typ náradia a počet kusov nižšie.',
+      'Pre každý kus sa vytvorí nový záznam a vygeneruje sa nový QR štítok. Vyberte typ náradia a počet kusov nižšie.',
     builderHeading: 'Pridať typy náradia',
     noAssetTypes: 'Zatiaľ nie je vytvorený žiadny typ náradia — vytvorte ho najprv v Správe katalógu.',
     assetTypeLabel: 'Typ náradia',
@@ -288,7 +288,7 @@ export const sk = {
     scanAction: 'Skenovať',
     scanning: 'Skenujem…',
     lookupHeading: 'Vyhľadanie',
-    assetLookupResult: 'Asset {assetId}, stav: {status}',
+    assetLookupResult: 'Kus #{assetId}, stav: {status}',
 
     identityVerificationHeading: 'Overenie totožnosti',
     noEvidence: 'Zákazník ešte nenahral doklad totožnosti online.',
@@ -314,18 +314,20 @@ export const sk = {
     photoStateUploaded: 'Nahrané',
     photoStateConfirmed: 'Potvrdené',
     photoStateError: 'Chyba',
+    retryPhotoAction: 'Skúsiť znova nahrať fotografiu',
+    removePhotoAction: 'Odstrániť fotografiu',
     pinLabel: 'PIN operátora',
     pinConfirmAction: 'Potvrdiť',
     submitHandoverOutAction: 'Potvrdiť vydanie',
     submittingHandoverOut: 'Vydávam…',
-    handoverOutSuccess: 'Náradie vydané. RentalAgreement #{id}.',
+    handoverOutSuccess: 'Náradie vydané. Zmluva #{id}.',
     photoUploadFailed: 'Niektoré fotografie sa nepodarilo nahrať. Skúste to znova pri každej označenej fotografii.',
 
     handoverInHeading: 'Vrátenie náradia',
     conditionPhotosInLabel: 'Fotografie stavu pri vrátení',
     submitHandoverInAction: 'Potvrdiť vrátenie',
-    submittingHandoverIn: 'Preberám…',
-    handoverInSuccess: 'Náradie prevzaté späť. Pokračujte vyrovnaním depozitu.',
+    submittingHandoverIn: 'Preberám vrátenie…',
+    handoverInSuccess: 'Náradie vrátené. Pokračujte vyrovnaním depozitu.',
 
     settlementHeading: 'Vyrovnanie depozitu',
     pairedEvidenceOutLabel: 'Fotodokumentácia pri vydaní',
