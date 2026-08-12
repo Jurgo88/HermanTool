@@ -7,6 +7,7 @@
 export const sk = {
   common: {
     somethingWentWrong: 'Niečo sa pokazilo.',
+    backAction: 'Späť',
   },
   // D-52 (UI-D-10): legally blocked copy — OQ #1 (cancellation, terms and
   // pre-contractual information), FR-38/D-42/IR-13 (privacy text) — lives
@@ -219,11 +220,14 @@ export const sk = {
     columnAssetType: 'Typ náradia',
     handoverOutAction: 'Vydať',
     scanHeading: 'Skenovať štítok',
+    scanHint: 'Namierte na štítok',
+    scanCameraDenied: 'Prístup ku kamere nie je možný. Zadajte kód štítku ručne.',
+    scanCameraUnsupported: 'Tento prehliadač nepodporuje skenovanie kamerou. Zadajte kód štítku ručne.',
     scanLabel: 'Kód štítku',
     scanAction: 'Skenovať',
     scanning: 'Skenujem…',
+    lookupHeading: 'Vyhľadanie',
     assetLookupResult: 'Asset {assetId}, stav: {status}',
-    backAction: 'Späť',
 
     identityVerificationHeading: 'Overenie totožnosti',
     noEvidence: 'Zákazník ešte nenahral doklad totožnosti online.',

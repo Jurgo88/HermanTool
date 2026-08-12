@@ -6,6 +6,21 @@
 <script setup lang="ts">
 type CameraState = 'idle' | 'requesting' | 'active' | 'denied' | 'unsupported' | 'error'
 
+// D-20: no fallback copy baked in here — every string is a required
+// prop, so a caller can't accidentally end up with placeholder text.
+withDefaults(
+  defineProps<{
+    hintText: string
+    deniedText: string
+    unsupportedText: string
+    manualLabel: string
+    manualAction: string
+    scanningLabel: string
+    pending?: boolean
+  }>(),
+  { pending: false },
+)
+
 const emit = defineEmits<{ scan: [tagCode: string] }>()
 
 const cameraState = ref<CameraState>('idle')
@@ -80,24 +95,18 @@ defineExpose({ retry: startCamera })
       <span class="scan-target__corner scan-target__corner--tr"></span>
       <span class="scan-target__corner scan-target__corner--bl"></span>
       <span class="scan-target__corner scan-target__corner--br"></span>
-      <span v-if="cameraState === 'active'" class="scan-target__hint">
-        <slot name="hint">Namierte na štítok</slot>
-      </span>
+      <span v-if="cameraState === 'active'" class="scan-target__hint">{{ hintText }}</span>
     </div>
-    <p v-else-if="cameraState === 'denied'" role="alert">
-      <slot name="denied">Prístup ku kamere nie je možný. Zadajte kód štítku ručne.</slot>
-    </p>
-    <p v-else-if="cameraState === 'unsupported'">
-      <slot name="unsupported">Tento prehliadač nepodporuje skenovanie kamerou. Zadajte kód štítku ručne.</slot>
-    </p>
+    <p v-else-if="cameraState === 'denied'" role="alert">{{ deniedText }}</p>
+    <p v-else-if="cameraState === 'unsupported'">{{ unsupportedText }}</p>
 
     <form class="scan-target__manual" @submit.prevent="submitManual">
       <label>
-        <slot name="manual-label">Kód štítku (ručne)</slot>
+        {{ manualLabel }}
         <input v-model="manualCode" type="text" autocomplete="off" />
       </label>
-      <AppButton type="submit" variant="secondary" size="counter">
-        <slot name="manual-action">Potvrdiť</slot>
+      <AppButton type="submit" variant="secondary" size="counter" :pending="pending">
+        {{ pending ? scanningLabel : manualAction }}
       </AppButton>
     </form>
   </div>

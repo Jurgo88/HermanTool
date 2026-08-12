@@ -114,21 +114,20 @@ await loadWorklist()
 // Global scan (handover_in / asset_lookup — handover_out needs a
 // worklist row's reservation+customer context first, see below).
 // ---------------------------------------------------------------------
-const scanTagCode = ref('')
 const scanning = ref(false)
 const lookupResult = ref<ScanResolutionView | null>(null)
 
-async function submitScan() {
+async function submitScan(tagCode: string) {
   errorCode.value = null
   info.value = null
   scanning.value = true
   try {
     const result = await $fetch<ScanResolutionView>('/api/handover/scan', {
       method: 'POST',
-      body: { tagCode: scanTagCode.value },
+      body: { tagCode },
     })
     if (result.kind === 'handover_in') {
-      startHandoverIn(scanTagCode.value)
+      startHandoverIn(tagCode)
     } else {
       lookupResult.value = result
       panel.value = 'lookup'
@@ -144,7 +143,6 @@ function resetToWorklist() {
   panel.value = 'none'
   errorCode.value = null
   info.value = null
-  scanTagCode.value = ''
   lookupResult.value = null
 }
 
@@ -162,6 +160,12 @@ const outTagCode = ref('')
 const outPin = ref('')
 const outPhotos = ref<File[]>([])
 const submittingHandoverOut = ref(false)
+
+const handoverOutBackGuard = computed(() =>
+  uploadingEvidence.value || outPhotos.value.length > 0
+    ? 'Rozrobené vydanie náradia sa stratí. Naozaj chcete odísť?'
+    : null,
+)
 
 async function startHandoverOut(pickup: TodaysPickupView) {
   errorCode.value = null
@@ -297,6 +301,10 @@ const inTagCode = ref('')
 const inPin = ref('')
 const inPhotos = ref<File[]>([])
 const submittingHandoverIn = ref(false)
+
+const handoverInBackGuard = computed(() =>
+  inPhotos.value.length > 0 ? 'Rozrobené vrátenie náradia sa stratí. Naozaj chcete odísť?' : null,
+)
 const settlingAgreementId = ref<number | null>(null)
 
 function startHandoverIn(tagCode: string) {
@@ -385,21 +393,22 @@ async function submitSettlement() {
     <section v-if="panel === 'none'">
       <section>
         <h2>{{ sk.adminCounter.scanHeading }}</h2>
-        <form @submit.prevent="submitScan">
-          <label>
-            {{ sk.adminCounter.scanLabel }}
-            <input v-model="scanTagCode" type="text" required autofocus />
-          </label>
-          <button type="submit" :disabled="scanning">
-            {{ scanning ? sk.adminCounter.scanning : sk.adminCounter.scanAction }}
-          </button>
-        </form>
+        <ScanTarget
+          :hint-text="sk.adminCounter.scanHint"
+          :denied-text="sk.adminCounter.scanCameraDenied"
+          :unsupported-text="sk.adminCounter.scanCameraUnsupported"
+          :manual-label="sk.adminCounter.scanLabel"
+          :manual-action="sk.adminCounter.scanAction"
+          :scanning-label="sk.adminCounter.scanning"
+          :pending="scanning"
+          @scan="submitScan"
+        />
       </section>
 
       <section>
         <h2>{{ sk.adminCounter.pickupsHeading }}</h2>
-        <p v-if="pickups.length === 0">{{ sk.adminCounter.noPickups }}</p>
-        <table v-else>
+        <EmptyState v-if="pickups.length === 0" :message="sk.adminCounter.noPickups" />
+        <AppTable v-else>
           <thead>
             <tr>
               <th>{{ sk.adminCounter.columnCustomer }}</th>
@@ -412,19 +421,19 @@ async function submitSettlement() {
               <td>{{ pickup.customerName }}</td>
               <td>{{ pickup.assetTypeName }}</td>
               <td>
-                <button type="button" @click="startHandoverOut(pickup)">
+                <AppButton variant="secondary" @click="startHandoverOut(pickup)">
                   {{ sk.adminCounter.handoverOutAction }}
-                </button>
+                </AppButton>
               </td>
             </tr>
           </tbody>
-        </table>
+        </AppTable>
       </section>
 
       <section>
         <h2>{{ sk.adminCounter.returnsHeading }}</h2>
-        <p v-if="returns.length === 0">{{ sk.adminCounter.noReturns }}</p>
-        <table v-else>
+        <EmptyState v-if="returns.length === 0" :message="sk.adminCounter.noReturns" />
+        <AppTable v-else>
           <thead>
             <tr>
               <th>{{ sk.adminCounter.columnCustomer }}</th>
@@ -437,20 +446,23 @@ async function submitSettlement() {
               <td>{{ ret.assetTypeName }}</td>
             </tr>
           </tbody>
-        </table>
+        </AppTable>
       </section>
     </section>
 
     <section v-else-if="panel === 'lookup'">
+      <StepHeader :title="sk.adminCounter.lookupHeading" @back="resetToWorklist" />
       <p v-if="lookupResult">
         {{ sk.adminCounter.assetLookupResult.replace('{assetId}', String(lookupResult.asset.id)).replace('{status}', lookupResult.asset.status) }}
       </p>
-      <button type="button" @click="resetToWorklist">{{ sk.adminCounter.backAction }}</button>
     </section>
 
     <section v-else-if="panel === 'handoverOut' && activePickup">
-      <h2>{{ sk.adminCounter.handoverOutHeading.replace('{customerName}', activePickup.customerName) }}</h2>
-      <button type="button" @click="resetToWorklist">{{ sk.adminCounter.backAction }}</button>
+      <StepHeader
+        :title="sk.adminCounter.handoverOutHeading.replace('{customerName}', activePickup.customerName)"
+        :guard-message="handoverOutBackGuard"
+        @back="resetToWorklist"
+      />
 
       <section v-if="!verificationDone">
         <h3>{{ sk.adminCounter.identityVerificationHeading }}</h3>
@@ -504,8 +516,7 @@ async function submitSettlement() {
     </section>
 
     <section v-else-if="panel === 'handoverIn'">
-      <h2>{{ sk.adminCounter.handoverInHeading }}</h2>
-      <button type="button" @click="resetToWorklist">{{ sk.adminCounter.backAction }}</button>
+      <StepHeader :title="sk.adminCounter.handoverInHeading" :guard-message="handoverInBackGuard" @back="resetToWorklist" />
       <form @submit.prevent="submitHandoverIn">
         <label>
           {{ sk.adminCounter.tagCodeLabel }}
@@ -526,7 +537,7 @@ async function submitSettlement() {
     </section>
 
     <section v-else-if="panel === 'settlement'">
-      <h2>{{ sk.adminCounter.settlementHeading }}</h2>
+      <StepHeader :title="sk.adminCounter.settlementHeading" :show-back="false" />
       <form @submit.prevent="submitSettlement">
         <label>
           {{ sk.adminCounter.returnedAmountLabel }}
