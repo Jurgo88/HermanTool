@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// D-23, FR-39, W3; issue #31 (backend) / #80 IR-12 (this page). The
+// D-23, FR-39, W3, S-06; issue #31 (backend) / #80 IR-12 (this page). The
 // Customer's self-service surface reached via the tokenised link emailed
 // at ReservationConfirmed (server/api/webhooks/stripe.post.ts). Exactly
 // the two capabilities the token grants, both already built server-side:
@@ -29,6 +29,13 @@ interface ReservationView {
 interface AssetTypeOption {
   id: number
   name: string
+}
+
+const STATE_TONES = ['pending', 'confirmed', 'cancelled', 'expired'] as const
+type StateTone = (typeof STATE_TONES)[number]
+
+function stateTone(state: string): StateTone | 'neutral' {
+  return (STATE_TONES as readonly string[]).includes(state) ? (state as StateTone) : 'neutral'
 }
 
 const route = useRoute()
@@ -109,44 +116,89 @@ await load()
 </script>
 
 <template>
-  <main>
+  <main class="customer-access">
     <h1>{{ sk.customerAccess.title }}</h1>
 
     <p v-if="loadState === 'loading'">{{ sk.customerAccess.loading }}</p>
-    <p v-else-if="loadState === 'not_found'">{{ sk.customerAccess.linkNotFound }}</p>
-    <p v-else-if="loadState === 'error'">{{ sk.customerAccess.loadError }}</p>
+    <AppAlert v-else-if="loadState === 'not_found'" :message="sk.customerAccess.linkNotFound" />
+    <AppAlert v-else-if="loadState === 'error'" :message="sk.customerAccess.loadError" />
 
     <template v-else-if="loadState === 'loaded'">
       <p>{{ sk.customerAccess.greeting.replace('{name}', customerName) }}</p>
 
-      <section>
+      <section class="customer-access__section">
         <h2>{{ sk.customerAccess.reservationsHeading }}</h2>
-        <ul>
+        <ul class="customer-access__reservations">
           <li v-for="reservation in reservations" :key="reservation.id">
-            {{ assetTypeName(reservation.assetTypeId) }}: {{ reservation.period.startDay }} – {{ reservation.period.endDay }}
-            ({{ sk.customerAccess.stateLabels[reservation.state as keyof typeof sk.customerAccess.stateLabels] ?? reservation.state }})
+            <span>{{ assetTypeName(reservation.assetTypeId) }}</span>
+            <DayRange :start-day="reservation.period.startDay" :end-day="reservation.period.endDay" />
+            <StateChip :tone="stateTone(reservation.state)" :label="sk.customerAccess.stateLabels[reservation.state as keyof typeof sk.customerAccess.stateLabels] ?? reservation.state" />
           </li>
         </ul>
       </section>
 
-      <section>
+      <section class="customer-access__section">
         <h2>{{ sk.customerAccess.uploadHeading }}</h2>
         <p>{{ sk.customerAccess.uploadIntro }}</p>
+        <p class="customer-access__why">{{ sk.customerAccess.uploadWhySentence }}</p>
 
         <template v-if="uploadState !== 'done'">
-          <label>
-            {{ sk.customerAccess.fileLabel }}
-            <input type="file" accept="image/*" @change="onFileChange" />
-          </label>
-          <p>
-            <button type="button" :disabled="!uploadFile || uploadState === 'uploading' || uploadState === 'confirming'" @click="submitIdentityEvidence">
-              {{ uploadState === 'uploading' || uploadState === 'confirming' ? sk.customerAccess.uploading : sk.customerAccess.uploadAction }}
-            </button>
-          </p>
-          <p v-if="uploadError" role="alert">{{ uploadError }}</p>
+          <AppField :label="sk.customerAccess.fileLabel">
+            <template #default="slotProps">
+              <input :id="slotProps.id" type="file" accept="image/*" @change="onFileChange" />
+            </template>
+          </AppField>
+          <AppButton
+            variant="primary"
+            :disabled="!uploadFile"
+            :pending="uploadState === 'uploading' || uploadState === 'confirming'"
+            @click="submitIdentityEvidence"
+          >
+            {{ uploadState === 'uploading' || uploadState === 'confirming' ? sk.customerAccess.uploading : sk.customerAccess.uploadAction }}
+          </AppButton>
+          <AppAlert :message="uploadError" />
         </template>
         <p v-else>{{ sk.customerAccess.uploadDone }}</p>
       </section>
     </template>
   </main>
 </template>
+
+<style scoped>
+.customer-access {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--ht-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-5);
+}
+
+.customer-access__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-3);
+}
+
+.customer-access__reservations {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+}
+
+.customer-access__reservations li {
+  display: flex;
+  align-items: center;
+  gap: var(--ht-space-3);
+  padding: var(--ht-space-2) 0;
+  border-bottom: 1px solid var(--ht-line);
+}
+
+.customer-access__why {
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-2);
+}
+</style>

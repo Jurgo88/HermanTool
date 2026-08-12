@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Public catalog browse (FR-02, FR-03, D-08, D-38, W1, P2 §7; issue
-// #76/IR-08). No login, no cookie, no tracking — a Visitor is
+// #76/IR-08, S-01). No login, no cookie, no tracking — a Visitor is
 // deliberately not a tracked identity. Fetches /api/public/asset-types
 // (unauthenticated, published AssetTypes only) and, per selected date
 // range, /api/public/asset-types/:id/availability — also unauthenticated,
@@ -10,9 +10,15 @@
 // selected range, not any single day's number — booking the whole range
 // requires every day in it to have at least one unit free, so the
 // minimum is the number that actually answers "can I book this."
+//
+// UIF-04: one availability request per AssetType per date change, not
+// batched. Left as-is deliberately for the pilot's own catalog size
+// (~200 Assets across a handful of AssetTypes, NFR-04) — a batched
+// endpoint is a real server-side addition, not a restyle, and the
+// current fan-out has not shown up as a problem at this scale.
 import { sk } from '~/i18n/sk'
 import type { DraftReservationLine } from '~/composables/useReservationDraft'
-import { formatDayRange, formatMoney } from '~/utils/format'
+import { todayInBratislava } from '~/utils/format'
 
 definePageMeta({ layout: 'public' })
 
@@ -32,17 +38,15 @@ interface AvailabilityState {
 const { lines: draftLines, addLine, removeLine } = useReservationDraft()
 const quantityInputs = reactive<Record<number, string>>({})
 
-function toIsoDay(date: Date): string {
-  return date.toISOString().slice(0, 10)
-}
-
 function addDays(iso: string, days: number): string {
   const date = new Date(`${iso}T00:00:00.000Z`)
   date.setUTCDate(date.getUTCDate() + days)
-  return toIsoDay(date)
+  return date.toISOString().slice(0, 10)
 }
 
-const startDay = ref(toIsoDay(new Date()))
+// UIF-01: was `new Date().toISOString()` (UTC) — silently defaulted to
+// yesterday's inventory between 00:00 and ~02:00 Bratislava time.
+const startDay = ref(todayInBratislava())
 const endDay = ref(addDays(startDay.value, 2))
 
 const { data: assetTypes } = await useFetch<AssetTypeView[]>('/api/public/asset-types')
@@ -88,84 +92,163 @@ function addToReservation(assetType: AssetTypeView) {
   quantityInputs[assetType.id] = '1'
 }
 
-function draftLineTotal(line: DraftReservationLine): string {
-  return formatMoney({ amount: line.dayRate.amount * line.quantity, currency: line.dayRate.currency })
+function draftLineTotal(line: DraftReservationLine): { amount: number; currency: string } {
+  return { amount: line.dayRate.amount * line.quantity, currency: line.dayRate.currency }
 }
 </script>
 
 <template>
-  <main>
+  <main class="catalog">
     <h1>{{ sk.publicCatalog.title }}</h1>
 
-    <form @submit.prevent>
-      <label>
-        {{ sk.publicCatalog.fromLabel }}
-        <input v-model="startDay" type="date" />
-      </label>
-      <label>
-        {{ sk.publicCatalog.toLabel }}
-        <input v-model="endDay" type="date" :min="startDay" />
-      </label>
+    <form class="catalog__range" @submit.prevent>
+      <AppField :label="sk.publicCatalog.fromLabel">
+        <template #default="slotProps">
+          <input :id="slotProps.id" v-model="startDay" type="date" />
+        </template>
+      </AppField>
+      <AppField :label="sk.publicCatalog.toLabel">
+        <template #default="slotProps">
+          <input :id="slotProps.id" v-model="endDay" type="date" :min="startDay" />
+        </template>
+      </AppField>
     </form>
 
-    <ul>
-      <li v-for="assetType in assetTypes" :key="assetType.id">
+    <EmptyState v-if="assetTypes && assetTypes.length === 0" :message="sk.publicCatalog.empty" />
+
+    <div class="catalog__grid">
+      <article v-for="assetType in assetTypes" :key="assetType.id" class="catalog__card">
         <h2>{{ assetType.name }}</h2>
-        <p>{{ assetType.description }}</p>
-        <p>
-          {{ formatMoney(assetType.dayRate) }} {{ sk.publicCatalog.dayRateSuffix }}
-          {{ formatMoney(assetType.depositAmount) }}
-        </p>
+        <p class="catalog__description">{{ assetType.description }}</p>
+
+        <div class="catalog__prices">
+          <div>
+            <span class="catalog__price-label">{{ sk.publicCatalog.dayRateLabel }}</span>
+            <MoneyAmount :amount="assetType.dayRate" />
+          </div>
+          <div>
+            <span class="catalog__price-label">{{ sk.publicCatalog.depositLabel }}</span>
+            <MoneyAmount :amount="assetType.depositAmount" />
+          </div>
+        </div>
+
         <p v-if="availability[assetType.id]?.status === 'loading'">{{ sk.publicCatalog.availabilityLoading }}</p>
-        <p v-else-if="availability[assetType.id]?.status === 'error'">{{ sk.publicCatalog.availabilityError }}</p>
+        <AppAlert v-else-if="availability[assetType.id]?.status === 'error'" :message="sk.publicCatalog.availabilityError" />
         <p v-else-if="availability[assetType.id]?.minAvailable === 0">{{ sk.publicCatalog.availabilityNone }}</p>
         <p v-else-if="availability[assetType.id]?.minAvailable != null">
           {{ sk.publicCatalog.availabilityAvailable.replace('{count}', String(availability[assetType.id]?.minAvailable)) }}
         </p>
-        <p v-if="(availability[assetType.id]?.minAvailable ?? 0) > 0">
-          <label>
-            {{ sk.publicCatalog.quantityLabel }}
-            <input
-              v-model="quantityInputs[assetType.id]"
-              type="number"
-              min="1"
-              :max="availability[assetType.id]?.minAvailable"
-              step="1"
-            />
-          </label>
-          <button type="button" @click="addToReservation(assetType)">{{ sk.publicCatalog.addToReservationAction }}</button>
-        </p>
-      </li>
-    </ul>
-    <p v-if="assetTypes && assetTypes.length === 0">{{ sk.publicCatalog.empty }}</p>
 
-    <section v-if="draftLines.length > 0">
+        <div v-if="(availability[assetType.id]?.minAvailable ?? 0) > 0" class="catalog__add">
+          <AppField :label="sk.publicCatalog.quantityLabel">
+            <template #default="slotProps">
+              <input
+                :id="slotProps.id"
+                v-model="quantityInputs[assetType.id]"
+                type="number"
+                min="1"
+                :max="availability[assetType.id]?.minAvailable"
+                step="1"
+              />
+            </template>
+          </AppField>
+          <AppButton variant="primary" @click="addToReservation(assetType)">
+            {{ sk.publicCatalog.addToReservationAction }}
+          </AppButton>
+        </div>
+      </article>
+    </div>
+
+    <section v-if="draftLines.length > 0" class="catalog__draft">
       <h2>{{ sk.publicCatalog.draftHeading }}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>{{ sk.publicCatalog.columnAssetType }}</th>
-            <th>{{ sk.publicCatalog.columnPeriod }}</th>
-            <th>{{ sk.publicCatalog.columnQuantity }}</th>
-            <th>{{ sk.publicCatalog.columnLineTotal }}</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(line, index) in draftLines" :key="`${line.assetTypeId}-${line.period.startDay}-${line.period.endDay}`">
-            <td>{{ line.assetTypeName }}</td>
-            <td>{{ formatDayRange(line.period.startDay, line.period.endDay) }}</td>
-            <td>{{ line.quantity }}</td>
-            <td>{{ draftLineTotal(line) }}</td>
-            <td>
-              <button type="button" @click="removeLine(index)">{{ sk.publicCatalog.removeLineAction }}</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <ul class="catalog__draft-list">
+        <li v-for="(line, index) in draftLines" :key="`${line.assetTypeId}-${line.period.startDay}-${line.period.endDay}`">
+          <span>{{ line.assetTypeName }} × {{ line.quantity }}</span>
+          <DayRange :start-day="line.period.startDay" :end-day="line.period.endDay" />
+          <MoneyAmount :amount="draftLineTotal(line)" />
+          <AppButton variant="quiet" @click="removeLine(index)">{{ sk.publicCatalog.removeLineAction }}</AppButton>
+        </li>
+      </ul>
       <p>
-        <NuxtLink to="/checkout">{{ sk.publicCatalog.proceedToCheckoutAction }}</NuxtLink>
+        <NuxtLink to="/checkout">
+          <AppButton variant="primary">{{ sk.publicCatalog.proceedToCheckoutAction }}</AppButton>
+        </NuxtLink>
       </p>
     </section>
   </main>
 </template>
+
+<style scoped>
+.catalog {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--ht-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-5);
+}
+
+.catalog__range {
+  display: flex;
+  gap: var(--ht-space-4);
+}
+
+.catalog__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--ht-space-4);
+}
+
+.catalog__card {
+  background: var(--ht-surface);
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  padding: var(--ht-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+}
+
+.catalog__description {
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-2);
+}
+
+.catalog__prices {
+  display: flex;
+  gap: var(--ht-space-5);
+}
+
+.catalog__price-label {
+  display: block;
+  font-family: var(--ht-font-condensed);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--ht-text-1);
+  color: var(--ht-ink-muted);
+}
+
+.catalog__add {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ht-space-3);
+  margin-top: var(--ht-space-2);
+}
+
+.catalog__draft-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+}
+
+.catalog__draft-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--ht-space-4);
+  padding: var(--ht-space-2) 0;
+  border-bottom: 1px solid var(--ht-line);
+}
+</style>
