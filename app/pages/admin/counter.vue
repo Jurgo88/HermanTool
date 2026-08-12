@@ -157,9 +157,9 @@ const uploadingEvidence = ref(false)
 const rejectionReason = ref('')
 
 const outTagCode = ref('')
-const outPin = ref('')
 const outPhotos = ref<File[]>([])
 const submittingHandoverOut = ref(false)
+const showOutPinPrompt = ref(false)
 
 const handoverOutBackGuard = computed(() =>
   uploadingEvidence.value || outPhotos.value.length > 0
@@ -174,7 +174,6 @@ async function startHandoverOut(pickup: TodaysPickupView) {
   verificationDone.value = false
   evidenceFile.value = null
   outTagCode.value = ''
-  outPin.value = ''
   outPhotos.value = []
   panel.value = 'handoverOut'
 
@@ -257,7 +256,7 @@ function onOutPhotosChange(event: Event) {
   outPhotos.value = files ? Array.from(files) : []
 }
 
-async function submitHandoverOut() {
+async function confirmHandoverOut(pin: string) {
   if (!activePickup.value) return
   errorCode.value = null
   submittingHandoverOut.value = true
@@ -274,7 +273,7 @@ async function submitHandoverOut() {
         reservationId: pickup.reservation.id,
         customerId: pickup.customerId,
         conditionPhotoContentTypes: outPhotos.value.map((f) => f.type),
-        pin: outPin.value,
+        pin,
       },
     })
 
@@ -291,6 +290,7 @@ async function submitHandoverOut() {
     await handleFetchError(err)
   } finally {
     submittingHandoverOut.value = false
+    showOutPinPrompt.value = false
   }
 }
 
@@ -298,9 +298,9 @@ async function submitHandoverOut() {
 // HandoverIn (W5) then Settlement
 // ---------------------------------------------------------------------
 const inTagCode = ref('')
-const inPin = ref('')
 const inPhotos = ref<File[]>([])
 const submittingHandoverIn = ref(false)
+const showInPinPrompt = ref(false)
 
 const handoverInBackGuard = computed(() =>
   inPhotos.value.length > 0 ? 'Rozrobené vrátenie náradia sa stratí. Naozaj chcete odísť?' : null,
@@ -311,7 +311,6 @@ function startHandoverIn(tagCode: string) {
   errorCode.value = null
   info.value = null
   inTagCode.value = tagCode
-  inPin.value = ''
   inPhotos.value = []
   panel.value = 'handoverIn'
 }
@@ -321,7 +320,7 @@ function onInPhotosChange(event: Event) {
   inPhotos.value = files ? Array.from(files) : []
 }
 
-async function submitHandoverIn() {
+async function confirmHandoverIn(pin: string) {
   errorCode.value = null
   submittingHandoverIn.value = true
   try {
@@ -334,7 +333,7 @@ async function submitHandoverIn() {
       body: {
         tagCode: inTagCode.value,
         conditionPhotoContentTypes: inPhotos.value.map((f) => f.type),
-        pin: inPin.value,
+        pin,
       },
     })
 
@@ -348,15 +347,16 @@ async function submitHandoverIn() {
     await handleFetchError(err)
   } finally {
     submittingHandoverIn.value = false
+    showInPinPrompt.value = false
   }
 }
 
 const returnedAmountEuros = ref('')
 const deductionReason = ref('')
-const settlingPin = ref('')
 const submittingSettlement = ref(false)
+const showSettlementPinPrompt = ref(false)
 
-async function submitSettlement() {
+async function confirmSettlement(pin: string) {
   if (!settlingAgreementId.value) return
   errorCode.value = null
   submittingSettlement.value = true
@@ -366,7 +366,7 @@ async function submitSettlement() {
       body: {
         returnedAmount: { amount: Math.round(Number(returnedAmountEuros.value) * 100), currency: 'EUR' },
         deductionReason: deductionReason.value || undefined,
-        pin: settlingPin.value,
+        pin,
       },
     })
     info.value = sk.adminCounter.settlementSuccess
@@ -374,12 +374,12 @@ async function submitSettlement() {
     settlingAgreementId.value = null
     returnedAmountEuros.value = ''
     deductionReason.value = ''
-    settlingPin.value = ''
     await loadWorklist()
   } catch (err: unknown) {
     await handleFetchError(err)
   } finally {
     submittingSettlement.value = false
+    showSettlementPinPrompt.value = false
   }
 }
 </script>
@@ -495,7 +495,7 @@ async function submitSettlement() {
         </button>
       </section>
 
-      <form v-else @submit.prevent="submitHandoverOut">
+      <form v-else @submit.prevent="showOutPinPrompt = true">
         <p>{{ sk.adminCounter.depositLabel.replace('{amount}', depositFor(activePickup.reservation.assetTypeId)) }}</p>
         <label>
           {{ sk.adminCounter.tagCodeLabel }}
@@ -505,19 +505,20 @@ async function submitSettlement() {
           {{ sk.adminCounter.conditionPhotosLabel }}
           <input type="file" accept="image/*" capture="environment" multiple required @change="onOutPhotosChange" />
         </label>
-        <label>
-          {{ sk.adminCounter.pinLabel }}
-          <input v-model="outPin" type="password" inputmode="numeric" required />
-        </label>
-        <button type="submit" :disabled="submittingHandoverOut">
-          {{ submittingHandoverOut ? sk.adminCounter.submittingHandoverOut : sk.adminCounter.submitHandoverOutAction }}
-        </button>
+        <AppButton type="submit" size="counter">{{ sk.adminCounter.submitHandoverOutAction }}</AppButton>
       </form>
+      <PinPrompt
+        :open="showOutPinPrompt"
+        :pending="submittingHandoverOut"
+        :pending-label="sk.adminCounter.submittingHandoverOut"
+        @confirm="confirmHandoverOut"
+        @close="showOutPinPrompt = false"
+      />
     </section>
 
     <section v-else-if="panel === 'handoverIn'">
       <StepHeader :title="sk.adminCounter.handoverInHeading" :guard-message="handoverInBackGuard" @back="resetToWorklist" />
-      <form @submit.prevent="submitHandoverIn">
+      <form @submit.prevent="showInPinPrompt = true">
         <label>
           {{ sk.adminCounter.tagCodeLabel }}
           <input v-model="inTagCode" type="text" readonly />
@@ -526,19 +527,20 @@ async function submitSettlement() {
           {{ sk.adminCounter.conditionPhotosInLabel }}
           <input type="file" accept="image/*" capture="environment" multiple required @change="onInPhotosChange" />
         </label>
-        <label>
-          {{ sk.adminCounter.pinLabel }}
-          <input v-model="inPin" type="password" inputmode="numeric" required />
-        </label>
-        <button type="submit" :disabled="submittingHandoverIn">
-          {{ submittingHandoverIn ? sk.adminCounter.submittingHandoverIn : sk.adminCounter.submitHandoverInAction }}
-        </button>
+        <AppButton type="submit" size="counter">{{ sk.adminCounter.submitHandoverInAction }}</AppButton>
       </form>
+      <PinPrompt
+        :open="showInPinPrompt"
+        :pending="submittingHandoverIn"
+        :pending-label="sk.adminCounter.submittingHandoverIn"
+        @confirm="confirmHandoverIn"
+        @close="showInPinPrompt = false"
+      />
     </section>
 
     <section v-else-if="panel === 'settlement'">
       <StepHeader :title="sk.adminCounter.settlementHeading" :show-back="false" />
-      <form @submit.prevent="submitSettlement">
+      <form @submit.prevent="showSettlementPinPrompt = true">
         <label>
           {{ sk.adminCounter.returnedAmountLabel }}
           <input v-model="returnedAmountEuros" type="number" min="0" step="0.01" required />
@@ -547,14 +549,15 @@ async function submitSettlement() {
           {{ sk.adminCounter.deductionReasonLabel }}
           <input v-model="deductionReason" type="text" />
         </label>
-        <label>
-          {{ sk.adminCounter.pinLabel }}
-          <input v-model="settlingPin" type="password" inputmode="numeric" required />
-        </label>
-        <button type="submit" :disabled="submittingSettlement">
-          {{ submittingSettlement ? sk.adminCounter.submittingSettlement : sk.adminCounter.submitSettlementAction }}
-        </button>
+        <AppButton type="submit" size="counter">{{ sk.adminCounter.submitSettlementAction }}</AppButton>
       </form>
+      <PinPrompt
+        :open="showSettlementPinPrompt"
+        :pending="submittingSettlement"
+        :pending-label="sk.adminCounter.submittingSettlement"
+        @confirm="confirmSettlement"
+        @close="showSettlementPinPrompt = false"
+      />
     </section>
   </main>
 </template>

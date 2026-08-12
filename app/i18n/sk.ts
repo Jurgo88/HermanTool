@@ -248,6 +248,7 @@ export const sk = {
     tagCodeLabel: 'Kód štítku (naskenovať)',
     conditionPhotosLabel: 'Fotografie stavu pri odovzdaní',
     pinLabel: 'PIN operátora',
+    pinConfirmAction: 'Potvrdiť',
     submitHandoverOutAction: 'Potvrdiť vydanie',
     submittingHandoverOut: 'Vydávam…',
     handoverOutSuccess: 'Náradie vydané. RentalAgreement #{id}.',
