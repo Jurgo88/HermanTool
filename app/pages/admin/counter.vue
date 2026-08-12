@@ -15,7 +15,7 @@
 import { sk } from '~/i18n/sk'
 import type { PhotoState } from '~/components/PhotoCapture.vue'
 import { getErrorCode } from '~/utils/error-code'
-import { formatMoney } from '~/utils/format'
+import { formatDayRange, formatMoney } from '~/utils/format'
 
 definePageMeta({ layout: 'counter' })
 
@@ -30,6 +30,7 @@ const photoStateLabels: Record<PhotoState, string> = {
 interface ReservationView {
   id: number
   assetTypeId: number
+  period: { startDay: string; endDay: string }
 }
 
 interface TodaysPickupView {
@@ -526,45 +527,33 @@ async function confirmSettlement(pin: string) {
       <section>
         <h2>{{ sk.adminCounter.pickupsHeading }}</h2>
         <EmptyState v-if="pickups.length === 0" :message="sk.adminCounter.noPickups" />
-        <AppTable v-else>
-          <thead>
-            <tr>
-              <th>{{ sk.adminCounter.columnCustomer }}</th>
-              <th>{{ sk.adminCounter.columnAssetType }}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="pickup in pickups" :key="pickup.reservation.id">
-              <td>{{ pickup.customerName }}</td>
-              <td>{{ pickup.assetTypeName }}</td>
-              <td>
-                <AppButton variant="secondary" @click="startHandoverOut(pickup)">
-                  {{ sk.adminCounter.handoverOutAction }}
-                </AppButton>
-              </td>
-            </tr>
-          </tbody>
-        </AppTable>
+        <TwoClockRow
+          v-for="pickup in pickups"
+          :key="pickup.reservation.id"
+          :title="`${pickup.customerName} — ${pickup.assetTypeName}`"
+          :expected-label="sk.adminCounter.expectedLabel"
+          :expected-value="formatDayRange(pickup.reservation.period.startDay, pickup.reservation.period.endDay)"
+          :actual-label="sk.adminCounter.actualLabelPickup"
+          :actual-value="sk.adminCounter.actualValueNotPickedUp"
+        >
+          <AppButton variant="secondary" @click="startHandoverOut(pickup)">
+            {{ sk.adminCounter.handoverOutAction }}
+          </AppButton>
+        </TwoClockRow>
       </section>
 
       <section>
         <h2>{{ sk.adminCounter.returnsHeading }}</h2>
         <EmptyState v-if="returns.length === 0" :message="sk.adminCounter.noReturns" />
-        <AppTable v-else>
-          <thead>
-            <tr>
-              <th>{{ sk.adminCounter.columnCustomer }}</th>
-              <th>{{ sk.adminCounter.columnAssetType }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="ret in returns" :key="ret.reservation.id">
-              <td>{{ ret.customerName }}</td>
-              <td>{{ ret.assetTypeName }}</td>
-            </tr>
-          </tbody>
-        </AppTable>
+        <TwoClockRow
+          v-for="ret in returns"
+          :key="ret.reservation.id"
+          :title="`${ret.customerName} — ${ret.assetTypeName}`"
+          :expected-label="sk.adminCounter.expectedLabel"
+          :expected-value="formatDayRange(ret.reservation.period.startDay, ret.reservation.period.endDay)"
+          :actual-label="sk.adminCounter.actualLabelReturn"
+          :actual-value="sk.adminCounter.actualValueWithCustomer"
+        />
       </section>
     </section>
 
