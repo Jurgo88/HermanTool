@@ -7,7 +7,11 @@
   login (S-18). theme-color (WP-6.1, §9) matches this surface's light
   --ht-paper. -->
 <script setup lang="ts">
-useHead({ meta: [{ name: 'theme-color', content: '#f4f6f5' }] })
+// Admin belongs to the Operator's application (NFR-12) — installing from here
+// should land on the counter (S-08), not in the Visitor's catalogue — but it
+// is a light surface, so it paints the public chrome. The second argument is
+// exactly that split.
+usePwaHead('operator', 'public')
 </script>
 
 <template>

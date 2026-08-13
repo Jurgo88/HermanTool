@@ -7,7 +7,9 @@
   it renders inside. theme-color (WP-6.1, §9) matches this surface's own
   dark --ht-paper, not the light default the other two layouts set. -->
 <script setup lang="ts">
-useHead({ meta: [{ name: 'theme-color', content: '#0f1418' }] })
+// The Operator's installable application (NFR-12). This is the surface the
+// counter phone installs, and the only one whose chrome is dark.
+usePwaHead('operator')
 </script>
 
 <template>

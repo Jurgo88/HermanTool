@@ -7,7 +7,8 @@
 <script setup lang="ts">
 import { sk } from '~/i18n/sk'
 
-useHead({ meta: [{ name: 'theme-color', content: '#f4f6f5' }] })
+// The Visitor's installable application (NFR-12), light chrome.
+usePwaHead('public')
 </script>
 
 <template>

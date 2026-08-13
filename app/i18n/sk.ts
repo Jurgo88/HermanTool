@@ -9,6 +9,20 @@ export const sk = {
     somethingWentWrong: 'Niečo sa pokazilo.',
     backAction: 'Späť',
   },
+  // NFR-12: the installed application's own labels. Read by the manifest
+  // routes (server/routes/*.webmanifest.get.ts) rather than by a component,
+  // but still user-facing — `name` is what a phone prints under the
+  // home-screen icon — so D-20 applies and they live here like every other
+  // string. `shortName` is what a home screen actually shows; keep it short
+  // enough not to be truncated.
+  pwa: {
+    publicName: 'HermanTool — požičovňa náradia',
+    publicShortName: 'HermanTool',
+    publicDescription: 'Rezervácia náradia a strojov online.',
+    operatorName: 'HermanTool — pult',
+    operatorShortName: 'Pult',
+    operatorDescription: 'Výdaj, príjem a evidencia náradia na pulte.',
+  },
   // D-52 (UI-D-10): legally blocked copy — OQ #1 (cancellation, terms and
   // pre-contractual information), FR-38/D-42/IR-13 (privacy text) — lives
   // in this namespace specifically, wrapped in <DraftNotice> wherever it
