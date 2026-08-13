@@ -4,7 +4,12 @@
   assumes an authenticated Operator to name. theme-color (WP-6.1, §9)
   matches the light --ht-paper the eventual admin surface uses too. -->
 <script setup lang="ts">
-useHead({ meta: [{ name: 'theme-color', content: '#f4f6f5' }] })
+// Same split as admin.vue (NFR-12): login is the Operator application's entry
+// point, so it must offer that manifest and not the Visitor's, but it is a
+// light surface. It matters here specifically — an installed counter whose
+// session expired relaunches into this screen, and a manifest mismatch at
+// that moment is what makes a phone treat it as a different application.
+usePwaHead('operator', 'public')
 </script>
 
 <template>
