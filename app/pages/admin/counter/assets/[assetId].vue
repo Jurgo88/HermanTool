@@ -268,6 +268,8 @@ async function confirmLateAttestation(pin: string) {
           :label="sk.assetHistory.conditionPhotosLabel"
           :add-label="sk.assetHistory.conditionPhotosAddAction"
           :state-labels="photoStateLabels"
+          :retry-label="sk.adminCounter.retryPhotoAction"
+          :remove-label="sk.adminCounter.removePhotoAction"
           @retry="retryLatePhoto"
         />
         <AppButton type="submit" size="counter" :disabled="latePhotos.length === 0">

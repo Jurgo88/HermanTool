@@ -2,9 +2,12 @@
   Customer surface: light, calm, honest about money. No chrome beyond the
   page itself — S-01/S-03/S-06/S-07 each own their own header. The footer
   is the one shared element: S-07's legal pages must be reachable from
-  everywhere on this surface, not just from checkout. -->
+  everywhere on this surface, not just from checkout. theme-color
+  (WP-6.1, §9) matches this surface's light --ht-paper. -->
 <script setup lang="ts">
 import { sk } from '~/i18n/sk'
+
+useHead({ meta: [{ name: 'theme-color', content: '#f4f6f5' }] })
 </script>
 
 <template>

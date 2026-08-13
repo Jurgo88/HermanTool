@@ -3,6 +3,23 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-07-21',
   modules: ['@nuxt/eslint', '@sentry/nuxt/module'],
 
+  // WP-6.1 (NFR-12; docs/design/interface-design-foundation.md §9):
+  // manifest + icons, installable. No service worker registered
+  // anywhere in this app (UI-OQ-6's honest default) — NFR-01/NFR-12
+  // both forbid caching that could serve a stale worklist at the
+  // counter. `theme-color` itself is per-surface, not set here — see
+  // each of app/layouts/{public,admin,counter}.vue's own useHead call.
+  app: {
+    head: {
+      htmlAttrs: { lang: 'sk' },
+      link: [
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png' },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/icons/favicon-32.png' },
+      ],
+    },
+  },
+
   // D-53: self-hosted fonts, Latin Extended-A subset only (Slovak
   // diacritics — ď ĺ ľ ň ŕ š ť ž ô — need latin-ext, not the plain latin
   // subset). Via @fontsource, not a Google Fonts <link>/@import, so the

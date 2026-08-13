@@ -4,7 +4,12 @@
   its own requireOperator call server-side (D-25) — OperatorBar (C-20)
   only needs to know who, not whether. ./auth.vue is the sibling layout
   for the one admin-adjacent screen that must render before that's true:
-  login (S-18). -->
+  login (S-18). theme-color (WP-6.1, §9) matches this surface's light
+  --ht-paper. -->
+<script setup lang="ts">
+useHead({ meta: [{ name: 'theme-color', content: '#f4f6f5' }] })
+</script>
+
 <template>
   <div class="admin-surface">
     <OperatorBar />

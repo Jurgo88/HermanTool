@@ -505,7 +505,10 @@ async function confirmSettlement(pin: string) {
 
 <template>
   <main>
-    <h1>{{ sk.adminCounter.title }}</h1>
+    <!-- NFR-11: exactly one h1 per screen — every other panel below
+      renders its own via StepHeader (C-17), so this one is conditional
+      on being the only one on screen. -->
+    <h1 v-if="panel === 'none'">{{ sk.adminCounter.title }}</h1>
     <AppAlert :code="errorCode" :message="errorMessage" />
     <p v-if="info">{{ info }}</p>
 
@@ -620,6 +623,8 @@ async function confirmSettlement(pin: string) {
           :label="sk.adminCounter.conditionPhotosLabel"
           :add-label="sk.adminCounter.conditionPhotosAddAction"
           :state-labels="photoStateLabels"
+          :retry-label="sk.adminCounter.retryPhotoAction"
+          :remove-label="sk.adminCounter.removePhotoAction"
           @retry="retryOutPhoto"
         />
         <AppButton type="submit" size="counter" :disabled="outPhotos.length === 0">
@@ -648,6 +653,8 @@ async function confirmSettlement(pin: string) {
           :label="sk.adminCounter.conditionPhotosInLabel"
           :add-label="sk.adminCounter.conditionPhotosAddAction"
           :state-labels="photoStateLabels"
+          :retry-label="sk.adminCounter.retryPhotoAction"
+          :remove-label="sk.adminCounter.removePhotoAction"
           @retry="retryInPhoto"
         />
         <AppButton type="submit" size="counter" :disabled="inPhotos.length === 0">

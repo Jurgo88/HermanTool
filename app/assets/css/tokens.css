@@ -14,7 +14,13 @@
 
   /* Signal — the one accent. Action at the counter, attention elsewhere. */
   --ht-signal: #ffc400;
-  --ht-signal-deep: #c99a00; /* text on light, focus ring */
+  /* text on light, focus ring (NFR-11/WP-6.2: #c99a00 measured 2.59:1 on
+   * white — failed both AA text (4.5:1) and the focus ring's own 3:1
+   * floor. #937000 clears 4.5:1 as text (its only text use, OperatorBar's
+   * counter link, sits on --ht-surface) and clears 3:1+ as a focus ring
+   * against every surface's paper/surface background, light or dark, with
+   * no per-surface override needed). */
+  --ht-signal-deep: #937000;
   --ht-on-signal: #14181b;
 
   /* Semantic */
@@ -74,12 +80,18 @@
   --ht-line-strong: #3c4952;
   --ht-ok: #3fb27f;
   --ht-warn: #ff9633;
-  --ht-danger: #ff6257;
+  /* NFR-11/WP-6.2: --ht-ok/--ht-warn's own bright values stay — they're
+   * only ever text/border accents (DerivedBadge, PhotoCapture's confirmed
+   * border) at ≥5.5:1 against this surface. --ht-danger and the two
+   * --ht-state-* tokens below are different: AppButton and StateChip fill
+   * them solid with WHITE text, and the bright values measured under
+   * 3:1 there — #ff6257/#3fb27f/#ff9633 darkened to clear 4.5:1+. */
+  --ht-danger: #c94d45;
   --ht-info: #5aa9e6;
   --ht-derived-overdue: #ff6257;
   --ht-derived-noshow: #ff9633;
-  --ht-state-confirmed: #3fb27f;
-  --ht-state-pending: #ff9633;
+  --ht-state-confirmed: #2f845e;
+  --ht-state-pending: #ab6422;
 
   /* Counter type scale: 14 · 16 · 18 · 22 · 28 · 36 */
   --ht-text-1: 0.875rem;
