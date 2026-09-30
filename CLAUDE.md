@@ -13,29 +13,38 @@ NORMATIVE. Read it before implementing anything non-trivial.
 - Part 1 — domain, boundaries, Ubiquitous Language, principles P1–P8
 - Part 2 — user types, workflows W1–W11, event catalogue
 - Part 3 — functional (FR-XX) and non-functional (NFR-XX) requirements
-- Part 4 — risks, technology decisions, ADR log (D-01…D-53)
+- Part 4 — risks, technology decisions, ADR log (D-01…D-60)
 - Part 5 — independent review findings (F1–F12)
 - `docs/reviews/implementation-review-2026-08-04.md` — implementation
   review findings (IR-01…IR-13), reconciled in Part 4 §16.2
 - `docs/design/interface-design-foundation.md` — presentation and
   interaction layer, decisions promoted to Part 4 §16.3 (D-43…D-53)
+- Part 4 §16.4 — Rent Star catalog: PowerSource, UseArea, Accessory,
+  S-02 detail + calendar, public identity, pilot import (D-54…D-60).
+  Catalog data under review: `docs/catalog-source/pilot-catalog.csv`
 
 ## Precedence when instructions conflict
 1. Part 4 §16.2 implementation-review decisions (D-38…D-42)
 2. Part 4 §16.3 interface-design decisions (D-43…D-53) — for
    presentation/interaction questions only; never overrides an FR/NFR
-3. Part 4 §16 reconciliation decisions (D-10, D-33…D-37)
-4. Part 3 FR/NFR requirements
-5. Part 2 workflows and event catalogue
-5. Part 1 Ubiquitous Language and boundaries
+3. Part 4 §16.4 catalog decisions (D-54…D-60) — scope additions;
+   never relax an invariant (D-08, D-38, FR-20, FR-33)
+4. Part 4 §16 reconciliation decisions (D-10, D-33…D-37)
+5. Part 3 FR/NFR requirements
+6. Part 2 workflows and event catalogue
+7. Part 1 Ubiquitous Language and boundaries
 
 ## Banned terms — NEVER use in code, tables, config, or naming
 Booking, Order, Item, Product, Inventory, User, Check-out/Check-in, 
 Role, Permission, Account, Cart, Session (as domain term), Fulfilled, 
 Escalation, Case, Ticket. Also never: `name_sk`, `rentalGranularity`.
+For catalog classification never `category` or `tag` (AssetTag is the
+QR code); say PowerSource / UseArea. An add-on is an Accessory, never
+an option, variant or extra (D-57).
 
 Use instead: Reservation, AssetType, Asset, Operator, Customer, 
-HandoverOut/HandoverIn, RentalAgreement, Possession, ReservationGroup.
+HandoverOut/HandoverIn, RentalAgreement, Possession, ReservationGroup,
+PowerSource, UseArea, Accessory.
 
 ## Non-negotiable architecture rules
 - No client → database writes. Domain logic lives in Nitro server 
@@ -130,6 +139,8 @@ identifier in commits.
 - Backup retention horizon value (OQ #3)
 - Controller–processor agreement (OQ #4)
 - Customer-record retention period + basis (OQ #27, IR-07)
+- Pilot day rates and deposits — imported values are provisional
+  tiers (OQ #29, D-60); never treat them as the Tenant's price list
 
 ## Working style
 - Cite a governing identifier (FR-XX, D-XX, W-XX) in every commit 
