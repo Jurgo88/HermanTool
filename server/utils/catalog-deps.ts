@@ -10,8 +10,17 @@ import { getSharedDatabaseClient } from './db'
 import {
   AssetTypeNameRequiredError,
   AssetTypeNotFoundError,
+  ClassificationInUseError,
+  ClassificationLabelRequiredError,
+  ClassificationLabelTakenError,
+  ClassificationSequenceMismatchError,
+  InvalidImageFileError,
+  InvalidSpecificationError,
+  PowerSourceNotFoundError,
+  UseAreaNotFoundError,
   createPostgresCatalogRepository,
   type CatalogRepository,
+  type ClassificationKind,
 } from '../contexts/catalog'
 
 export function createCatalogDeps(
@@ -44,11 +53,52 @@ export function getAssetTypeIdParam(event: H3Event): number {
 // translates them"); every asset-types route re-throws through this
 // rather than letting a CatalogError surface as an unhandled 500.
 export function translateCatalogError(err: unknown): never {
-  if (err instanceof AssetTypeNotFoundError) {
+  if (
+    err instanceof AssetTypeNotFoundError ||
+    err instanceof PowerSourceNotFoundError ||
+    err instanceof UseAreaNotFoundError
+  ) {
     throw createError({ statusCode: 404, statusMessage: err.message, data: { code: err.constructor.name } })
   }
-  if (err instanceof AssetTypeNameRequiredError) {
+  if (
+    err instanceof AssetTypeNameRequiredError ||
+    err instanceof ClassificationLabelRequiredError ||
+    err instanceof ClassificationSequenceMismatchError ||
+    err instanceof InvalidSpecificationError ||
+    err instanceof InvalidImageFileError
+  ) {
     throw createError({ statusCode: 400, statusMessage: err.message, data: { code: err.constructor.name } })
   }
+  if (err instanceof ClassificationLabelTakenError) {
+    throw createError({ statusCode: 409, statusMessage: err.message, data: { code: err.constructor.name } })
+  }
+  // D-54: the admin surface names the AssetTypes in the way.
+  if (err instanceof ClassificationInUseError) {
+    throw createError({
+      statusCode: 409,
+      statusMessage: err.message,
+      data: { code: err.constructor.name, assetTypeNames: err.assetTypeNames },
+    })
+  }
   throw err
+}
+
+const classificationKindParams: Record<string, ClassificationKind> = {
+  'power-sources': 'powerSource',
+  'use-areas': 'useArea',
+}
+
+export function getClassificationKindParam(event: H3Event): ClassificationKind {
+  const kind = classificationKindParams[getRouterParam(event, 'kind') ?? '']
+  if (!kind) throw createError({ statusCode: 404, statusMessage: 'Unknown classification.' })
+  return kind
+}
+
+export function getClassificationIdParam(event: H3Event): number {
+  const raw = getRouterParam(event, 'id')
+  const id = Number(raw)
+  if (!raw || !Number.isInteger(id) || id <= 0) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid classification id.' })
+  }
+  return id
 }

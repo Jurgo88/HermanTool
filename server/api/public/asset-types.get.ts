@@ -23,6 +23,9 @@ export default defineEventHandler(async (event) => {
       description: assetType.description,
       dayRate: assetType.dayRate,
       depositAmount: assetType.depositAmount,
+      powerSourceId: assetType.powerSourceId,
+      useAreaIds: assetType.useAreaIds,
+      imageFile: assetType.imageFile,
     }))
   } finally {
     await close()
