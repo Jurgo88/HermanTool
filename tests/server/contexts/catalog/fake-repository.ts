@@ -24,6 +24,7 @@ export function createFakeCatalogRepository(): CatalogRepository & {
   const copy = (a: AssetType): AssetType => ({
     ...a,
     useAreaIds: [...a.useAreaIds],
+    principalIds: [...a.principalIds],
     specifications: a.specifications.map((s) => ({ ...s })),
   })
   const toEntry = ({
@@ -64,6 +65,7 @@ export function createFakeCatalogRepository(): CatalogRepository & {
         includedContents: params.includedContents ?? '',
         handlingNotice: params.handlingNotice ?? '',
         imageFile: params.imageFile ?? null,
+        principalIds: [...(params.principalIds ?? [])].sort((a, b) => a - b),
         createdByOperatorId: params.operatorId,
         updatedByOperatorId: params.operatorId,
         updatedAt: new Date(),
@@ -87,6 +89,9 @@ export function createFakeCatalogRepository(): CatalogRepository & {
         assetType.includedContents = params.includedContents
       if (params.handlingNotice !== undefined) assetType.handlingNotice = params.handlingNotice
       if (params.imageFile !== undefined) assetType.imageFile = params.imageFile
+      if (params.principalIds !== undefined) {
+        assetType.principalIds = [...params.principalIds].sort((a, b) => a - b)
+      }
       assetType.updatedByOperatorId = params.operatorId
       assetType.updatedAt = new Date()
       return copy(assetType)
@@ -145,6 +150,23 @@ export function createFakeCatalogRepository(): CatalogRepository & {
         )
         .map((a) => a.name)
         .sort()
+    },
+
+    async listAccessoryIdsOf(tenantId, principalId) {
+      return assetTypes
+        .filter((a) => a.tenantId === tenantId && a.principalIds.includes(principalId))
+        .map((a) => a.id)
+        .sort((a, b) => a - b)
+    },
+
+    async getAccessoryPrincipals(tenantId, assetTypeIds) {
+      const principals = new Map<number, number[]>()
+      for (const a of assetTypes) {
+        if (a.tenantId === tenantId && assetTypeIds.includes(a.id) && a.principalIds.length > 0) {
+          principals.set(a.id, [...a.principalIds])
+        }
+      }
+      return principals
     },
 
     // No rollback: the unit tests assert on thrown errors, and every

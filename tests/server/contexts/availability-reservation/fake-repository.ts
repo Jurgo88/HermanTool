@@ -23,6 +23,7 @@ interface State {
   reservations: Reservation[]
   holds: Map<string, number>
   capacities: Map<number, number>
+  accessoryPrincipals: Map<number, number[]>
   nextGroupId: number
   nextReservationId: number
 }
@@ -37,6 +38,7 @@ function cloneState(state: State): State {
     reservations: state.reservations.map((r) => ({ ...r, period: { ...r.period } })),
     holds: new Map(state.holds),
     capacities: new Map(state.capacities),
+    accessoryPrincipals: new Map(state.accessoryPrincipals),
     nextGroupId: state.nextGroupId,
     nextReservationId: state.nextReservationId,
   }
@@ -47,6 +49,8 @@ export interface FakeAvailabilityReservationRepository extends AvailabilityReser
   // repository reads this through Asset Registry's published interface;
   // this fake short-circuits straight to a seeded value).
   seedCapacity(assetTypeId: number, capacity: number): void
+  // Stands in for Catalog's Accessory links (D-57).
+  seedAccessory(accessoryAssetTypeId: number, principalIds: number[]): void
   getHeldCount(tenantId: TenantId, assetTypeId: number, day: string): number
   allReservations(): Reservation[]
 }
@@ -57,6 +61,7 @@ export function createFakeAvailabilityReservationRepository(): FakeAvailabilityR
     reservations: [],
     holds: new Map(),
     capacities: new Map(),
+    accessoryPrincipals: new Map(),
     nextGroupId: 1,
     nextReservationId: 1,
   }
@@ -65,6 +70,19 @@ export function createFakeAvailabilityReservationRepository(): FakeAvailabilityR
     return {
       seedCapacity(assetTypeId, capacity) {
         target.capacities.set(assetTypeId, capacity)
+      },
+
+      seedAccessory(accessoryAssetTypeId, principalIds) {
+        target.accessoryPrincipals.set(accessoryAssetTypeId, principalIds)
+      },
+
+      async getAccessoryPrincipals(_tenantId, assetTypeIds) {
+        const principals = new Map<number, number[]>()
+        for (const id of assetTypeIds) {
+          const list = target.accessoryPrincipals.get(id)
+          if (list) principals.set(id, [...list])
+        }
+        return principals
       },
 
       getHeldCount(tenantId, assetTypeId, day) {

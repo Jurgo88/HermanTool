@@ -24,6 +24,9 @@ export interface AssetType {
   includedContents: string
   handlingNotice: string
   imageFile: string | null
+  // D-57: the AssetTypes this one is an Accessory of. Non-empty means it
+  // is an Accessory: never listed on its own, offered on its principals.
+  principalIds: number[]
   createdByOperatorId: string | null
   updatedByOperatorId: string | null
   updatedAt: Date
@@ -126,5 +129,20 @@ export class InvalidSpecificationError extends CatalogError {
 export class InvalidImageFileError extends CatalogError {
   constructor(imageFile: string) {
     super(`"${imageFile}" is not a valid catalog image file name.`)
+  }
+}
+
+// D-57 keeps Accessory one level deep: a principal is never itself an
+// Accessory, and an Accessory has no Accessories of its own. Anything
+// deeper would make the checkout rule recursive for no pilot need.
+export class AccessoryChainError extends CatalogError {
+  constructor(assetTypeId: number) {
+    super(`AssetType ${assetTypeId} would make an Accessory chain; Accessories are one level deep.`)
+  }
+}
+
+export class AccessoryOfItselfError extends CatalogError {
+  constructor(assetTypeId: number) {
+    super(`AssetType ${assetTypeId} cannot be an Accessory of itself.`)
   }
 }

@@ -20,6 +20,7 @@ import type { TenantId } from '../_shared'
 import type { AvailabilityReservationRepository, CapacitySource } from './repository'
 import { eachDayOfPeriod, validateRentalPeriod, type RentalPeriod } from './rental-period'
 import {
+  AccessoryWithoutPrincipalError,
   AssetTypeUnavailableError,
   EmptyReservationGroupError,
   InvalidTermsVersionError,
@@ -102,6 +103,33 @@ async function reapReservation(
   return transitioned
 }
 
+// D-57: counts units per (AssetType, RentalPeriod) — one line is one
+// unit (FR-06) — and requires, for every Accessory, at least as many
+// units of its principals (together) for the same RentalPeriod. Pure, so
+// the rule is testable without a repository.
+export function assertAccessoriesAccompanied(
+  lines: ReservationLine[],
+  principalsByAccessory: ReadonlyMap<number, readonly number[]>,
+): void {
+  const units = new Map<string, number>()
+  const key = (assetTypeId: number, period: RentalPeriod) => `${assetTypeId}|${period.startDay}|${period.endDay}`
+  for (const line of lines) {
+    const k = key(line.assetTypeId, line.period)
+    units.set(k, (units.get(k) ?? 0) + 1)
+  }
+
+  for (const line of lines) {
+    const principals = principalsByAccessory.get(line.assetTypeId)
+    if (!principals) continue
+    const accessoryUnits = units.get(key(line.assetTypeId, line.period)) ?? 0
+    const principalUnits = principals.reduce(
+      (sum, principalId) => sum + (units.get(key(principalId, line.period)) ?? 0),
+      0,
+    )
+    if (accessoryUnits > principalUnits) throw new AccessoryWithoutPrincipalError(line.assetTypeId)
+  }
+}
+
 // W1, D-13, FR-06: a checkout covering n AssetTypes produces one
 // ReservationGroup and n Reservations, each holding its own RentalPeriod.
 // Built atomic at the whole-checkout level: one DB transaction covers
@@ -117,6 +145,8 @@ export async function checkoutReservationGroup(
   const { tenantId, lines, now = new Date(), hooks } = params
   if (lines.length === 0) throw new EmptyReservationGroupError()
   for (const line of lines) validateRentalPeriod(line.period)
+  const assetTypeIds = [...new Set(lines.map((line) => line.assetTypeId))]
+  assertAccessoriesAccompanied(lines, await repo.getAccessoryPrincipals(tenantId, assetTypeIds))
 
   const pendingExpiresAt = new Date(now.getTime() + PENDING_EXPIRY_MINUTES * 60_000)
 

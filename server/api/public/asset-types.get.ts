@@ -1,4 +1,4 @@
-import { listPublishedAssetTypes } from '../../contexts/catalog'
+import { listBrowsableAssetTypes } from '../../contexts/catalog'
 import { createCatalogDeps } from '../../utils/catalog-deps'
 import { getSeededTenantId } from '../../utils/tenant'
 
@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     const tenantId = await getSeededTenantId(sql)
-    const assetTypes = await listPublishedAssetTypes(repo, { tenantId })
+    const assetTypes = await listBrowsableAssetTypes(repo, { tenantId })
 
     // Only the fields a Visitor needs to decide whether to book —
     // never internal attribution (createdByOperatorId etc.), which has

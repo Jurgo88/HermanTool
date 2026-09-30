@@ -11,6 +11,8 @@ import type { TenantId } from '../_shared'
 import { classificationNotFound } from './classification'
 import type { AssetTypeContent, CatalogRepository } from './repository'
 import {
+  AccessoryChainError,
+  AccessoryOfItselfError,
   AssetTypeNameRequiredError,
   AssetTypeNotFoundError,
   InvalidImageFileError,
@@ -33,13 +35,15 @@ async function requireAssetType(
   return assetType
 }
 
-// Normalises D-55 text (trimmed) and verifies every D-54 reference exists
-// in the same Tenant — the composite FKs are the backstop, this is what
-// turns a bad id into a typed error instead of a constraint violation.
+// Normalises D-55 text (trimmed) and verifies every D-54/D-57 reference
+// exists in the same Tenant — the composite FKs are the backstop, this is
+// what turns a bad id into a typed error instead of a constraint
+// violation. `selfId` is the AssetType being updated (absent on create).
 async function validateContent(
   repo: CatalogRepository,
   tenantId: TenantId,
   content: AssetTypeContent,
+  selfId?: number,
 ): Promise<AssetTypeContent> {
   const result: AssetTypeContent = { ...content }
 
@@ -73,6 +77,20 @@ async function validateContent(
     throw new InvalidImageFileError(content.imageFile)
   }
 
+  if (content.principalIds !== undefined) {
+    const unique = [...new Set(content.principalIds)]
+    if (selfId !== undefined && unique.includes(selfId)) throw new AccessoryOfItselfError(selfId)
+    for (const principalId of unique) {
+      const principal = await requireAssetType(repo, tenantId, principalId)
+      if (principal.principalIds.length > 0) throw new AccessoryChainError(principalId)
+    }
+    if (unique.length > 0 && selfId !== undefined) {
+      const ownAccessories = await repo.listAccessoryIdsOf(tenantId, selfId)
+      if (ownAccessories.length > 0) throw new AccessoryChainError(selfId)
+    }
+    result.principalIds = unique
+  }
+
   return result
 }
 
@@ -92,15 +110,38 @@ export async function listPublishedAssetTypes(
   return repo.listPublishedAssetTypes(params.tenantId)
 }
 
+// S-01 (D-57, D-58): what the catalog grid lists — published, and never
+// an Accessory, which is offered only on its principals' pages.
+export async function listBrowsableAssetTypes(
+  repo: CatalogRepository,
+  params: { tenantId: TenantId },
+): Promise<AssetType[]> {
+  const published = await repo.listPublishedAssetTypes(params.tenantId)
+  return published.filter((assetType) => assetType.principalIds.length === 0)
+}
+
 // S-02 (D-58): an unpublished AssetType is indistinguishable from a
-// missing one to a Visitor.
+// missing one to a Visitor, and so is an Accessory (D-57: it has no page
+// of its own).
 export async function getPublishedAssetType(
   repo: CatalogRepository,
   params: { tenantId: TenantId; assetTypeId: number },
 ): Promise<AssetType> {
   const assetType = await repo.getAssetType(params.tenantId, params.assetTypeId)
-  if (!assetType || !assetType.published) throw new AssetTypeNotFoundError(params.assetTypeId)
+  if (!assetType || !assetType.published || assetType.principalIds.length > 0) {
+    throw new AssetTypeNotFoundError(params.assetTypeId)
+  }
   return assetType
+}
+
+// S-02 (D-57): the published Accessories offered on a principal's page.
+export async function listPublishedAccessoriesOf(
+  repo: CatalogRepository,
+  params: { tenantId: TenantId; principalId: number },
+): Promise<AssetType[]> {
+  const ids = await repo.listAccessoryIdsOf(params.tenantId, params.principalId)
+  const accessories = await Promise.all(ids.map((id) => repo.getAssetType(params.tenantId, id)))
+  return accessories.filter((a): a is AssetType => a !== null && a.published)
 }
 
 export async function createAssetType(
@@ -158,7 +199,7 @@ export async function updateAssetType(
 
   return repo.transaction(async (trx) => {
     await requireAssetType(trx, tenantId, assetTypeId)
-    const validated = await validateContent(trx, tenantId, content)
+    const validated = await validateContent(trx, tenantId, content, assetTypeId)
     return trx.updateAssetType(tenantId, assetTypeId, {
       operatorId,
       name,

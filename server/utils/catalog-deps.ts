@@ -8,6 +8,8 @@ import { useRuntimeConfig } from '#imports'
 import type postgres from 'postgres'
 import { getSharedDatabaseClient } from './db'
 import {
+  AccessoryChainError,
+  AccessoryOfItselfError,
   AssetTypeNameRequiredError,
   AssetTypeNotFoundError,
   ClassificationInUseError,
@@ -65,7 +67,9 @@ export function translateCatalogError(err: unknown): never {
     err instanceof ClassificationLabelRequiredError ||
     err instanceof ClassificationSequenceMismatchError ||
     err instanceof InvalidSpecificationError ||
-    err instanceof InvalidImageFileError
+    err instanceof InvalidImageFileError ||
+    err instanceof AccessoryChainError ||
+    err instanceof AccessoryOfItselfError
   ) {
     throw createError({ statusCode: 400, statusMessage: err.message, data: { code: err.constructor.name } })
   }
