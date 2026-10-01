@@ -4,10 +4,7 @@ import { createCatalogDeps } from '../../utils/catalog-deps'
 import { createCustomerIdentityComplianceDeps } from '../../utils/customer-identity-compliance-deps'
 import { createHandoverPossessionDeps } from '../../utils/handover-possession-deps'
 import { requireOperator } from '../../utils/operator-session'
-
-function todayAsRentalDay(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayRentalDay } from '../../contexts/availability-reservation'
 
 // FR-28, FR-30, D-17, W7: a NoShow is derived, never stored, and never
 // releases its RentalDays automatically (that stays W11's territory,
@@ -29,7 +26,7 @@ export default defineEventHandler(async (event) => {
         catalogRepo: catalog.repo,
         identityRepo: customerIdentity.repo,
       },
-      { tenantId: operator.tenantId, today: todayAsRentalDay() },
+      { tenantId: operator.tenantId, today: todayRentalDay() },
     )
     return { noShows }
   } finally {
