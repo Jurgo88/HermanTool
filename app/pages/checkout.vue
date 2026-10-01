@@ -15,6 +15,7 @@
 // stage 1 collects customer details and creates the ReservationGroup;
 // stage 2 (shown only once that succeeds) is terms + pay.
 import { sk } from '~/i18n/sk'
+import { toCheckoutLines, toQuoteLines } from '~/utils/reservation-draft'
 
 definePageMeta({ layout: 'public' })
 
@@ -40,15 +41,47 @@ const creatingReservation = ref(false)
 const startingPayment = ref(false)
 const reservationGroupId = ref<number | null>(null)
 
-const currency = computed(() => draftLines.value[0]?.dayRate.currency ?? 'EUR')
-const totalAmount = computed(() => draftLines.value.reduce((sum, line) => sum + line.dayRate.amount * line.quantity, 0))
+interface Money {
+  amount: number
+  currency: string
+}
+
+interface ReservationQuote {
+  lines: { rentalFee: Money; deposit: Money }[]
+  rentalFeeTotal: Money
+  depositTotal: Money
+}
+
+// #164: the rental fee (rate × days × units) and the deposit come from
+// the server — the same computation Stripe's amount uses — so this page
+// does no date arithmetic (D-51) and cannot show a different total from
+// the one charged.
+const quote = ref<ReservationQuote | null>(null)
+const quoteStatus = ref<'idle' | 'loading' | 'loaded' | 'error'>('idle')
+
+async function loadQuote() {
+  if (draftLines.value.length === 0) return
+  quoteStatus.value = 'loading'
+  try {
+    quote.value = await $fetch<ReservationQuote>('/api/public/reservation-quote', {
+      method: 'POST',
+      body: { lines: toQuoteLines(draftLines.value) },
+    })
+    quoteStatus.value = 'loaded'
+  } catch {
+    quote.value = null
+    quoteStatus.value = 'error'
+  }
+}
+
+watch(draftLines, loadQuote, { immediate: true, deep: true })
+
 // D-07/FR-21: restated at stage 2 (S-03) — the platform moves no deposit
 // money, so the Customer must see, right before paying by card, that
 // this total is separate cash handed over at the counter. Captured here
-// (not recomputed at stage 2) because clearLines() below empties
-// draftLines the moment stage 1 succeeds.
-const depositTotal = computed(() => draftLines.value.reduce((sum, line) => sum + line.depositAmount.amount * line.quantity, 0))
-const reservationDepositTotal = ref(0)
+// because clearLines() below empties the draft the moment stage 1
+// succeeds.
+const committedQuote = ref<ReservationQuote | null>(null)
 
 // Deliberately not `err.data.statusMessage` here (unlike the admin
 // pages) — this is a public, Customer-facing page, and the domain layer's
@@ -78,14 +111,14 @@ async function createReservation() {
   creatingReservation.value = true
   try {
     const body = {
-      lines: draftLines.value.map((line) => ({ assetTypeId: line.assetTypeId, period: line.period })),
+      lines: toCheckoutLines(draftLines.value),
       customer: { name: customerName.value, email: customerEmail.value, phone: customerPhone.value },
     }
     const result = await $fetch<{ reservationGroupId: number }>('/api/reservations/checkout', {
       method: 'POST',
       body,
     })
-    reservationDepositTotal.value = depositTotal.value
+    committedQuote.value = quote.value
     reservationGroupId.value = result.reservationGroupId
     clearLines()
   } catch (err: unknown) {
@@ -131,14 +164,20 @@ async function acceptTermsAndPay() {
       <section class="checkout__section">
         <h2>{{ sk.checkout.summaryHeading }}</h2>
         <ul class="checkout__summary-list">
-          <li v-for="line in draftLines" :key="`${line.assetTypeId}-${line.period.startDay}-${line.period.endDay}`">
+          <li v-for="(line, index) in draftLines" :key="`${line.assetTypeId}-${line.period.startDay}-${line.period.endDay}`">
             <span>{{ line.assetTypeName }} × {{ line.quantity }}</span>
             <DayRange :start-day="line.period.startDay" :end-day="line.period.endDay" />
+            <MoneyAmount v-if="quote?.lines[index]" :amount="quote.lines[index].rentalFee" />
           </li>
         </ul>
-        <p class="checkout__total">
-          {{ sk.checkout.totalLabel }}: <MoneyAmount :amount="{ amount: totalAmount, currency }" size="large" />
-        </p>
+        <p v-if="quoteStatus === 'loading'" aria-busy="true">{{ sk.checkout.quoteLoading }}</p>
+        <AppAlert v-else-if="quoteStatus === 'error'" :message="sk.checkout.quoteError" />
+        <template v-else-if="quote">
+          <p class="checkout__total">
+            {{ sk.checkout.totalLabel }}: <MoneyAmount :amount="quote.rentalFeeTotal" size="large" />
+          </p>
+          <p>{{ sk.checkout.depositRestatedLabel }}: <MoneyAmount :amount="quote.depositTotal" /></p>
+        </template>
       </section>
 
       <section class="checkout__section">
@@ -158,7 +197,12 @@ async function acceptTermsAndPay() {
             <input :id="slotProps.id" v-model="customerPhone" type="tel" autocomplete="tel" />
           </template>
         </AppField>
-        <AppButton variant="primary" :pending="creatingReservation" @click="createReservation">
+        <AppButton
+          variant="primary"
+          :pending="creatingReservation"
+          :disabled="quoteStatus !== 'loaded'"
+          @click="createReservation"
+        >
           {{ creatingReservation ? sk.checkout.creatingReservation : sk.checkout.createReservationAction }}
         </AppButton>
       </section>
@@ -175,9 +219,12 @@ async function acceptTermsAndPay() {
       </DraftNotice>
       <p><NuxtLink to="/podmienky" target="_blank">{{ sk.checkout.termsPageLinkAction }}</NuxtLink></p>
 
-      <p class="checkout__deposit-note">
-        {{ sk.checkout.depositRestatedLabel }}: <MoneyAmount :amount="{ amount: reservationDepositTotal, currency }" size="large" />
-      </p>
+      <template v-if="committedQuote">
+        <p>{{ sk.checkout.rentalFeeRestatedLabel }}: <MoneyAmount :amount="committedQuote.rentalFeeTotal" /></p>
+        <p class="checkout__deposit-note">
+          {{ sk.checkout.depositRestatedLabel }}: <MoneyAmount :amount="committedQuote.depositTotal" size="large" />
+        </p>
+      </template>
       <p class="checkout__deposit-hint">{{ sk.checkout.depositRestatedNote }}</p>
 
       <AppButton variant="primary" size="counter" :pending="startingPayment" :disabled="!termsAccepted" @click="acceptTermsAndPay">

@@ -52,6 +52,7 @@ export {
   eachDayOfPeriod,
   rentalPeriodLengthInDays,
   todayRentalDay,
+  validateRentalPeriod,
 } from './rental-period'
 
 export type { AvailabilityDay, AvailabilityLevel, AvailabilityMonth } from './availability-calendar'
@@ -63,6 +64,7 @@ export type { Reservation, ReservationGroup, ReservationState } from './types'
 // can use `instanceof` — they are thrown, not just typed, by
 // ./reservation.ts.
 export {
+  AccessoryWithoutPrincipalError,
   AvailabilityReservationError,
   AssetTypeUnavailableError,
   EmptyReservationGroupError,
@@ -80,6 +82,7 @@ export { createPostgresAvailabilityReservationRepository } from './repository'
 export type { AcquisitionHooks, ReservationLine } from './reservation'
 export {
   PENDING_EXPIRY_MINUTES,
+  assertAccessoriesAccompanied,
   assertTermsAccepted,
   cancelReservation,
   checkoutReservationGroup,

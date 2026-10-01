@@ -2,11 +2,11 @@
 
 | | |
 |---|---|
-| **Status** | Approved 12 August 2026. §3's eleven decisions are promoted to Part 4 §16.3 as `D-43`…`D-53` — see that section for the ADR-log record; this document remains the governing reference for how they are carried out. |
+| **Status** | Approved 12 August 2026. §3's eleven decisions are promoted to Part 4 §16.3 as `D-43`…`D-53` — see that section for the ADR-log record; this document remains the governing reference for how they are carried out. **Amended 1 October 2026** for the Rent Star catalog (Part 4 §16.4, `D-54`…`D-60`): `§4.3` public tokens, `S-01`, `S-02`, `S-19`, `C-21`…`C-23`, `WP-7`, `UI-OQ-3` resolved, `UI-OQ-7`. |
 | **Suggested location** | `docs/design/interface-design-foundation.md` |
 | **Scope** | The visual and interaction layer of all three surfaces: public (Visitor/Customer), counter (Operator), admin (Operator). Screen inventory, design tokens, component vocabulary, interaction conventions, build sequence. |
 | **Depends on** | Parts 1–5 and `docs/reviews/implementation-review-2026-08-04.md`, all **normative and unamended**. Where this document appears to disagree with them, they win and this document has a defect. |
-| **Adds** | Design decisions `UI-D-01`…`UI-D-11`, promoted to `D-43`…`D-53` in Part 4's ADR log (§16.3). Screens `S-01`…`S-24`. Components `C-01`…`C-20`. UI findings `UIF-01`…`UIF-09`. Work packages `WP-1`…`WP-6`. Open questions `UI-OQ-1`…`UI-OQ-6`. |
+| **Adds** | Design decisions `UI-D-01`…`UI-D-11`, promoted to `D-43`…`D-53` in Part 4's ADR log (§16.3). Screens `S-01`…`S-24`. Components `C-01`…`C-23` (`C-21`…`C-23` in the 1 October amendment). UI findings `UIF-01`…`UIF-09`. Work packages `WP-1`…`WP-7`. Open questions `UI-OQ-1`…`UI-OQ-7`. |
 | **Deliberately adds no** | FR, NFR, W, P, F or IR identifiers. This document specifies *how* existing requirements are presented, never *what* the product does. A screen that needs a requirement that does not exist is a scope change and goes back to Part 3, not into this file. |
 | **Namespace note** | The `UI-` prefix exists because of `F-4`: Part 4 flags `F-1…F-3` and Part 5 findings `F1…F12` already collide once. Every identifier introduced here is prefixed and unambiguous under `grep`. |
 
@@ -171,6 +171,8 @@ The subject's own world supplies this and nothing else needs to: powder-coated s
 
 Everything else is quiet: greys, one weight of rule, no shadows beyond a single hairline elevation, no gradients, no decorative motion.
 
+**Public surface exception (`D-59`).** The public surface carries the Tenant's own identity, Rent Star: blue tokens (`§4.3`) and one gradient, in the public page header only. Nothing else on any surface gets a gradient, and the counter and admin surfaces keep this section's direction unchanged.
+
 ### 4.2 Typography
 
 **IBM Plex**, self-hosted, three roles — chosen because it is an engineering documentation face with genuine industrial provenance, its Latin Extended coverage handles Slovak diacritics properly at small sizes, and its monospace is the right instrument for the thing this product stamps on two hundred physical objects.
@@ -247,7 +249,21 @@ Full set lives in `app/assets/css/tokens.css`. Names are semantic; a component n
 }
 ```
 
-**Contrast floor:** 4.5:1 for body text, 3:1 for large text and control borders, on both surfaces (`NFR-11`). Signal yellow is a background for dark ink only, never a text colour on light.
+**Public surface (`D-59`), applied by the public layout only.** It is the same mechanism as the counter override: `[data-surface='public']` redefines tokens, and components never branch on surface. The roles are fixed here. The values below are the starting point read off the mockups and are **measured, not assumed**, at implementation against the floor below:
+
+```css
+[data-surface='public'] {
+  --ht-brand-deep:  #2B2F8F;   /* header gradient start; text allowed on it */
+  --ht-brand:       #1F5FA8;   /* primary action background, links */
+  --ht-brand-light: #62B2E2;   /* header gradient end; decorative only, NEVER under text */
+  --ht-on-brand:    #FFFFFF;
+  --ht-header-gradient: linear-gradient(100deg, var(--ht-brand-deep), var(--ht-brand-light));
+}
+```
+
+Header text sits over the `--ht-brand-deep` end. The mockup's white text over the pale end fails 4.5:1 and is not built. The primary action is `--ht-brand` with `--ht-on-brand` (solid, not the mockup's gradient button). The Rent Star name is a `sk.ts` string, typeset in IBM Plex Sans Condensed 600 until a vector logo exists.
+
+**Contrast floor:** 4.5:1 for body text, 3:1 for large text and control borders, on all surfaces (`NFR-11`). Signal yellow is a background for dark ink only, never a text colour on light.
 
 **Motion:** state transitions only, `120ms`, ease-out. No page transitions, no entrance animation, no skeleton shimmer. `prefers-reduced-motion: reduce` removes all of it. A counter interface that animates is a counter interface that is slower than paper.
 
@@ -279,6 +295,9 @@ Twenty components. Filenames use domain vocabulary (`UI-D-02`); none is generic 
 | `C-18` | `AttestationTimeline` | append-only history render for `S-13` (`D-10`, `FR-43`) |
 | `C-19` | `ConfirmAction` | irreversible acts: declare lost, unpublish, mark rentable in bulk |
 | `C-20` | `OperatorBar` | signed-in Operator, surface switcher, logout (`UIF-05`, `FR-34`) |
+| `C-21` | `AvailabilityCalendar` | month grid from the server's month payload; free / last / none as **derived** treatment (`D-47`); first-then-last day selection of a RentalPeriod; no date arithmetic in the component (`D-58`, `D-51`) |
+| `C-22` | `ClassificationFilter` | two groups, PowerSource and UseArea; toggle chips, OR within a group, AND across (`D-54`); state is visible as text, not colour alone |
+| `C-23` | `AssetTypeCard` | `S-01` grid cell: image (placeholder when absent, `D-56`), name, day rate via `C-14`; the whole card links to `S-02` |
 
 ---
 
@@ -288,10 +307,29 @@ Each screen: route · surface · governing identifiers · what it must show · s
 
 ### Public surface
 
-**`S-01` Catalog browse** — `/` · `FR-01`, `FR-02`, `FR-03`, `D-38`, `W1`
-Date range first, above the list, because the range changes every number below it. Per AssetType: name, description, day rate, **deposit shown with equal weight to the day rate**, availability for the selected range (the minimum across days, as now — the existing comment explains why and it is right). Draft lines summarised in a persistent footer on mobile. States: loading availability per card, none available, availability error, empty catalog. Fix `UIF-01` here. Consider a batched availability request (`UIF-04`).
+**`S-01` Catalog browse** — `/` · `FR-01`, `FR-02`, `D-54`, `D-58`, `W1`
+*Revised 1 October 2026 (`D-58`); the date-range version below is superseded.*
+- **Layout:** Rent Star header (`D-59`) with a link to the terms (`/podmienky`). Then `C-22` filters, then a grid of `C-23` cards: 4 columns on desktop, 2 on a phone.
+- **What is listed:** published AssetTypes only, and never an Accessory (`D-57`). There is no date range and no availability on this screen.
+- **Filtering:** client-side over the one catalog response, since the whole catalog is about 44 AssetTypes. There is no pagination and no infinite scroll.
+- **Draft:** the Reservation draft is summarised in the header ("Rezervácia (n)"), linking to `S-03`.
+- **States:** loading, empty catalog, no match for the selected filters (offers "clear filters"), error.
 
-**`S-02` AssetType detail** — *deferred.* One screen answers `FR-02`; a detail route is scope, not design.
+*Superseded:* ~~Date range first, above the list… Consider a batched availability request (`UIF-04`).~~ `UIF-04` is closed by `D-58`.
+
+**`S-02` AssetType detail** — `/naradie/:assetTypeId` · `FR-01`, `FR-02`, `FR-03`, `D-38`, `D-55`–`D-58`, `W1`
+*Un-deferred by `D-58`.*
+- **Left column:** image, then includedContents as "V cene je …", then handlingNotice in a danger-bordered box, then description, then specifications as a two-column definition list.
+- **Right column:**
+  - `C-21` calendar.
+  - Accessory checkboxes, each with its own day rate and deposit. A checkbox is disabled with the reason when the Accessory is not free for the selected RentalPeriod.
+  - Quantity.
+  - Day rate and **deposit with equal weight** (`FR-02`).
+  - The **Rezervovať** action. It adds the AssetType, and any checked Accessory at the same quantity, as draft lines for the selected RentalPeriod.
+- **Terms:** a link only. Acceptance stays in `S-03` (`D-35`, `D-58`).
+- **States:** loading, not found or unpublished (`S-24`), calendar error, range not selectable, Accessory unavailable.
+
+The calendar is advisory. A hold lost at checkout surfaces in `S-03`'s existing error path (`D-33`).
 
 **`S-03` Checkout** — `/checkout` · `FR-06`, `FR-09`, `D-14`, `D-35`
 Two stages as built. Stage 1: summary + Customer details. Stage 2: terms + pay. **The deposit total is restated at stage 2** — it is not part of the card payment (`D-07`, `FR-21`: the platform moves no deposit money) and the Customer must understand they will hand over cash at the counter. Terms occupy the `draft.` slot (`UI-D-10`). Errors in Customer register only (`UI-D-08`).
@@ -346,6 +384,14 @@ The reconciliation path `NFR-01` assumes exists: the outage happened, the drill 
 
 **`S-19` Catalog** — `/admin/catalog` · `FR-01`, `FR-37`
 Add editing (`PATCH` exists, no UI). Publish/unpublish through `C-19` — unpublishing something a Visitor is looking at deserves a confirmation. Prices and deposits are business data, never configuration (Part 3 §12).
+*Extended 1 October 2026:*
+- **Per AssetType:**
+  - PowerSource (select, may be empty) and UseAreas (multi-select) (`D-54`).
+  - Specifications as an ordered list of label/value rows, plus includedContents and handlingNotice (`D-55`).
+  - Image, chosen from the shipped files (`D-56`).
+  - Principals this AssetType is an Accessory of (`D-57`). Setting one hides the AssetType from `S-01`, and the form says so.
+- **Classification:** a separate section maintains the PowerSource and UseArea lists: add, rename, reorder, remove. Removing one that is in use is refused with the reason and the AssetTypes that use it.
+- **Provisional prices:** while OQ #29 is open, an AssetType whose price is still the provisional import value is marked as such, so the owner can see which ones are left to confirm.
 
 **`S-20` Asset registry & tags** — `/admin/asset-registry` · `FR-25`, `FR-26`, `W9`
 Restyle; keep the print sheet and give it a real print stylesheet sized to a physical label sheet (`UI-OQ-4`). Pending-activation list stays prominent — a registered, untagged Asset is invisible to the pool.
@@ -454,6 +500,19 @@ Six work packages. The ordering rule is: shared foundations first so nothing is 
 30. Copy pass over the whole `sk.ts` for register consistency — `D-20`.
 31. Counter run-through with the actual employee on the actual device; record what was slow.
 
+### WP-7 — Rent Star catalog (Part 4 §16.4)
+Model and import first, because every screen reads them; then the public surface; then admin.
+32. Catalog model: PowerSource, UseArea, the AssetType↔UseArea link, the D-55 fields and the image reference. Expand-only migration (`D-30`), Tenant-scoped with tests (`FR-33`), attributed writes (`FR-34`). Governed by `D-54`, `D-55`, `D-56`.
+33. Accessory link, plus the checkout rule "an Accessory needs its principal in the same group, RentalPeriod and quantity", with tests. The D-08 set is untouched and re-run. Governed by `D-57`.
+34. Month availability endpoint returning free / last / none per day with a selectable flag; computed from the `D-38` pool, with tests including a pool of one (never "last"). Governed by `D-58`.
+35. Image conversion into `public/catalog/` (one web format, bounded size) plus the shipped-file manifest the admin select reads. Governed by `D-56`.
+36. Pilot import script from `docs/catalog-source/pilot-catalog.csv`: attributed, name-idempotent, AssetTypes plus bulk-registered Assets. Governed by `D-60`, `FR-25`.
+37. Public tokens, Rent Star header and wordmark, contrast measured. Governed by `D-59`, `NFR-11`.
+38. `S-01` rebuild on `C-22` and `C-23`. Governed by `D-58`.
+39. `S-02` with `C-21`, Accessory checkboxes and the draft action. Governed by `D-57`, `D-58`, `FR-02`.
+40. `S-19` extension, including the classification section. Governed by `D-54`–`D-57`, `FR-37`.
+**Done when:** a Visitor can filter the imported catalog, open a tool, pick a RentalPeriod on the calendar, add it with an Accessory, and reach `S-03` with both lines and both deposits shown.
+
 **Estimate shape, not commitment:** WP-1 and WP-2 are the substance — together roughly two thirds of the effort. WP-3 is five small screens against routes that already work. WP-4 and WP-5 are mostly mechanical once WP-1 lands.
 
 ---
@@ -462,8 +521,9 @@ Six work packages. The ordering rule is: shared foundations first so nothing is 
 
 | Requirement | Screen(s) | Status after this plan |
 |---|---|---|
-| `FR-01`, `FR-37` | `S-19` | extended |
-| `FR-02`, `FR-03` | `S-01` | restyled, `UIF-01` fixed |
+| `FR-01`, `FR-37` | `S-19` | extended (+ `D-54`–`D-57`) |
+| `FR-02`, `FR-03` | `S-01`, `S-02` | `S-01` browse without dates, `S-02` calendar (`D-58`); `UIF-01` fixed, `UIF-04` closed |
+| `FR-25` | pilot import | **new** (`D-60`) |
 | `FR-06`, `FR-09`, `FR-21` | `S-03` | restyled |
 | `FR-11`–`FR-15` | `S-06`, `S-09` | restyled / rebuilt |
 | `FR-17`, `FR-45` | `S-08`, `S-13` | camera-first |
@@ -491,10 +551,11 @@ Six work packages. The ordering rule is: shared foundations first so nothing is 
 |---|---|---|---|
 | `UI-OQ-1` | ~~Which physical device is the counter phone (make, OS, browser)? Decides `UI-D-03`'s (b) vs (c)~~ — **resolved 2026-08-12:** both built as tiers (native `BarcodeDetector`, `jsQR` fallback for WebKit/iOS), so no single device choice is needed for decoding. The contrast-floor-in-daylight half stays open. | WP-2 | you / the pilot Tenant |
 | `UI-OQ-2` | Is the counter device shared or one per Operator? `F8` assumed shared; if it is one each, the PIN cadence in `UI-D-06` could relax — I would still not relax it. | WP-2 | you |
-| `UI-OQ-3` | Do you want a HermanTool wordmark and colour of your own, or is `§4` the identity? The direction survives a logo drop-in either way. | WP-4 | you |
+| `UI-OQ-3` | ~~Do you want a HermanTool wordmark and colour of your own, or is `§4` the identity?~~ — **resolved 2026-10-01 (`D-59`):** the public surface is Rent Star (blue tokens, header gradient, text wordmark until an SVG logo is supplied); counter and admin keep `§4`. | WP-7 | you |
 | `UI-OQ-4` | Which physical label stock for QR tags (size, sheet layout, laminated?) — the print stylesheet is worthless without it. | WP-5 | pilot Tenant |
 | `UI-OQ-5` | Given `UI-D-11` (no third-party requests, session cookie only), does `FR-38`'s banner remain required? This is `IR-13`, and it is a legal answer, not an architectural one — same conversation as `OQ #1`/`OQ #2`. | before launch | lawyer |
 | `UI-OQ-6` | Service worker in the pilot at all? Default no (`§9`). | WP-6 | you |
+| `UI-OQ-7` | The Rent Star mockups put a blue dot on some catalog cards. What does it mean? It is not built until answered: if it turns out to be derived (for example "free today"), it gets the derived treatment (`D-47`), never a decorative dot. | WP-7 | pilot Tenant |
 
 ---
 

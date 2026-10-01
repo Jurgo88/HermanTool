@@ -5,6 +5,7 @@
 import type postgres from 'postgres'
 import type { TenantId } from '../_shared'
 import { createPostgresAssetRegistryRepository } from '../asset-registry'
+import { createPostgresCatalogRepository } from '../catalog'
 import { formatRentalDay, type RentalPeriod } from './rental-period'
 import type { Reservation, ReservationGroup, ReservationState } from './types'
 
@@ -126,6 +127,11 @@ export interface AvailabilityReservationRepository {
   // one for as long as no HandoverOut exists, however many days have
   // passed since (D-17: no automatic timeout, no escalation).
   listReservationsStartedOnOrBefore(tenantId: TenantId, day: string): Promise<Reservation[]>
+
+  // D-57: for each given AssetType that is an Accessory, its principals —
+  // read through Catalog's published interface (A&R is downstream of
+  // Catalog), same composition as getRentablePoolCount below.
+  getAccessoryPrincipals(tenantId: TenantId, assetTypeIds: number[]): Promise<Map<number, number[]>>
 
   // Runs `fn` against a repository bound to a single transaction, and
   // also hands back a `getRentablePoolCount` bound to that SAME transaction
@@ -344,6 +350,10 @@ export function createPostgresAvailabilityReservationRepository(
         order by id
       `
       return rows.map(mapReservation)
+    },
+
+    async getAccessoryPrincipals(tenantId, assetTypeIds) {
+      return createPostgresCatalogRepository(sql).getAccessoryPrincipals(tenantId, assetTypeIds)
     },
 
     async transaction<T>(

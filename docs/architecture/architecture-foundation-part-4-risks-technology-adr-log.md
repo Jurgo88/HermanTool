@@ -6,7 +6,7 @@
 | **Status** | Draft — authoritative for technology selection and risk |
 | **Scope** | Sections 13–16 and the Open Questions appendix. Section 17 (Independent Review) is Part 5. Section 16.2 reconciles the 04 August 2026 implementation review (`docs/reviews/implementation-review-2026-08-04.md`, findings `IR-01`…`IR-13`). |
 | **Depends on** | Parts 1, 2 and 3, all **frozen**. Their identifiers are referenced, never restated or renumbered. Section 16 reconciles Part 5's independent review; because Parts 1–3 are frozen, its corrections are expressed here as new decisions and flagged supersessions rather than as edits to those parts. |
-| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-42`; in the §16.3 interface-design pass, `D-43`…`D-53`. Risks `R-01`…`R-17`. No new Ubiquitous Language. |
+| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-42`; in the §16.3 interface-design pass, `D-43`…`D-53`; in the §16.4 catalog pass, `D-54`…`D-60`. Risks `R-01`…`R-17`. Ubiquitous Language: none before §16.4, which adds **PowerSource**, **UseArea** and **Accessory**. |
 | **Prices verified** | 18 July 2026, against vendor pricing pages. Every number below has a date on it because every number below will move. |
 
 ### Flags: two contradictions and two defects
@@ -329,6 +329,13 @@ The map. Every decision from D-01, with its owning part and status. Reasoning is
 | **D-51** | **One formatting module. Money, dates and periods are never formatted in a component.** | P4 §16.3 | accepted |
 | **D-52** | **Legally blocked copy occupies a marked slot that cannot ship silently.** | P4 §16.3 | accepted |
 | **D-53** | **No third-party runtime assets in the browser. Fonts self-hosted.** | P4 §16.3 | accepted |
+| **D-54** | **Catalog classification by PowerSource (at most one) and UseArea (any number), Operator-maintained; OR within, AND across.** | P4 §16.4 | accepted |
+| **D-55** | **AssetType carries optional specifications, includedContents and handlingNotice as Catalog content; no domain rule reads them.** | P4 §16.4 | accepted |
+| **D-56** | **Catalog images are static files shipped with the build, one per AssetType, chosen in the admin surface.** | P4 §16.4 | accepted — trigger: owner-managed photos or a second Tenant; image rights open (OQ #30) |
+| **D-57** | **An Accessory is its own AssetType linked to principal AssetTypes, reserved as its own Reservation in the principal's group and RentalPeriod.** | P4 §16.4 | accepted |
+| **D-58** | **`S-02` un-deferred; the catalog is browsed without dates; availability is a server-derived month calendar (free / last / none) on `S-02`.** | P4 §16.4 | accepted — closes `UIF-04` |
+| **D-59** | **Rent Star is the public surface's identity: blue tokens and a header gradient on the public surface only. Not per-Tenant branding.** | P4 §16.4 | accepted — resolves `UI-OQ-3` |
+| **D-60** | **The pilot catalog is bootstrapped by one attributed, name-idempotent import from a reviewed CSV, at provisional tiered prices.** | P4 §16.4 | accepted — **prices provisional (OQ #29)** |
 
 ### Long-term implications and migration difficulty — D-24 to D-32
 
@@ -605,6 +612,134 @@ Parts 1–3 remain frozen. D-38 and D-42 are the only two of these that touch a 
 
 **Why:** this is the fact that makes `D-42`'s conclusion architectural rather than incidental — if the browser makes no third-party request and sets nothing but a strictly necessary session cookie, there is no non-essential consent to collect.
 
+## 16.4 Catalog presentation and the pilot catalog (1 October 2026)
+
+The pilot Tenant supplied its catalog (48 AssetTypes, 52 Assets), product photographs and a set of public-surface mockups under its trading name, **Rent Star**. The mockups need things that FR-01 does not have: filters, photographs, structured technical parameters, optional add-ons offered on a tool's page, and a per-AssetType page with an availability calendar, which `S-02` had deferred. Each of these is new scope. It is recorded here as decisions rather than as new FRs, following the §16.2 and §16.3 convention, because Parts 1–3 are frozen. Each decision was put to the developer as a choice between options, and the chosen option is what is recorded.
+
+Parts 1–3 remain frozen. This section adds three Ubiquitous Language terms (below), extends Catalog's content, and un-defers `S-02`. It touches no invariant: D-08, D-33, D-38, FR-20 and FR-33 are unchanged.
+
+### Ubiquitous Language additions
+
+| Term | Meaning | Owned by |
+|---|---|---|
+| **PowerSource** | How an AssetType is powered, as a Visitor filters by it: for example *Aku*, *Elektrina*, *Benzín*. An AssetType has at most one; a hand tool has none. Tenant-scoped, Operator-maintained, ordered. | Catalog |
+| **UseArea** | A kind of job an AssetType is used for, as a Visitor filters by it: for example *Záhrada*, *Stavba*, *Čistenie*. An AssetType may have several or none. Tenant-scoped, Operator-maintained, ordered. | Catalog |
+| **Accessory** | An AssetType offered only alongside one or more *principal* AssetTypes (a drill-bit set with a hammer drill, a microphone with a speaker). It is a full AssetType in every other respect: it has its own Assets, AssetTags, day rate, deposit and availability, and it is reserved as its own Reservation. | Catalog (the link); Availability & Reservation (the checkout rule) |
+
+**Naming guard.** None of these is a *category*: CLAUDE.md already reserves the refusal of `category` for AssetType itself, and a generic "category" field is how the two dimensions of D-54 would collapse into one. None of them is a *tag* either, which is the sharper hazard: **AssetTag** is the physical QR code (P3), and a filter chip called a "tag" in code would make every grep for AssetTag ambiguous. None of them is an *option*, *variant* or *extra* on a Reservation (D-57).
+
+### D-54 — Catalog classification: PowerSource and UseArea
+
+**Considered:** (a) free-form labels on AssetType; (b) two typed dimensions, PowerSource (at most one per AssetType) and UseArea (any number), each a Tenant-scoped list the Operator maintains; (c) the same two dimensions as fixed enums in code.
+
+**Trade-offs:** (a) has no filter semantics: "Aku" and "Záhrada" become peers, and selecting both returns petrol lawnmowers. (c) is the smallest build, but it makes a Catalog value a deploy. Part 3 §12 draws the line the other way: prices and deposits are business data, not configuration. What kinds of job the Tenant rents for is the same kind of fact. (b) costs two small tables, one join table and a section of `S-19`.
+
+**Recommended: (b).** Filter semantics: OR within a dimension, AND across dimensions. Selecting *Aku* and *Záhrada* + *Stavba* returns battery-powered AssetTypes used in the garden or on a building site. Rules:
+- Labels are single-valued Slovak Catalog content (D-20). Order is explicit.
+- Writes carry Operator attribution (FR-34). Every read is Tenant-scoped (FR-33).
+- Removing a PowerSource or UseArea that an AssetType still uses is refused, not cascaded. Unassigning it first is a deliberate act.
+- Classification is presentation data for filtering. No domain rule reads it.
+
+**Why:** it is the reading of the mockup that gives a filter the answer a Visitor means. Making the lists Operator-maintained keeps it on the business-data side of Part 3 §12(e).
+
+### D-55 — AssetType presentation content
+
+**Considered:** (a) keep a single `description` and put everything else in it; (b) add structured, optional Catalog content alongside `description`.
+
+**Recommended: (b).** An AssetType additionally carries:
+- **specifications**: an ordered list of label/value pairs, such as *Príkon: 1 800 W*.
+- **includedContents**: what comes with the tool, such as *1× batéria, kotúč na rezanie*.
+- **handlingNotice**: an operating caution the Customer must see before reserving, such as *POZOR! Tankujte DIESEL*.
+- **image**: see D-56.
+
+All of it is optional, single-valued Slovak Catalog content (D-20), and it is edited in `S-19` under FR-37.
+
+**Boundary:** none of it is a domain rule. A handlingNotice is information shown to a Visitor. It is not a condition of HandoverOut, not something the Operator attests, and not part of the terms version D-35 records. Anything that ever needs to be accepted belongs in the terms, which remain OQ #1.
+
+### D-56 — Catalog images are static files shipped with the build (pilot)
+
+**Considered:** (a) images in `public/catalog/`, converted to one web format at a bounded size. The AssetType records a file name, and the Operator chooses it in `S-19` from the files that shipped. (b) Operator upload into a third R2 bucket, served through a same-origin route. (c) A public R2 bucket URL.
+
+**Trade-offs:**
+- (c) is a third-party request on every catalog page and is refused by D-53.
+- (b) is the right end state. It costs a bucket, presigned upload, a serving route with caching, and D-40's confirmation step for an object that is not even evidence.
+- (a) costs a developer commit when a photograph changes. At one photograph per AssetType and a catalog that changes a few times a year, that is cheap.
+
+**Recommended: (a).** One image per AssetType. An AssetType without one renders a neutral placeholder, never a broken image.
+
+**Trigger to revisit:** the owner needs to change photographs without the developer, or a second Tenant arrives. The latter makes images per-Tenant content, which static files cannot be.
+
+**Left open:** the right to use manufacturer product photographs on a commercial site (OQ #30).
+
+### D-57 — Accessory: an AssetType offered only alongside a principal AssetType
+
+**Considered:**
+- (a) Describe the add-on in includedContents and track nothing.
+- (b) The Accessory is its own AssetType, linked to one or more principal AssetTypes. It is reserved as its own Reservation, in the same ReservationGroup and for the same RentalPeriod as its principal.
+- (c) Options or variants on a Reservation: quantity-level sub-units of the principal.
+
+**Trade-offs:**
+- (c) is refused by name. It breaks D-13's "a Reservation claims one AssetType", and it is the quantity-level tracking A-07 declares a model change.
+- (a) is right for things that always travel with the tool (a battery in the box). It is wrong for things the Customer may or may not take, the Tenant owns a countable number of, and the counter must see come back.
+- (b) needs no new mechanism for availability, holds, handover or deposit. D-08, D-33 and D-38 apply to an Accessory exactly as to any AssetType, because it is one.
+
+**Recommended: (b).**
+- **Link:** the link is Catalog data (principal ↔ Accessory, many-to-many, Tenant-scoped, Operator-maintained). An AssetType that is linked as an Accessory to at least one principal is not listed on its own in `S-01`; it is offered on its principal's `S-02` page. It remains a published AssetType, because availability and checkout need it.
+- **Checkout rule:** checkout refuses a ReservationGroup in which an Accessory Reservation has no Reservation for one of its principals in the same group, with the same RentalPeriod and at least the same quantity. This is a domain rule, so it lives in Availability & Reservation's checkout. It is never enforced by the browser alone (D-25).
+- **Price and deposit:** the Accessory's day rate and deposit are its own (FR-01). Its DepositObligation adds to the group's like any other AssetType's.
+
+**Consequence accepted with open eyes:** an Accessory's Assets go through the counter like every Asset. Each has its own AssetTag scan, its own HandoverOut and RentalAgreement (FR-22), and its own ConditionReports with photographs at both ends (FR-19). A drill-bit set therefore costs the Operator two scans and two sets of photographs per rental. That is the price of the Tenant being able to prove the set came back. If it turns out to be too expensive for some Accessory, the answer is to move that Accessory to includedContents, not to weaken FR-19.
+
+### D-58 — `S-02` AssetType detail is un-deferred; the catalog is browsed without dates
+
+**Considered, for `S-01`:** (a) keep the date range above the list and availability on every card, which is `UIF-04`'s fan-out multiplied by the catalog's real size of about 44 listed AssetTypes; (b) list without dates, filtered by D-54, and move availability to `S-02`.
+
+**Recommended: (b).** `S-01` shows photograph, name, day rate and the filters. `S-02` (`/naradie/:assetTypeId`) shows:
+- the D-55 content and D-56 image;
+- day rate and deposit with equal weight (FR-02);
+- an availability calendar;
+- the Accessory checkboxes (D-57);
+- the primary action, labelled **Rezervovať**, which adds to the Reservation draft.
+
+FR-02 is met by `S-01` and `S-02` together: availability and DepositObligation are both visible without identifying the Visitor and without writing a record. `UIF-04` is closed by this decision rather than by a batched endpoint.
+
+**The calendar:**
+- The server returns one month at a time: every day with its weekday, whether it is selectable (not before today in `Europe/Bratislava`) and a derived availability level.
+- There are three levels: **free**; **last** (exactly one unit free, where the pool holds more than one); **none**. They are computed from D-38's pool minus holds.
+- The browser does no date arithmetic (D-51, §7.8). The month layout and the previous and next month keys come from the server.
+- The levels are derived facts and get the derived treatment (D-47), never a state chip.
+- A Visitor selects a RentalPeriod by choosing its first and last day. A range containing a *none* day cannot be selected.
+- The calendar is advisory. D-33's conditional hold at checkout remains the only authority, and a race lost there is shown as the checkout error it already is.
+
+**Terms acceptance stays where D-35 put it:** once per ReservationGroup, at checkout, before payment. The mockup's per-page checkbox is not built. `S-02` links to the terms.
+
+### D-59 — Rent Star is the public surface's identity (resolves `UI-OQ-3`)
+
+**Considered:** (a) keep §4 of the interface design foundation as the public identity; (b) Rent Star's blue palette and gradient header on the public surface only, with the admin and counter surfaces unchanged; (c) Rent Star everywhere.
+
+**Trade-offs:** (c) spends the counter's contrast-first palette (§4, D-45's daylight scanning) and its "act here" signal yellow on a brand, on the one surface where colour is an instrument. (a) ignores the Tenant's own identity on the only surface its Customers see.
+
+**Recommended: (b).**
+- The public layout gets a `data-surface='public'` token override: the Rent Star blues, and a gradient allowed in the page header only.
+- The design foundation's "no gradients" (§4.1) is superseded for that one element on that one surface.
+- The name is a string in `sk.ts`. The wordmark is typeset in IBM Plex Sans Condensed until a vector logo is supplied.
+
+**Not per-Tenant branding.** Part 3 §12(d) keeps that `[Future]` with the second Tenant as its trigger, and this decision does not build it. There is no Tenant branding table, setting or switch. The pilot's identity simply is the public surface's identity, exactly as §4 was before.
+
+**Obligation:** NFR-11's contrast floor applies to the gradient. White text must clear 4.5:1 against the *lightest* point it overlaps, which rules out text over the mockup's pale end. The header text sits over the dark end, or the gradient is darkened until it passes.
+
+### D-60 — The pilot catalog is bootstrapped by one import, at provisional prices
+
+**Considered:** (a) the Operator types 48 AssetTypes and 52 Assets into `S-19` and `S-20`; (b) a one-shot server-side import from a reviewed CSV, using the existing Catalog operations and the existing FR-25 bulk registration.
+
+**Recommended: (b).**
+- **Source:** `docs/catalog-source/pilot-catalog.csv`, reviewed and corrected by the Tenant first.
+- **Attribution:** every write is attributed to the owner's Operator identity (FR-34, D-16). There is no system actor.
+- **Idempotence:** idempotent by AssetType name within the Tenant. An existing name is skipped, never updated. After the import, the admin surface is where the catalog changes.
+- **Asset registration:** Assets are created through bulk registration with fresh AssetTags. They stay pending activation until tagged and marked Rentable (W9), so the pool, and with it availability, grows as tags go onto the physical tools, not at import time.
+
+**Provisional prices, recorded as such:** the CSV carries no prices. At the Tenant's instruction, day rates are set by tier: 15 € for hand-held tools, 20 € for larger machines, 25 € for engine-driven and professional machines. Deposits are five times the day rate, and Accessories are 5 € per day with a 25 € deposit. Three rates come from the mockups (15, 15 and 25 €). All of them are editable in `S-19` (FR-37). **They are placeholders, not the Tenant's price list, and confirming them is launch-blocking (OQ #29).**
+
 ## Appendix — Open Questions
 
 The pre-build checklist. Everything still open across Parts 1–4, flattest form, with where the context lives.
@@ -618,6 +753,7 @@ The pre-build checklist. Everything still open across Parts 1–4, flattest form
 | 3 | The backup retention horizon value. Sum with #2 is the actual promise made to customers. | NFR-07 · D-32 |
 | 4 | Is there a written controller–processor agreement between the Tenant and the developer, naming sub-processors? | R-06 · R-13 |
 | 27 | The Customer-record retention period **and** its basis (accounting/limitation statute), recorded the way D-11 requires. Same lawyer, same conversation as #2 — the records exist in production today with no clock (IR-07). | P7 · Part 5 Finding 6 · IR-07 |
+| 29 | The pilot's day rates and deposits. Every one imported under D-60 is a provisional tier value set at the Tenant's instruction, not the Tenant's price list, and must be confirmed or corrected in `S-19` before the first real Customer sees it. | D-60 · FR-01 · FR-37 |
 
 ### Decisions with values still unset
 
@@ -661,3 +797,4 @@ The pattern P3 named holds: almost every trigger is "the second Tenant", and non
 | 21 | Does the Tenant get access to the R2 backup bucket, or does the bus factor stay fully with you? | R-07 · D-32 |
 | 22 | Measure cold-start scan-to-resolution against NFR-02 before launch. Not a question — a task with a go/no-go attached. | R-08 · NFR-02 |
 | 23 | Run a concurrent-booking test: two simultaneous holds on the last available unit, prove one succeeds and one fails without oversell. | D-33 · D-08 |
+| 30 | May the Tenant publish the manufacturers' product photographs it supplied (Parkside/Lidl, Bosch, STIGA, JBL and others) on its commercial site, or must some be replaced with its own photographs? | D-56 |
