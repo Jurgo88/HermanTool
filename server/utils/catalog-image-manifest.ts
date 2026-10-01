@@ -45,5 +45,5 @@ export const CATALOG_IMAGE_FILES: readonly string[] = [
   'vyrovnavacie-hrable.webp',
   'vysavac-bosch-gas-55-m.webp',
   'vysokotlakovy-cistic-gaspper-gp3300ha.webp',
-  'vysokotlakovy-cistic-waspper-w3200hb.webp'
+  'vysokotlakovy-cistic-waspper-w3200hb.webp',
 ]
