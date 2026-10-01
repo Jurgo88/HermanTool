@@ -101,3 +101,27 @@
   --ht-text-5: 1.75rem;
   --ht-text-6: 2.25rem;
 }
+
+/* Public surface — Rent Star (D-59), applied by the public layout only.
+ * The brand blues read off the mockups and measured on white text:
+ * --ht-brand-deep ≈12:1, --ht-brand ≈6.4:1 (NFR-11). --ht-brand-light is
+ * decorative only and never sits under text. The primary action and the
+ * focus ring re-point at the brand so components need no surface branch. */
+[data-surface='public'] {
+  --ht-brand-deep: #2b2f8f;
+  --ht-brand: #1f5fa8;
+  --ht-brand-light: #62b2e2;
+  --ht-on-brand: #ffffff;
+  /* Light only past 70%, so header text on the left stays on ≥4.5:1. */
+  --ht-header-gradient: linear-gradient(
+    100deg,
+    var(--ht-brand-deep) 0%,
+    var(--ht-brand) 70%,
+    var(--ht-brand-light) 100%
+  );
+  --ht-header-curve: 0 0 60% 0 / 0 0 48px 0;
+
+  --ht-signal: var(--ht-brand);
+  --ht-on-signal: var(--ht-on-brand);
+  --ht-signal-deep: var(--ht-brand-deep);
+}
