@@ -23,6 +23,8 @@ export {
   ClassificationSequenceMismatchError,
   InvalidSpecificationError,
   InvalidImageFileError,
+  AccessoryChainError,
+  AccessoryOfItselfError,
 } from './types'
 
 export type {
@@ -36,7 +38,9 @@ export { createPostgresCatalogRepository } from './repository'
 export {
   listAssetTypes,
   listPublishedAssetTypes,
+  listBrowsableAssetTypes,
   getPublishedAssetType,
+  listPublishedAccessoriesOf,
   createAssetType,
   updateAssetType,
   publishAssetType,

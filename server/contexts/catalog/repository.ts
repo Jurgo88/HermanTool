@@ -14,6 +14,9 @@ export interface AssetTypeContent {
   includedContents?: string
   handlingNotice?: string
   imageFile?: string | null
+  // D-57: replaces the whole set of principals this AssetType is an
+  // Accessory of. Empty makes it a normal, listed AssetType again.
+  principalIds?: number[]
 }
 
 export interface NewAssetType extends AssetTypeContent {
@@ -94,6 +97,14 @@ export interface CatalogRepository {
     id: number,
   ): Promise<string[]>
 
+  // D-57: the Accessories offered on a principal's page.
+  listAccessoryIdsOf(tenantId: TenantId, principalId: number): Promise<number[]>
+
+  // D-57: for each of the given AssetTypes that is an Accessory, its
+  // principals. The published interface Availability & Reservation's
+  // checkout rule reads; AssetTypes that are not Accessories are absent.
+  getAccessoryPrincipals(tenantId: TenantId, assetTypeIds: number[]): Promise<Map<number, number[]>>
+
   transaction<T>(fn: (repo: CatalogRepository) => Promise<T>): Promise<T>
 }
 
@@ -109,6 +120,7 @@ interface AssetTypeRow {
   published: boolean
   power_source_id: number | null
   use_area_ids: number[]
+  principal_ids: number[]
   specifications: Specification[]
   included_contents: string
   handling_notice: string
@@ -133,6 +145,7 @@ function mapAssetType(row: AssetTypeRow): AssetType {
     includedContents: row.included_contents,
     handlingNotice: row.handling_notice,
     imageFile: row.image_file,
+    principalIds: row.principal_ids,
     createdByOperatorId: row.created_by_operator_id,
     updatedByOperatorId: row.updated_by_operator_id,
     updatedAt: row.updated_at,
@@ -164,8 +177,8 @@ const classificationTable: Record<ClassificationKind, string> = {
 export function createPostgresCatalogRepository(
   sql: postgres.Sql | postgres.TransactionSql,
 ): CatalogRepository {
-  // Every AssetType read goes through this, so useAreaIds is always
-  // populated the same way.
+  // Every AssetType read goes through this, so useAreaIds and
+  // principalIds are always populated the same way.
   function selectAssetTypes(where: postgres.PendingQuery<postgres.Row[]>) {
     return sql<AssetTypeRow[]>`
       select a.*, coalesce(
@@ -173,7 +186,12 @@ export function createPostgresCatalogRepository(
          from asset_type_use_areas u
          where u.tenant_id = a.tenant_id and u.asset_type_id = a.id),
         '{}'::integer[]
-      ) as use_area_ids
+      ) as use_area_ids, coalesce(
+        (select array_agg(x.principal_asset_type_id order by x.principal_asset_type_id)
+         from asset_type_accessories x
+         where x.tenant_id = a.tenant_id and x.accessory_asset_type_id = a.id),
+        '{}'::integer[]
+      ) as principal_ids
       from asset_types a
       where ${where}
       order by a.name
@@ -197,6 +215,27 @@ export function createPostgresCatalogRepository(
           tenant_id: tenantId,
           asset_type_id: assetTypeId,
           use_area_id: useAreaId,
+        })),
+      )}
+    `
+  }
+
+  async function replacePrincipals(
+    tenantId: TenantId,
+    accessoryId: number,
+    principalIds: number[],
+  ) {
+    await sql`
+      delete from asset_type_accessories
+      where tenant_id = ${tenantId} and accessory_asset_type_id = ${accessoryId}
+    `
+    if (principalIds.length === 0) return
+    await sql`
+      insert into asset_type_accessories ${sql(
+        principalIds.map((principalId) => ({
+          tenant_id: tenantId,
+          principal_asset_type_id: principalId,
+          accessory_asset_type_id: accessoryId,
         })),
       )}
     `
@@ -236,6 +275,7 @@ export function createPostgresCatalogRepository(
       `
       const id = rows[0]!.id
       if (params.useAreaIds) await replaceUseAreas(tenantId, id, params.useAreaIds)
+      if (params.principalIds) await replacePrincipals(tenantId, id, params.principalIds)
       return (await getAssetType(tenantId, id))!
     },
 
@@ -266,6 +306,7 @@ export function createPostgresCatalogRepository(
         where tenant_id = ${tenantId} and id = ${assetTypeId}
       `
       if (params.useAreaIds) await replaceUseAreas(tenantId, assetTypeId, params.useAreaIds)
+      if (params.principalIds) await replacePrincipals(tenantId, assetTypeId, params.principalIds)
       return (await getAssetType(tenantId, assetTypeId))!
     },
 
@@ -342,6 +383,33 @@ export function createPostgresCatalogRepository(
               order by a.name
             `
       return rows.map((row) => row.name)
+    },
+
+    async listAccessoryIdsOf(tenantId, principalId) {
+      const rows = await sql<{ id: number }[]>`
+        select accessory_asset_type_id as id from asset_type_accessories
+        where tenant_id = ${tenantId} and principal_asset_type_id = ${principalId}
+        order by accessory_asset_type_id
+      `
+      return rows.map((row) => row.id)
+    },
+
+    async getAccessoryPrincipals(tenantId, assetTypeIds) {
+      const principals = new Map<number, number[]>()
+      if (assetTypeIds.length === 0) return principals
+      const rows = await sql<
+        { accessory_asset_type_id: number; principal_asset_type_id: number }[]
+      >`
+        select accessory_asset_type_id, principal_asset_type_id from asset_type_accessories
+        where tenant_id = ${tenantId} and accessory_asset_type_id in ${sql(assetTypeIds)}
+        order by accessory_asset_type_id, principal_asset_type_id
+      `
+      for (const row of rows) {
+        const list = principals.get(row.accessory_asset_type_id) ?? []
+        list.push(row.principal_asset_type_id)
+        principals.set(row.accessory_asset_type_id, list)
+      }
+      return principals
     },
 
     async transaction<T>(fn: (repo: CatalogRepository) => Promise<T>) {

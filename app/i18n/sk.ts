@@ -65,6 +65,8 @@ export const sk = {
       ClassificationSequenceMismatchError: 'Poradie sa medzičasom zmenilo. Obnovte stránku a skúste to znova.',
       InvalidSpecificationError: 'Každý parameter musí mať názov aj hodnotu.',
       InvalidImageFileError: 'Neplatný súbor fotky.',
+      AccessoryChainError: 'Doplnok nemôže mať vlastné doplnky a nemôže patriť k inému doplnku.',
+      AccessoryOfItselfError: 'Náradie nemôže byť doplnkom samého seba.',
       InvalidBulkRegistrationLineError: 'Neplatný riadok v zozname — skontrolujte typ náradia a počet kusov.',
       EmptyBulkRegistrationError: 'Zoznam na registráciu je prázdny.',
       MalformedCsvRowError: 'Nesprávny formát CSV riadku.',
@@ -108,6 +110,8 @@ export const sk = {
       PaymentProviderUnavailableError: 'Platbu sa momentálne nepodarilo spustiť. Skúste to prosím o chvíľu znova.',
       ReservationGroupAlreadyPaidError: 'Táto rezervácia je už zaplatená.',
       TermsNotAcceptedError: 'Najprv potvrďte podmienky prenájmu.',
+      AccessoryWithoutPrincipalError:
+        'Doplnok sa dá rezervovať len spolu s náradím, ku ktorému patrí, na rovnaký termín a v rovnakom počte.',
       ReservationGroupNotFoundError: 'Túto rezerváciu sa nepodarilo nájsť.',
       RetentionWindowNotConfiguredError: 'Nahratie dokladu momentálne nie je možné. Skúste to prosím neskôr.',
     },

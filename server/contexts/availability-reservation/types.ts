@@ -97,6 +97,18 @@ export class AssetTypeUnavailableError extends AvailabilityReservationError {
   }
 }
 
+// D-57: an Accessory is reserved only alongside a principal — in the same
+// ReservationGroup, for the same RentalPeriod, and never more units of
+// the Accessory than of its principals for that period.
+export class AccessoryWithoutPrincipalError extends AvailabilityReservationError {
+  constructor(public readonly accessoryAssetTypeId: number) {
+    super(
+      `Accessory AssetType ${accessoryAssetTypeId} needs at least as many Reservations of one of its ` +
+        'principals in the same ReservationGroup and RentalPeriod.',
+    )
+  }
+}
+
 // A Reservation was not in the state a transition requires — e.g.
 // confirming or cancelling one that is already Cancelled or Expired.
 export class ReservationNotActiveError extends AvailabilityReservationError {

@@ -22,6 +22,7 @@ const assetTypeContentSchema = z.object({
   includedContents: z.string().optional(),
   handlingNotice: z.string().optional(),
   imageFile: z.string().nullable().optional(),
+  principalIds: z.array(idSchema).optional(),
 })
 
 export const createAssetTypeBodySchema = assetTypeContentSchema.extend({

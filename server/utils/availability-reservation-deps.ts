@@ -8,6 +8,7 @@ import { useRuntimeConfig } from '#imports'
 import type postgres from 'postgres'
 import { getSharedDatabaseClient } from './db'
 import {
+  AccessoryWithoutPrincipalError,
   AssetTypeUnavailableError,
   EmptyReservationGroupError,
   InvalidRentalPeriodError,
@@ -49,6 +50,7 @@ export function translateAvailabilityReservationError(err: unknown): never {
     throw createError({ statusCode: 404, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   if (
+    err instanceof AccessoryWithoutPrincipalError ||
     err instanceof EmptyReservationGroupError ||
     err instanceof InvalidRentalPeriodError ||
     err instanceof InvalidTermsVersionError
