@@ -68,3 +68,52 @@ export function eachDayOfPeriod(period: RentalPeriod): string[] {
 export function rentalPeriodLengthInDays(period: RentalPeriod): number {
   return eachDayOfPeriod(period).length
 }
+
+// A-04: one local timezone for the pilot Tenant. RentalDays are its
+// calendar days, so "today" is the local date, never the UTC one.
+const TENANT_TIME_ZONE = 'Europe/Bratislava'
+const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/
+
+export class InvalidMonthError extends Error {
+  constructor(month: string) {
+    super(`"${month}" is not a calendar month (YYYY-MM).`)
+    this.name = new.target.name
+  }
+}
+
+export function todayRentalDay(now: Date = new Date()): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TENANT_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now)
+}
+
+export function monthOfDay(day: string): string {
+  return day.slice(0, 7)
+}
+
+function parseMonth(month: string): { year: number; monthIndex: number } {
+  if (!MONTH_PATTERN.test(month)) throw new InvalidMonthError(month)
+  return { year: Number(month.slice(0, 4)), monthIndex: Number(month.slice(5, 7)) - 1 }
+}
+
+export function eachDayOfMonth(month: string): string[] {
+  const { year, monthIndex } = parseMonth(month)
+  const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0))
+  return eachDayOfPeriod({ startDay: `${month}-01`, endDay: formatRentalDay(lastDay) })
+}
+
+export function shiftMonth(month: string, delta: number): string {
+  const { year, monthIndex } = parseMonth(month)
+  return formatRentalDay(new Date(Date.UTC(year, monthIndex + delta, 1))).slice(0, 7)
+}
+
+// ISO weekday: Monday 1 … Sunday 7, matching the Slovak calendar week.
+export function weekdayOf(day: string): number {
+  const date = parseDay(day)
+  if (!date) throw new InvalidRentalPeriodError({ startDay: day, endDay: day })
+  return ((date.getUTCDay() + 6) % 7) + 1
+}
