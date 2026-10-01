@@ -46,7 +46,16 @@
 // Cancellation is mechanics only (release-on-cancel); the cancellation
 // WORKFLOW (W11) stays unbuilt pending OQ #1 (CLAUDE.md KNOWN GAPS).
 export type { RentalPeriod } from './rental-period'
-export { InvalidRentalPeriodError, eachDayOfPeriod, rentalPeriodLengthInDays } from './rental-period'
+export {
+  InvalidMonthError,
+  InvalidRentalPeriodError,
+  eachDayOfPeriod,
+  rentalPeriodLengthInDays,
+  todayRentalDay,
+} from './rental-period'
+
+export type { AvailabilityDay, AvailabilityLevel, AvailabilityMonth } from './availability-calendar'
+export { availabilityLevel, getAvailabilityMonth } from './availability-calendar'
 
 export type { Reservation, ReservationGroup, ReservationState } from './types'
 
