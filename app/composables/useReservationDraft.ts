@@ -2,7 +2,8 @@
 // AssetTypes with different RentalPeriods" before checkout commitment
 // (docs/architecture/architecture-foundation-part-2-users-workflows-events.md,
 // W1). Never persisted, never sent as-is to the server — checkout.vue
-// flattens it into the `lines: ReservationLine[]` shape
+// flattens it (app/utils/reservation-draft.ts) into the
+// `lines: ReservationLine[]` shape
 // /api/reservations/checkout.post.ts expects, one line per unit
 // (the backend has no quantity field: FR-06 is "n AssetTypes -> n
 // Reservations", one Reservation per unit).

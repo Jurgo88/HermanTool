@@ -1,13 +1,11 @@
 import { z } from 'zod'
 import {
   assertTermsAccepted,
-  rentalPeriodLengthInDays,
   ReservationGroupNotFoundError,
   TermsNotAcceptedError,
 } from '../../contexts/availability-reservation'
 import { AssetTypeNotFoundError } from '../../contexts/catalog'
 import {
-  computeRentalFeeAmount,
   PaymentProviderUnavailableError,
   ReservationGroupAlreadyPaidError,
   startPayment,
@@ -16,6 +14,7 @@ import { createAvailabilityReservationDeps } from '../../utils/availability-rese
 import { createCatalogDeps } from '../../utils/catalog-deps'
 import { requireCheckoutGroupCookie } from '../../utils/checkout-session'
 import { createPaymentsDeps, getAppBaseUrl } from '../../utils/payments-deps'
+import { quoteReservationLines } from '../../utils/reservation-quote'
 import { getSeededTenantId } from '../../utils/tenant'
 
 const bodySchema = z.object({ reservationGroupId: z.number().int().positive() })
@@ -42,14 +41,17 @@ export default defineEventHandler(async (event) => {
     assertTermsAccepted(group)
 
     const reservations = await availability.repo.listReservationsForGroup(tenantId, body.reservationGroupId)
-    const lines = await Promise.all(
-      reservations.map(async (reservation) => {
-        const assetType = await catalog.repo.getAssetType(tenantId, reservation.assetTypeId)
-        if (!assetType) throw new AssetTypeNotFoundError(reservation.assetTypeId)
-        return { dayRate: assetType.dayRate, days: rentalPeriodLengthInDays(reservation.period) }
-      }),
+    // One Reservation is one unit (FR-06). Same computation as the S-03
+    // quote (#164), so the page and the charge cannot disagree.
+    const quote = await quoteReservationLines(
+      reservations.map((reservation) => ({
+        assetTypeId: reservation.assetTypeId,
+        period: reservation.period,
+        quantity: 1,
+      })),
+      (assetTypeId) => catalog.repo.getAssetType(tenantId, assetTypeId),
     )
-    const amount = computeRentalFeeAmount(lines)
+    const amount = quote.rentalFeeTotal
 
     const appBaseUrl = getAppBaseUrl(event)
     const { redirectUrl } = await startPayment(payments.repo, payments.gateway, {
