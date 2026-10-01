@@ -16,8 +16,8 @@ export const sk = {
   // string. `shortName` is what a home screen actually shows; keep it short
   // enough not to be truncated.
   pwa: {
-    publicName: 'HermanTool — požičovňa náradia',
-    publicShortName: 'HermanTool',
+    publicName: 'Rent Star — požičovňa náradia',
+    publicShortName: 'Rent Star',
     publicDescription: 'Rezervácia náradia a strojov online.',
     operatorName: 'HermanTool — pult',
     operatorShortName: 'Pult',
@@ -152,7 +152,7 @@ export const sk = {
     invalidCredentials: 'Nesprávny email alebo heslo.',
   },
   publicCatalog: {
-    title: 'HermanTool',
+    title: 'Požičovňa náradia',
     dayRateLabel: 'Cena za deň',
     depositLabel: 'Depozit',
     empty: 'Zatiaľ nie je publikované žiadne náradie.',
@@ -227,6 +227,16 @@ export const sk = {
     uploadNotConfirmedError: 'Nahratie sa nepodarilo potvrdiť, skúste to prosím znova.',
     uploadUnavailableError: 'Nahratie dokladu momentálne nie je možné. Skúste to prosím neskôr alebo nás kontaktujte.',
     uploadGenericError: 'Nahratie sa nepodarilo, skúste to prosím znova.',
+  },
+  // D-59: the Tenant's own identity on the public surface. The name is
+  // copy, not configuration — per-Tenant branding stays [Future].
+  publicHeader: {
+    brandName: 'Rent Star',
+    tagline: 'Vyberte · Rezervujte · Požičajte',
+    homeLabel: 'Rent Star — na úvod',
+    navLabel: 'Hlavná navigácia',
+    termsLink: 'Podmienky požičania',
+    draftLink: 'Rezervácia ({count})',
   },
   publicFooter: {
     termsLink: 'Podmienky prenájmu',
