@@ -29,7 +29,7 @@ definePageMeta({ layout: 'public' })
 // a real Customer ever sees this page.
 const DRAFT_TERMS_VERSION = 'pilot-draft-v1'
 
-const { lines: draftLines, clearLines } = useReservationDraft()
+const { lines: draftLines, clearLines, removeLine } = useReservationDraft()
 
 const customerName = ref('')
 const customerEmail = ref('')
@@ -168,6 +168,7 @@ async function acceptTermsAndPay() {
             <span>{{ line.assetTypeName }} × {{ line.quantity }}</span>
             <DayRange :start-day="line.period.startDay" :end-day="line.period.endDay" />
             <MoneyAmount v-if="quote?.lines[index]" :amount="quote.lines[index].rentalFee" />
+            <AppButton variant="quiet" @click="removeLine(index)">{{ sk.checkout.removeLineAction }}</AppButton>
           </li>
         </ul>
         <p v-if="quoteStatus === 'loading'" aria-busy="true">{{ sk.checkout.quoteLoading }}</p>
@@ -261,6 +262,8 @@ async function acceptTermsAndPay() {
 
 .checkout__summary-list li {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
   gap: var(--ht-space-3);
   padding: var(--ht-space-2) 0;
