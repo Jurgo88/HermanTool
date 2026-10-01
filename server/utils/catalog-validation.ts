@@ -2,6 +2,7 @@
 // Validation happens here, not in Vue components (D-25) — this module
 // is imported only by server/api/catalog/* route handlers.
 import { z } from 'zod'
+import { CATALOG_IMAGE_FILES } from './catalog-image-manifest'
 
 // D-21: EUR only in the pilot — the currency travels on every amount as
 // an invariant, not a convention, so a request naming any other
@@ -21,7 +22,12 @@ const assetTypeContentSchema = z.object({
   specifications: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
   includedContents: z.string().optional(),
   handlingNotice: z.string().optional(),
-  imageFile: z.string().nullable().optional(),
+  // D-56: only a file that shipped under public/catalog/.
+  imageFile: z
+    .string()
+    .refine((file) => CATALOG_IMAGE_FILES.includes(file), 'Not a shipped catalog image.')
+    .nullable()
+    .optional(),
   principalIds: z.array(idSchema).optional(),
 })
 
