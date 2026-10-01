@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toCheckoutLines, toQuoteLines } from '../../../app/utils/reservation-draft'
+import { toCheckoutLines, toQuoteLines, withoutLine } from '../../../app/utils/reservation-draft'
 import type { DraftReservationLine } from '../../../app/composables/useReservationDraft'
 
 const money = (amount: number) => ({ amount, currency: 'EUR' })
@@ -41,5 +41,22 @@ describe('toCheckoutLines (FR-06, #164)', () => {
 describe('toQuoteLines', () => {
   it('keeps the quantity for the server-side quote', () => {
     expect(toQuoteLines([hammer])).toEqual([{ assetTypeId: 7, period: hammer.period, quantity: 3 }])
+  })
+})
+
+describe('withoutLine (D-57)', () => {
+  const bitsWithHammer = { ...bits, principalAssetTypeId: 7 }
+
+  it('removes the Accessory lines added with a removed principal', () => {
+    expect(withoutLine([hammer, bitsWithHammer], 0)).toEqual([])
+  })
+
+  it('keeps the principal when only the Accessory is removed', () => {
+    expect(withoutLine([hammer, bitsWithHammer], 1)).toEqual([hammer])
+  })
+
+  it('keeps an Accessory added for a different RentalPeriod', () => {
+    const otherWeek = { ...bitsWithHammer, period: { startDay: '2026-10-12', endDay: '2026-10-13' } }
+    expect(withoutLine([hammer, otherWeek], 0)).toEqual([otherWeek])
   })
 })

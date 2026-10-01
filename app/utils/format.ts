@@ -36,6 +36,18 @@ export function formatDay(isoDay: string): string {
   )
 }
 
+// S-02 calendar title: "október 2026" for '2026-10' (D-58).
+export function formatMonth(isoMonth: string): string {
+  return new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+    parseRentalDay(`${isoMonth}-01`),
+  )
+}
+
+// S-02 calendar cell: "5" for '2026-10-05'.
+export function formatDayOfMonth(isoDay: string): string {
+  return String(parseRentalDay(isoDay).getUTCDate())
+}
+
 // "12. – 14. 8. 2026" when the range shares a month and year (the common
 // case for a short rental); falls back to two full dates otherwise.
 export function formatDayRange(startIsoDay: string, endIsoDay: string): string {

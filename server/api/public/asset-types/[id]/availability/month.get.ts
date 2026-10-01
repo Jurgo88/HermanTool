@@ -2,6 +2,7 @@ import { z } from 'zod'
 import {
   getAvailabilityMonth,
   InvalidMonthError,
+  monthOfDay,
   todayRentalDay,
 } from '../../../../../contexts/availability-reservation'
 import {
@@ -11,7 +12,9 @@ import {
 import { createCatalogDeps, getAssetTypeIdParam } from '../../../../../utils/catalog-deps'
 import { getSeededTenantId } from '../../../../../utils/tenant'
 
-const querySchema = z.object({ month: z.string() })
+// No month means the current one in the Tenant's timezone, so the
+// browser never derives "this month" from a date (D-51).
+const querySchema = z.object({ month: z.string().optional() })
 
 // S-02 calendar (D-58; FR-02, FR-03, D-38; issue #152): one month of
 // derived levels — free / last / none — for a Visitor. No session, no
@@ -35,7 +38,7 @@ export default defineEventHandler(async (event) => {
       getAvailabilityMonth(trx, getRentablePoolCount, {
         tenantId,
         assetTypeId,
-        month,
+        month: month ?? monthOfDay(todayRentalDay()),
         today: todayRentalDay(),
       }),
     )

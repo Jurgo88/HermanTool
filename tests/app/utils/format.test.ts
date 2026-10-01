@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { formatDay, formatDateTime, formatDayRange, formatMoney, todayInBratislava } from '../../../app/utils/format'
+import {
+  formatDay,
+  formatDateTime,
+  formatDayOfMonth,
+  formatDayRange,
+  formatMoney,
+  formatMonth,
+  todayInBratislava,
+} from '../../../app/utils/format'
 
 // sk-SK's Intl currency format separates the amount and the symbol with
 // U+00A0 (no-break space), not a plain space — matters for exact
@@ -82,5 +90,16 @@ describe('todayInBratislava (D-51, UIF-01)', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-08-12T10:00:00.000Z'))
     expect(todayInBratislava()).toBe('2026-08-12')
+  })
+})
+
+describe('formatMonth / formatDayOfMonth (S-02, D-51)', () => {
+  it('names the month in Slovak', () => {
+    expect(formatMonth('2026-10')).toBe('október 2026')
+  })
+
+  it('gives the day number without leading zero', () => {
+    expect(formatDayOfMonth('2026-10-05')).toBe('5')
+    expect(formatDayOfMonth('2026-10-31')).toBe('31')
   })
 })
