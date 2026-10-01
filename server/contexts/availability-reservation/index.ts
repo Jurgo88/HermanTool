@@ -50,6 +50,7 @@ export {
   InvalidMonthError,
   InvalidRentalPeriodError,
   eachDayOfPeriod,
+  monthOfDay,
   rentalPeriodLengthInDays,
   todayRentalDay,
   validateRentalPeriod,

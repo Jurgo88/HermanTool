@@ -11,6 +11,8 @@
 // Deliberately not named "cart" anywhere (CLAUDE.md's banned-terms list)
 // — this models the same pre-commitment browsing state W1 describes, it
 // just isn't a domain aggregate, so it gets no domain-sounding name either.
+import { withoutLine } from '~/utils/reservation-draft'
+
 export interface DraftReservationLine {
   assetTypeId: number
   assetTypeName: string
@@ -18,6 +20,9 @@ export interface DraftReservationLine {
   depositAmount: { amount: number; currency: string }
   period: { startDay: string; endDay: string }
   quantity: number
+  // D-57: set on an Accessory's line — the principal it was added with,
+  // so removing the principal removes it too (checkout would refuse it).
+  principalAssetTypeId?: number
 }
 
 export function useReservationDraft() {
@@ -35,7 +40,7 @@ export function useReservationDraft() {
   }
 
   function removeLine(index: number) {
-    lines.value.splice(index, 1)
+    lines.value = withoutLine(lines.value, index)
   }
 
   function clearLines() {

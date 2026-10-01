@@ -16,6 +16,7 @@
 // stage 2 (shown only once that succeeds) is terms + pay.
 import { sk } from '~/i18n/sk'
 import { toCheckoutLines, toQuoteLines } from '~/utils/reservation-draft'
+import { getErrorCode } from '~/utils/error-code'
 
 definePageMeta({ layout: 'public' })
 
@@ -29,7 +30,7 @@ definePageMeta({ layout: 'public' })
 // a real Customer ever sees this page.
 const DRAFT_TERMS_VERSION = 'pilot-draft-v1'
 
-const { lines: draftLines, clearLines } = useReservationDraft()
+const { lines: draftLines, clearLines, removeLine } = useReservationDraft()
 
 const customerName = ref('')
 const customerEmail = ref('')
@@ -91,7 +92,14 @@ const committedQuote = ref<ReservationQuote | null>(null)
 // environment because NUXT_STRIPE_SECRET_KEY is unset).
 async function handleFetchError(err: unknown) {
   const statusCode = (err as { statusCode?: number })?.statusCode
-  if (statusCode === 502) {
+  // D-50: a domain refusal with a Customer-register message (e.g. D-57's
+  // AccessoryWithoutPrincipalError) says what happened; status codes are
+  // only the fallback.
+  const code = getErrorCode(err)
+  const customerMessage = code ? (sk.errors.customer as Record<string, string>)[code] : undefined
+  if (customerMessage) {
+    error.value = customerMessage
+  } else if (statusCode === 502) {
     error.value = sk.checkout.paymentProviderError
   } else if (statusCode === 409) {
     error.value = sk.checkout.conflictError
@@ -168,6 +176,7 @@ async function acceptTermsAndPay() {
             <span>{{ line.assetTypeName }} × {{ line.quantity }}</span>
             <DayRange :start-day="line.period.startDay" :end-day="line.period.endDay" />
             <MoneyAmount v-if="quote?.lines[index]" :amount="quote.lines[index].rentalFee" />
+            <AppButton variant="quiet" @click="removeLine(index)">{{ sk.checkout.removeLineAction }}</AppButton>
           </li>
         </ul>
         <p v-if="quoteStatus === 'loading'" aria-busy="true">{{ sk.checkout.quoteLoading }}</p>
@@ -261,6 +270,8 @@ async function acceptTermsAndPay() {
 
 .checkout__summary-list li {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
   gap: var(--ht-space-3);
   padding: var(--ht-space-2) 0;
