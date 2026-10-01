@@ -10,3 +10,7 @@ dist/
 .netlify/
 .claude/
 supabase/.temp/
+# Raw supplier photos and the local review preview stay out of git;
+# converted images ship from public/catalog/ (D-56).
+docs/catalog-source/*
+!docs/catalog-source/pilot-catalog.csv
