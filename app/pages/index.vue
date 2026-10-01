@@ -17,7 +17,6 @@
 // endpoint is a real server-side addition, not a restyle, and the
 // current fan-out has not shown up as a problem at this scale.
 import { sk } from '~/i18n/sk'
-import type { DraftReservationLine } from '~/composables/useReservationDraft'
 import { todayInBratislava } from '~/utils/format'
 
 definePageMeta({ layout: 'public' })
@@ -92,9 +91,6 @@ function addToReservation(assetType: AssetTypeView) {
   quantityInputs[assetType.id] = '1'
 }
 
-function draftLineTotal(line: DraftReservationLine): { amount: number; currency: string } {
-  return { amount: line.dayRate.amount * line.quantity, currency: line.dayRate.currency }
-}
 </script>
 
 <template>
@@ -165,7 +161,10 @@ function draftLineTotal(line: DraftReservationLine): { amount: number; currency:
         <li v-for="(line, index) in draftLines" :key="`${line.assetTypeId}-${line.period.startDay}-${line.period.endDay}`">
           <span>{{ line.assetTypeName }} × {{ line.quantity }}</span>
           <DayRange :start-day="line.period.startDay" :end-day="line.period.endDay" />
-          <MoneyAmount :amount="draftLineTotal(line)" />
+          <span>
+            <span class="catalog__price-label">{{ sk.publicCatalog.dayRateLabel }}</span>
+            <MoneyAmount :amount="line.dayRate" />
+          </span>
           <AppButton variant="quiet" @click="removeLine(index)">{{ sk.publicCatalog.removeLineAction }}</AppButton>
         </li>
       </ul>
