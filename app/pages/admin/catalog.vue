@@ -11,18 +11,23 @@
 // ConfirmAction (C-19): unpublishing something a Visitor is currently
 // looking at deserves a confirmation; publish does not, since it is
 // never disruptive to anyone already browsing.
+//
+// WP-7.9 (D-54…D-57): the editor (AssetTypeEditor) covers classification,
+// the D-55 content, the shipped image and the Accessory link; the
+// classification lists themselves are maintained below the table.
 import { sk } from '~/i18n/sk'
 import { getErrorCode } from '~/utils/error-code'
+import type { EditableAssetType } from '~/components/AssetTypeEditor.vue'
 
 definePageMeta({ layout: 'admin' })
 
-interface AssetTypeView {
-  id: number
-  name: string
-  description: string
-  dayRate: { amount: number; currency: string }
-  depositAmount: { amount: number; currency: string }
+interface AssetTypeView extends EditableAssetType {
   published: boolean
+}
+
+interface Entry {
+  id: number
+  label: string
 }
 
 // useNuxtApp()/useRequestFetch() must be called synchronously here, at
@@ -33,7 +38,11 @@ const nuxtApp = useNuxtApp()
 const requestFetch = useRequestFetch()
 
 const assetTypes = ref<AssetTypeView[]>([])
+const powerSources = ref<Entry[]>([])
+const useAreas = ref<Entry[]>([])
+const images = ref<readonly string[]>([])
 const errorCode = ref<string | null>(null)
+const savedId = ref<number | null>(null)
 
 const form = reactive({
   name: '',
@@ -44,10 +53,6 @@ const form = reactive({
 
 function toMinorUnits(euros: string): number {
   return Math.round(Number(euros) * 100)
-}
-
-function toEuros(amount: number): string {
-  return (amount / 100).toFixed(2)
 }
 
 async function load() {
@@ -63,6 +68,24 @@ async function load() {
     await handleFetchError(err)
   }
 }
+
+async function loadEditorOptions() {
+  try {
+    ;[powerSources.value, useAreas.value, images.value] = await Promise.all([
+      requestFetch<Entry[]>('/api/catalog/classification/power-sources'),
+      requestFetch<Entry[]>('/api/catalog/classification/use-areas'),
+      requestFetch<string[]>('/api/catalog/images'),
+    ])
+  } catch (err: unknown) {
+    await handleFetchError(err)
+  }
+}
+
+const principalCandidates = computed(() =>
+  assetTypes.value
+    .filter((candidate) => candidate.id !== editingId.value && candidate.principalIds.length === 0)
+    .map(({ id, name }) => ({ id, name })),
+)
 
 async function handleFetchError(err: unknown) {
   const statusCode = (err as { statusCode?: number })?.statusCode
@@ -135,36 +158,26 @@ async function confirmUnpublish() {
 }
 
 const editingId = ref<number | null>(null)
-const editForm = reactive({ name: '', description: '', dayRateEuros: '', depositEuros: '' })
 const savingEdit = ref(false)
 
 function startEdit(assetType: AssetTypeView) {
+  savedId.value = null
   editingId.value = assetType.id
-  editForm.name = assetType.name
-  editForm.description = assetType.description
-  editForm.dayRateEuros = toEuros(assetType.dayRate.amount)
-  editForm.depositEuros = toEuros(assetType.depositAmount.amount)
 }
 
 function cancelEdit() {
   editingId.value = null
 }
 
-async function saveEdit() {
+async function saveEdit(body: Record<string, unknown>) {
   if (editingId.value === null) return
+  const id = editingId.value
   errorCode.value = null
   savingEdit.value = true
   try {
-    await $fetch(`/api/catalog/asset-types/${editingId.value}`, {
-      method: 'PATCH',
-      body: {
-        name: editForm.name,
-        description: editForm.description,
-        dayRate: { amount: toMinorUnits(editForm.dayRateEuros), currency: 'EUR' },
-        depositAmount: { amount: toMinorUnits(editForm.depositEuros), currency: 'EUR' },
-      },
-    })
+    await $fetch(`/api/catalog/asset-types/${id}`, { method: 'PATCH', body })
     editingId.value = null
+    savedId.value = id
     await load()
   } catch (err: unknown) {
     await handleFetchError(err)
@@ -173,12 +186,13 @@ async function saveEdit() {
   }
 }
 
-await load()
+await Promise.all([load(), loadEditorOptions()])
 </script>
 
 <template>
   <main class="admin-catalog">
     <h1>{{ sk.adminCatalog.title }}</h1>
+    <AppAlert variant="warn" :message="sk.adminCatalog.provisionalPricesNotice" />
     <AppAlert :code="errorCode" />
 
     <section>
@@ -196,7 +210,15 @@ await load()
         <tbody>
           <template v-for="assetType in assetTypes" :key="assetType.id">
             <tr v-if="editingId !== assetType.id">
-              <td>{{ assetType.name }}</td>
+              <td>
+                {{ assetType.name }}
+                <span v-if="assetType.principalIds.length > 0" class="admin-catalog__tag">
+                  {{ sk.adminCatalog.accessoryBadge }}
+                </span>
+                <span v-if="savedId === assetType.id" class="admin-catalog__saved" role="status">
+                  {{ sk.adminCatalog.saved }}
+                </span>
+              </td>
               <td><MoneyAmount :amount="assetType.dayRate" /></td>
               <td><MoneyAmount :amount="assetType.depositAmount" /></td>
               <td>
@@ -217,34 +239,16 @@ await load()
             </tr>
             <tr v-else>
               <td colspan="5">
-                <form class="admin-catalog__edit-form" @submit.prevent="saveEdit">
-                  <AppField :label="sk.adminCatalog.fieldName">
-                    <template #default="slotProps">
-                      <input :id="slotProps.id" v-model="editForm.name" type="text" required />
-                    </template>
-                  </AppField>
-                  <AppField :label="sk.adminCatalog.fieldDescription">
-                    <template #default="slotProps">
-                      <input :id="slotProps.id" v-model="editForm.description" type="text" />
-                    </template>
-                  </AppField>
-                  <AppField :label="sk.adminCatalog.fieldDayRate">
-                    <template #default="slotProps">
-                      <input :id="slotProps.id" v-model="editForm.dayRateEuros" type="number" min="0" step="0.01" required />
-                    </template>
-                  </AppField>
-                  <AppField :label="sk.adminCatalog.fieldDeposit">
-                    <template #default="slotProps">
-                      <input :id="slotProps.id" v-model="editForm.depositEuros" type="number" min="0" step="0.01" required />
-                    </template>
-                  </AppField>
-                  <div class="admin-catalog__edit-actions">
-                    <AppButton type="submit" variant="primary" :pending="savingEdit">
-                      {{ savingEdit ? sk.adminCatalog.saving : sk.adminCatalog.saveAction }}
-                    </AppButton>
-                    <AppButton type="button" variant="quiet" @click="cancelEdit">{{ sk.adminCatalog.cancelAction }}</AppButton>
-                  </div>
-                </form>
+                <AssetTypeEditor
+                  :asset-type="assetType"
+                  :power-sources="powerSources"
+                  :use-areas="useAreas"
+                  :images="images"
+                  :principal-candidates="principalCandidates"
+                  :pending="savingEdit"
+                  @save="saveEdit"
+                  @cancel="cancelEdit"
+                />
               </td>
             </tr>
           </template>
@@ -279,6 +283,23 @@ await load()
       </form>
     </section>
 
+    <section class="admin-catalog__classification">
+      <h2>{{ sk.adminClassification.heading }}</h2>
+      <p>{{ sk.adminClassification.intro }}</p>
+      <div class="admin-catalog__classification-lists">
+        <ClassificationListEditor
+          kind="power-sources"
+          :heading="sk.adminClassification.powerSourcesHeading"
+          @changed="loadEditorOptions"
+        />
+        <ClassificationListEditor
+          kind="use-areas"
+          :heading="sk.adminClassification.useAreasHeading"
+          @changed="loadEditorOptions"
+        />
+      </div>
+    </section>
+
     <ConfirmAction
       :open="showUnpublishConfirm"
       :title-text="sk.adminCatalog.unpublishConfirmTitle"
@@ -306,17 +327,32 @@ await load()
   gap: var(--ht-space-2);
 }
 
-.admin-catalog__edit-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--ht-space-3);
-  padding: var(--ht-space-3) 0;
+.admin-catalog__tag {
+  margin-left: var(--ht-space-2);
+  padding: 0 var(--ht-space-1);
+  border: 1px solid var(--ht-line-strong);
+  border-radius: var(--ht-radius-plate);
+  font-size: var(--ht-text-1);
+  text-transform: uppercase;
+  color: var(--ht-ink-muted);
 }
 
-.admin-catalog__edit-actions {
-  display: flex;
-  gap: var(--ht-space-2);
+.admin-catalog__saved {
+  margin-left: var(--ht-space-2);
+  color: var(--ht-ok);
+  font-size: var(--ht-text-2);
+}
+
+.admin-catalog__classification-lists {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ht-space-6);
+}
+
+@media (min-width: 900px) {
+  .admin-catalog__classification-lists {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .admin-catalog__new-form {
