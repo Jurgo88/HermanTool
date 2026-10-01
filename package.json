@@ -16,6 +16,7 @@
     "check:banned-terms": "node scripts/check-banned-terms.mjs",
     "check:no-draft-copy": "node scripts/check-no-draft-copy.mjs",
     "catalog:images": "jiti scripts/convert-catalog-images.ts",
+    "catalog:import": "jiti scripts/import-pilot-catalog.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "nuxt typecheck",
