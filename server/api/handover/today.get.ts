@@ -4,10 +4,7 @@ import { createCatalogDeps } from '../../utils/catalog-deps'
 import { createCustomerIdentityComplianceDeps } from '../../utils/customer-identity-compliance-deps'
 import { createHandoverPossessionDeps } from '../../utils/handover-possession-deps'
 import { requireOperator } from '../../utils/operator-session'
-
-function todayAsRentalDay(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayRentalDay } from '../../contexts/availability-reservation'
 
 // FR-42, W4/W5: "the practical daily worklist" — today's expected
 // pickups and returns. Operator-authenticated; read-only, no PIN
@@ -28,7 +25,7 @@ export default defineEventHandler(async (event) => {
       identityRepo: customerIdentity.repo,
       catalogRepo: catalog.repo,
     }
-    const today = todayAsRentalDay()
+    const today = todayRentalDay()
 
     const [pickups, returns] = await Promise.all([
       listTodaysPickups(deps, { tenantId: operator.tenantId, today }),

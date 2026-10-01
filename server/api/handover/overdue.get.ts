@@ -4,10 +4,7 @@ import { createCatalogDeps } from '../../utils/catalog-deps'
 import { createCustomerIdentityComplianceDeps } from '../../utils/customer-identity-compliance-deps'
 import { createHandoverPossessionDeps } from '../../utils/handover-possession-deps'
 import { requireOperator } from '../../utils/operator-session'
-
-function todayAsRentalDay(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayRentalDay } from '../../contexts/availability-reservation'
 
 // FR-28, FR-29, D-17, W6: Overdue is derived, never stored. Ranked by
 // the earliest day this Asset's continued absence causes confirmed
@@ -31,7 +28,7 @@ export default defineEventHandler(async (event) => {
         catalogRepo: catalog.repo,
         identityRepo: customerIdentity.repo,
       },
-      { tenantId: operator.tenantId, today: todayAsRentalDay() },
+      { tenantId: operator.tenantId, today: todayRentalDay() },
     )
     return { overdue }
   } finally {

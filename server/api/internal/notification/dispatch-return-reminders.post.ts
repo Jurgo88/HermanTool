@@ -6,10 +6,7 @@ import { requireInternalJobSecret } from '../../../utils/internal-job-session'
 import { runScheduledJob } from '../../../utils/job-run-ledger'
 import { createNotificationDeps } from '../../../utils/notification-deps'
 import { getSeededTenantId } from '../../../utils/tenant'
-
-function todayAsRentalDay(): string {
-  return new Date().toISOString().slice(0, 10)
-}
+import { todayRentalDay } from '../../../contexts/availability-reservation'
 
 // A-08, D-28, FR-32: called on a schedule by GitHub Actions
 // (.github/workflows/dispatch-return-reminders.yml), never by a human —
@@ -43,7 +40,7 @@ export default defineEventHandler(async (event) => {
           notificationRepo: notification.repo,
           notificationGateway: notification.gateway,
         },
-        { tenantId, today: todayAsRentalDay() },
+        { tenantId, today: todayRentalDay() },
       )
       return {
         processedCount: dispatched.length,
