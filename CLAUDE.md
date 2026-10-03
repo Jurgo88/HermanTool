@@ -103,7 +103,8 @@ rather than inventing a default.
   lawyer conversation as OQ #2.
 - **F8 — Shared counter phone. RESOLVED.** Per-Operator PIN 
   re-confirmation is built (server/utils/operator-pin.ts) and evidence 
-  reads carry no-store. The PIN prompt still needs a UI (IR-12).
+  reads carry no-store. The PIN prompt UI shipped too (IR-12, 
+  `<PinPrompt>` in app/pages/admin/counter/assets/[assetId].vue).
 - **F10 — QR tag generation. RESOLVED.** Opaque tag codes from a 
   dedicated sequence, bulk registration, client-side QR rendering.
 - **D-33 — concurrency mechanism. RESOLVED.** Atomic conditional UPSERT 
@@ -113,25 +114,49 @@ rather than inventing a default.
 ## OPEN WORK from the 04 August 2026 implementation review
 Full reasoning in docs/reviews/implementation-review-2026-08-04.md. 
 Each has a GitHub issue; cite the IR number alongside the governing 
-identifier in commits.
+identifier in commits. Status below reconciled against the codebase 
+on 2026-10-03 — most items closed since the review; only IR-02 and 
+IR-07 remain genuinely blocked, both on a lawyer answer (OQ #2, OQ #27).
 
-- **IR-01 (Critical) — capacity double-counts a handed-out Asset.** 
-  getRentableCount reads status='rentable'. Fix per D-38.
-- **IR-02 (Critical) — RETENTION_WINDOW_DAYS is null**, so no end-to-end 
-  rental can be exercised. Not a code fix; OQ #2 must be answered.
-- **IR-03 (High) — D-34 unimplemented, no CI exists at all.**
-- **IR-04 (High) — D-32 nightly pg_dump missing; R-04 unmitigated.**
-- **IR-05 (High) — Sentry absent.** Add SDK and NFR-08 scrubbing in the 
-  SAME change, never SDK first.
-- **IR-06 (High) — FR-40 unimplemented.** Job-run ledger per D-41.
-- **IR-07 (High) — F6 above.**
-- **IR-08 (Medium) — availability has no HTTP surface; FR-02 half-met.**
-- **IR-09 (Medium) — per-request connection churn on the scan path.** 
-  Fix per D-39. Keep prepare:false.
-- **IR-10 (High) — photo rows created without proof of upload.** D-40.
-- **IR-11 (Medium) — Stripe webhook idempotency is check-then-act.**
-- **IR-12 (Medium) — counter/checkout/Customer-link UI absent.**
-- **IR-13 (Low) — FR-38 cookie banner may be the wrong requirement.**
+- **IR-01 (Critical) — RESOLVED** (`3886ed6`, #69). Pool count 
+  (`getRentablePoolCount` in asset-registry/repository.ts) counts 
+  rentable/in_possession/under_inspection per D-38.
+- **IR-02 (Critical) — STILL OPEN.** RETENTION_WINDOW_DAYS is still 
+  `null` (identity-evidence.ts); the guard correctly throws 
+  `RetentionWindowNotConfiguredError` rather than defaulting. No 
+  end-to-end rental is possible until OQ #2 is answered. Not a code fix.
+- **IR-03 (High) — RESOLVED** (`32af3df`, #71). CI exists: 
+  `.github/workflows/ci.yml` plus banned-term/boundary/date-arithmetic 
+  checks (D-34).
+- **IR-04 (High) — RESOLVED** (`922d41a`, #72). Nightly pg_dump + 
+  conditions-bucket backup to R2 via `.github/workflows/nightly-backup.yml` 
+  and scripts/backup-and-record.mjs (D-32).
+- **IR-05 (High) — RESOLVED** (`3f68598`, #73). Sentry SDK and 
+  server/utils/sentry-scrub.ts PII scrubbing landed in the same change 
+  (D-29), wired via `beforeSend` in sentry.server.config.ts.
+- **IR-06 (High) — RESOLVED** (`2dae2b1`, #74). Job-run ledger 
+  (server/utils/job-run-ledger.ts, server/api/admin/job-runs.get.ts) 
+  per D-41/FR-40.
+- **IR-07 (High) — STILL OPEN.** F6 above; Customer has no 
+  `retentionDeadline` field anywhere in customer-identity-compliance. 
+  Blocked on OQ #27.
+- **IR-08 (Medium) — RESOLVED** (`4e6e0c0`, #76). Public availability 
+  HTTP surface shipped (server/api/public/asset-types/[id]/availability.get.ts, 
+  server/api/public/reservation-quote.post.ts). Note: UI-025 (#147) is 
+  a separate, still-open follow-up about batching this per-AssetType 
+  shape across a browse grid.
+- **IR-09 (Medium) — RESOLVED** (`5f2b3bd`, #77). Module-scoped DB 
+  client reuse in server/utils/db.ts, `prepare:false` kept (D-39).
+- **IR-10 (High) — RESOLVED** (`d66fff0`, #78). condition-report-confirmation.ts 
+  requires every object key confirmed stored before a ConditionReport 
+  counts as evidence (D-40).
+- **IR-11 (Medium) — RESOLVED** (`7c587b2`, #79). payment-webhook-flow.ts 
+  uses an atomic status-transition update instead of check-then-act.
+- **IR-12 (Medium) — RESOLVED** (#80, plus #95, #97). Counter 
+  (`8aac294`), checkout, and Customer self-service link (`09bdfbb`) 
+  surfaces all shipped, PIN-gated via `<PinPrompt>`.
+- **IR-13 (Low) — RESOLVED** (`f510458`). D-42 records that FR-38's 
+  cookie banner is superseded by a cookie inventory; no banner was built.
 
 ## Launch-blocking open questions (do NOT invent defaults)
 - Cancellation/refund policy (OQ #1) — leave cancel path unimplemented
