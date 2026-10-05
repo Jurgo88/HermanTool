@@ -15,6 +15,7 @@
     "lint:fix": "eslint . --fix",
     "check:banned-terms": "node scripts/check-banned-terms.mjs",
     "check:no-draft-copy": "node scripts/check-no-draft-copy.mjs",
+    "fonts:generate": "jiti scripts/generate-fonts.ts",
     "catalog:images": "jiti scripts/convert-catalog-images.ts",
     "catalog:import": "jiti scripts/import-pilot-catalog.ts",
     "format": "prettier --write .",
@@ -26,9 +27,6 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1096.0",
     "@aws-sdk/s3-request-presigner": "^3.1096.0",
-    "@fontsource/ibm-plex-mono": "^5.3.0",
-    "@fontsource/ibm-plex-sans": "^5.3.0",
-    "@fontsource/ibm-plex-sans-condensed": "^5.3.0",
     "@nuxt/eslint": "^1.16.0",
     "@sentry/nuxt": "^10.69.0",
     "@supabase/supabase-js": "^2.110.7",
@@ -42,6 +40,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@fontsource/ibm-plex-sans-condensed": "^5.3.0",
     "@types/node": "^26.1.1",
     "@types/qrcode": "^1.5.6",
     "eslint": "^10.7.0",
