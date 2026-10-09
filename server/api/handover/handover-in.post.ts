@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { backdateBodySchema } from '../../utils/attestation-backdate'
 import { performHandoverIn } from '../../contexts/handover-possession'
 import { createHandoverPossessionDeps, translateHandoverPossessionError } from '../../utils/handover-possession-deps'
 import { InvalidPinError, verifyOperatorPin } from '../../utils/operator-pin'
@@ -8,7 +9,6 @@ import { requireOperator } from '../../utils/operator-session'
 // D-10, FR-24, Finding 9: omit for an ordinary live scan (occurredAt
 // defaults to now() in the domain layer). Supply to record the "return
 // went unscanned" repair — occurredAt is backdated, reason is mandatory.
-const backdateSchema = z.object({ occurredAt: z.coerce.date(), reason: z.string().min(1) })
 
 const bodySchema = z.object({
   tagCode: z.string().min(1),
@@ -17,7 +17,7 @@ const bodySchema = z.object({
   // WHICH Operator is attesting the bundled ConditionReport, independent
   // of the session's own Operator.
   pin: z.string().min(1),
-  backdate: backdateSchema.optional(),
+  backdate: backdateBodySchema.optional(),
 })
 
 // D-09, FR-19, W5: the Asset comes back. The scan resolves to HandoverIn

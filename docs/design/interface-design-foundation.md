@@ -377,6 +377,7 @@ Always an explicit Operator declaration with a reason. `C-19` then `C-11`. Never
 
 **`S-17` Record a late or corrected attestation** — from `S-13` · `FR-24`, `P1`, `D-10`
 The reconciliation path `NFR-01` assumes exists: the outage happened, the drill went out anyway, the record is written afterwards. Fields: what happened, when it actually happened, reason, attribution, PIN. Appends a new fact; nothing is edited. This screen is currently absent everywhere and the migration for it already exists.
+*Built 9 October 2026 (`C-25 LateAttestationFields`):* not a separate screen but an off-by-default "Zaznamenávam dodatočne" block inside the HandoverOut and HandoverIn forms (S-10, S-11), because the repair happens at the moment of recording and both already end in the PIN prompt (D-48). The time is sent as typed and resolved by the server in the Tenant's timezone (D-51); the server also refuses a time later than the moment of recording. The attestation timeline (`S-13`) shows both clocks. Correcting a ConditionReport, DepositTaken or Settlement after the fact is not covered here and is still open.
 
 ### Admin surface
 

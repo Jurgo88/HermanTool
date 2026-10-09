@@ -14,6 +14,7 @@ import {
 } from '../../../../server/contexts/handover-possession/handover-in'
 import {
   AssetNotYetReturnableError,
+  BackdateInFutureError,
   BackdateReasonRequiredError,
   DeductionReasonRequiredError,
   DeductionRequiresPairedConditionReportsError,
@@ -156,6 +157,21 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
           },
         ),
       ).rejects.toThrow(BackdateReasonRequiredError)
+    })
+
+    it('refuses a HandoverIn dated after the moment it is recorded (FR-24)', async () => {
+      await expect(
+        performHandoverIn(
+          { repo: handoverRepo, conditionsGateway: gateway },
+          {
+            tenantId: tenantA,
+            tagCode,
+            operatorId,
+            conditionPhotoContentTypes: ['image/jpeg'],
+            backdate: { occurredAt: new Date(Date.now() + 60 * 60 * 1000), reason: 'Typed the wrong day' },
+          },
+        ),
+      ).rejects.toThrow(BackdateInFutureError)
     })
 
     it('refuses when the Asset has no open RentalAgreement (already handed in)', async () => {

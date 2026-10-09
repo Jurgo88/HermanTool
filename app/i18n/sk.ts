@@ -81,6 +81,7 @@ export const sk = {
       DeductionReasonRequiredError: 'Zadajte dôvod zrážky.',
       DepositReturnExceedsTakenError: 'Vrátená suma nemôže presiahnuť vybratú zálohu.',
       BackdateReasonRequiredError: 'Zadajte dôvod dodatočného záznamu.',
+      BackdateInFutureError: 'Čas dodatočného záznamu nemôže byť neskôr než teraz.',
       LostAssetReasonRequiredError: 'Zadajte dôvod straty.',
       ReservationNotConfirmedError: 'Táto rezervácia ešte nie je potvrdená.',
       CustomerReservationMismatchError: 'Táto rezervácia nepatrí tomuto zákazníkovi.',
@@ -391,6 +392,15 @@ export const sk = {
     markRentableAction: 'Uviesť do prevádzky',
     markingRentable: 'Uvádzam do prevádzky…',
     markAllRentableAction: 'Uviesť všetky do prevádzky',
+  },
+  // C-25 (FR-24, S-17).
+  lateAttestation: {
+    legend: 'Dodatočný záznam',
+    toggleLabel: 'Zaznamenávam dodatočne (výpadok alebo zabudnuté skenovanie)',
+    hint: 'Náradie už bolo vydané alebo vrátené a záznam píšete až teraz. Zadajte, kedy sa to naozaj stalo. Pôvodný záznam sa nemení, pribudne nový s oboma časmi a dôvodom.',
+    occurredAtLabel: 'Kedy sa to naozaj stalo',
+    reasonLabel: 'Dôvod dodatočného záznamu',
+    incomplete: 'Vyplňte, kedy sa to naozaj stalo, a dôvod dodatočného záznamu.',
   },
   adminCounter: {
     title: 'Počítadlo',
