@@ -50,6 +50,7 @@ export default defineNuxtConfig({
     '~/assets/css/fonts.css',
     '~/assets/css/tokens.css',
     '~/assets/css/base.css',
+    '~/assets/css/print.css',
   ],
 
   typescript: {

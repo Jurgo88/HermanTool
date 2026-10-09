@@ -1,0 +1,12 @@
+/* Print layer (S-20, FR-26; issue #130). Only the AssetTag sheet has a
+ * print design; every other page prints as the browser default.
+ *
+ * The margins below are literal because custom properties do not resolve
+ * inside @page. They place the first label 7.2 mm from the left edge and
+ * 15.15 mm from the top, so a 3-column, 7-row grid of the label tokens in
+ * tokens.css fills an A4 sheet (tests/shared/asset-tag-sheet.test.ts keeps
+ * the two in step). A named page, so nothing else on the site changes. */
+@page labels {
+  size: A4 portrait;
+  margin: 15.15mm 7.2mm;
+}

@@ -125,3 +125,15 @@
   --ht-on-signal: var(--ht-on-brand);
   --ht-signal-deep: var(--ht-brand-deep);
 }
+
+/* AssetTag label sheet (S-20, FR-26; issue #130). A4, 3 × 7 = 21 labels of
+ * 63.5 × 38.1 mm — a common stock size, printable on plain paper and cut
+ * along the dashed edges. The page margins live in print.css (@page cannot
+ * read custom properties); a test keeps the two in step. */
+:root {
+  --ht-label-columns: 3;
+  --ht-label-width: 63.5mm;
+  --ht-label-height: 38.1mm;
+  --ht-label-gap-x: 2.5mm;
+  --ht-label-qr: 30mm;
+}

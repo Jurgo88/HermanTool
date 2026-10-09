@@ -395,6 +395,7 @@ Add editing (`PATCH` exists, no UI). Publish/unpublish through `C-19` — unpubl
 
 **`S-20` Asset registry & tags** — `/admin/asset-registry` · `FR-25`, `FR-26`, `W9`
 Restyle; keep the print sheet and give it a real print stylesheet sized to a physical label sheet (`UI-OQ-4`). Pending-activation list stays prominent — a registered, untagged Asset is invisible to the pool.
+*Built 9 October 2026 (`C-24 AssetTagSheet`, `print.css`):* A4, 3 × 7 = 21 labels of 63.5 × 38.1 mm — plain paper cut along dashed edges today, a common label stock size later. Each label carries the QR (error-correction Q, 30 mm), the tag code and the AssetType name. The sheet is printable from a fresh registration and from the pending-activation list, whose codes are all there is to reprint a lost sheet from. Page chrome (navigation, headings, alerts) never prints.
 
 **`S-21` Platform status** — `/admin/status` (rename from `job-runs`) · `FR-40`, `FR-44`, `NFR-14`
 Erasure job's last successful run is the headline, per `NFR-14`'s argument, with a stale date visibly stale rather than merely old. Backup, sweeps and reminder dispatches below.
@@ -552,7 +553,7 @@ Model and import first, because every screen reads them; then the public surface
 | `UI-OQ-1` | ~~Which physical device is the counter phone (make, OS, browser)? Decides `UI-D-03`'s (b) vs (c)~~ — **resolved 2026-08-12:** both built as tiers (native `BarcodeDetector`, `jsQR` fallback for WebKit/iOS), so no single device choice is needed for decoding. The contrast-floor-in-daylight half stays open. | WP-2 | you / the pilot Tenant |
 | `UI-OQ-2` | Is the counter device shared or one per Operator? `F8` assumed shared; if it is one each, the PIN cadence in `UI-D-06` could relax — I would still not relax it. | WP-2 | you |
 | `UI-OQ-3` | ~~Do you want a HermanTool wordmark and colour of your own, or is `§4` the identity?~~ — **resolved 2026-10-01 (`D-59`):** the public surface is Rent Star (blue tokens, header gradient, text wordmark until an SVG logo is supplied); counter and admin keep `§4`. | WP-7 | you |
-| `UI-OQ-4` | Which physical label stock for QR tags (size, sheet layout, laminated?) — the print stylesheet is worthless without it. | WP-5 | pilot Tenant |
+| `UI-OQ-4` | ~~Which physical label stock for QR tags (size, sheet layout, laminated?)~~ — **resolved 2026-10-09:** plain A4 for now; the sheet is 3 × 7 labels of 63.5 × 38.1 mm. Lamination and a real label stock are open for later and would change only the `--ht-label-*` tokens and `print.css`. | WP-5 | pilot Tenant |
 | `UI-OQ-5` | Given `UI-D-11` (no third-party requests, session cookie only), does `FR-38`'s banner remain required? This is `IR-13`, and it is a legal answer, not an architectural one — same conversation as `OQ #1`/`OQ #2`. | before launch | lawyer |
 | `UI-OQ-6` | Service worker in the pilot at all? Default no (`§9`). | WP-6 | you |
 | `UI-OQ-7` | The Rent Star mockups put a blue dot on some catalog cards. What does it mean? It is not built until answered: if it turns out to be derived (for example "free today"), it gets the derived treatment (`D-47`), never a decorative dot. | WP-7 | pilot Tenant |

@@ -353,6 +353,10 @@ export const sk = {
     empty: 'Zatiaľ žiadne položky.',
     inUseBy: 'Používa ju: {names}',
   },
+  // C-24 (FR-26, S-20).
+  assetTagSheet: {
+    sheetLabel: 'Hárok štítkov {page} z {pages}',
+  },
   adminAssetRegistry: {
     title: 'Hromadná registrácia a QR štítky',
     intro:
@@ -373,7 +377,11 @@ export const sk = {
     submitting: 'Registrujem…',
     resultHeading: 'Vygenerované štítky',
     resultCount: 'Vygenerovaných {count} štítkov.',
-    printAction: 'Tlačiť hárok',
+    printAction: 'Tlačiť štítky',
+    printHint:
+      'Hárok A4, 21 štítkov (3 × 7). Vytlačte na obyčajný papier a vystrihnite podľa čiarkovaných čiar. Pri tlači nastavte mierku 100 % (bez prispôsobenia stránke).',
+    printPendingAction: 'Vytlačiť štítky pre tieto kusy',
+    preparingSheet: 'Pripravujem hárok…',
     emptyCsvError: 'Pridajte aspoň jeden riadok, alebo vložte CSV, pred odoslaním.',
     pendingHeading: 'Čakajú na uvedenie do prevádzky',
     pendingIntro:
