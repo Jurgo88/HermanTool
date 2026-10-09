@@ -19,14 +19,15 @@
 // unchanged; the builder just generates the same CSV text under the
 // hood before submitting.
 //
-// UI-OQ-4 (label stock — size, sheet layout, laminated?) is still
-// unanswered, so the print stylesheet below is a reasonable default
-// grid, not "sized to the actual physical label sheet" as WP-5.5 asks
-// for — that specific sizing needs the label stock decided first
-// (docs/design/interface-design-foundation.md §13).
+// UI-OQ-4 answered 2026-10-09: plain A4 for now. The sheet is 3 × 7 labels
+// of 63.5 × 38.1 mm (AssetTagSheet, print.css), cut along dashed edges, and
+// the same grid fits that common label stock later. The sheet is also
+// printable from the pending-activation list, because the codes of Assets
+// not yet tagged are all there is to reprint a lost sheet from.
 import QRCode from 'qrcode'
 import { sk } from '~/i18n/sk'
 import { getErrorCode } from '~/utils/error-code'
+import type { AssetTagSheetEntry } from '~/components/AssetTagSheet.vue'
 
 definePageMeta({ layout: 'admin' })
 
@@ -39,10 +40,6 @@ interface BulkRegisteredUnitView {
   assetId: number
   assetTypeId: number
   tagCode: string
-}
-
-interface TagSheetEntry extends BulkRegisteredUnitView {
-  qrDataUrl: string
 }
 
 interface PendingActivationEntry {
@@ -70,7 +67,8 @@ const csv = ref('')
 const errorCode = ref<string | null>(null)
 const errorMessage = ref<string | null>(null)
 const submitting = ref(false)
-const entries = ref<TagSheetEntry[]>([])
+const entries = ref<AssetTagSheetEntry[]>([])
+const preparingPendingSheet = ref(false)
 
 const pending = ref<PendingActivationEntry[]>([])
 const markingRentableAssetId = ref<number | null>(null)
@@ -154,9 +152,7 @@ async function submit() {
       body: { csv: body },
     })
 
-    entries.value = await Promise.all(
-      units.map(async (unit) => ({ ...unit, qrDataUrl: await QRCode.toDataURL(unit.tagCode, { margin: 1 }) })),
-    )
+    entries.value = await toSheetEntries(units)
     lines.value = []
     csv.value = ''
     await loadPending()
@@ -167,8 +163,36 @@ async function submit() {
   }
 }
 
+// Q-level error correction: a label on a tool gets scuffed and greasy.
+async function toSheetEntries(units: BulkRegisteredUnitView[]): Promise<AssetTagSheetEntry[]> {
+  return Promise.all(
+    units.map(async (unit) => ({
+      assetId: unit.assetId,
+      tagCode: unit.tagCode,
+      assetTypeName: assetTypeName(unit.assetTypeId),
+      qrDataUrl: await QRCode.toDataURL(unit.tagCode, { margin: 1, width: 300, errorCorrectionLevel: 'Q' }),
+    })),
+  )
+}
+
 function print() {
   window.print()
+}
+
+// The sheet for every Asset still waiting for its label to go on.
+async function printPendingSheet() {
+  errorCode.value = null
+  errorMessage.value = null
+  preparingPendingSheet.value = true
+  try {
+    entries.value = await toSheetEntries(pending.value)
+    await nextTick()
+    print()
+  } catch (err: unknown) {
+    await handleFetchError(err)
+  } finally {
+    preparingPendingSheet.value = false
+  }
 }
 
 async function loadPending() {
@@ -215,9 +239,9 @@ await loadPending()
 
 <template>
   <main class="admin-asset-registry">
-    <h1>{{ sk.adminAssetRegistry.title }}</h1>
-    <p>{{ sk.adminAssetRegistry.intro }}</p>
-    <AppAlert :code="errorCode" :message="errorMessage" />
+    <h1 class="no-print">{{ sk.adminAssetRegistry.title }}</h1>
+    <p class="no-print">{{ sk.adminAssetRegistry.intro }}</p>
+    <AppAlert class="no-print" :code="errorCode" :message="errorMessage" />
 
     <section class="no-print admin-asset-registry__builder">
       <h2>{{ sk.adminAssetRegistry.builderHeading }}</h2>
@@ -283,9 +307,14 @@ await loadPending()
     <section v-if="pending.length > 0" class="no-print">
       <h2>{{ sk.adminAssetRegistry.pendingHeading }}</h2>
       <p>{{ sk.adminAssetRegistry.pendingIntro }}</p>
-      <AppButton variant="secondary" :pending="markingAllRentable" @click="markAllRentable">
-        {{ markingAllRentable ? sk.adminAssetRegistry.markingRentable : sk.adminAssetRegistry.markAllRentableAction }}
-      </AppButton>
+      <div class="admin-asset-registry__pending-actions">
+        <AppButton variant="secondary" :pending="markingAllRentable" @click="markAllRentable">
+          {{ markingAllRentable ? sk.adminAssetRegistry.markingRentable : sk.adminAssetRegistry.markAllRentableAction }}
+        </AppButton>
+        <AppButton variant="secondary" :pending="preparingPendingSheet" @click="printPendingSheet">
+          {{ preparingPendingSheet ? sk.adminAssetRegistry.preparingSheet : sk.adminAssetRegistry.printPendingAction }}
+        </AppButton>
+      </div>
       <AppTable>
         <thead>
           <tr>
@@ -318,19 +347,17 @@ await loadPending()
     </section>
     <EmptyState v-else class="no-print" :message="sk.adminAssetRegistry.pendingEmpty" />
 
-    <section v-if="entries.length > 0">
+    <section v-if="entries.length > 0" class="admin-asset-registry__sheets">
       <h2 class="no-print">{{ sk.adminAssetRegistry.resultHeading }}</h2>
       <p class="no-print">
         {{ sk.adminAssetRegistry.resultCount.replace('{count}', String(entries.length)) }}
-        <AppButton variant="secondary" @click="print">{{ sk.adminAssetRegistry.printAction }}</AppButton>
+        {{ sk.adminAssetRegistry.printHint }}
+      </p>
+      <p class="no-print">
+        <AppButton variant="primary" @click="print">{{ sk.adminAssetRegistry.printAction }}</AppButton>
       </p>
 
-      <div class="tag-sheet">
-        <figure v-for="entry in entries" :key="entry.assetId" class="tag-card">
-          <img :src="entry.qrDataUrl" :alt="entry.tagCode" width="160" height="160" />
-          <figcaption><TagCodePlate>{{ entry.tagCode }}</TagCodePlate></figcaption>
-        </figure>
-      </div>
+      <AssetTagSheet :entries="entries" />
     </section>
   </main>
 </template>
@@ -357,16 +384,16 @@ await loadPending()
   gap: var(--ht-space-3);
 }
 
-.tag-sheet {
+.admin-asset-registry__pending-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--ht-space-4);
+  gap: var(--ht-space-3);
 }
 
-.tag-card {
-  text-align: center;
-  margin: 0;
-  break-inside: avoid;
+.admin-asset-registry__sheets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-3);
 }
 
 @media print {
@@ -374,8 +401,13 @@ await loadPending()
     display: none;
   }
 
-  .tag-sheet {
-    gap: 8mm;
+  /* Only the sheets print, edge to edge: the @page margins in print.css
+   * place the grid, so the page must add none of its own. */
+  .admin-asset-registry {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    gap: 0;
   }
 }
 </style>

@@ -58,6 +58,12 @@ await load()
 </template>
 
 <style scoped>
+@media print {
+  .operator-bar {
+    display: none;
+  }
+}
+
 .operator-bar {
   display: flex;
   flex-wrap: wrap;
