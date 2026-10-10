@@ -2,6 +2,8 @@ import { getHeader, readRawBody } from 'h3'
 import { issueCustomerAccessLink } from '../../contexts/customer-identity-compliance'
 import { dispatchReservationConfirmation } from '../../contexts/notification'
 import { createAvailabilityReservationDeps } from '../../utils/availability-reservation-deps'
+import { createCatalogDeps } from '../../utils/catalog-deps'
+import { buildConfirmationSummary } from '../../utils/customer-email-data'
 import { createCustomerIdentityComplianceDeps } from '../../utils/customer-identity-compliance-deps'
 import { createNotificationDeps } from '../../utils/notification-deps'
 import { applyProviderWebhookEvent } from '../../utils/payment-webhook-flow'
@@ -43,6 +45,7 @@ export default defineEventHandler(async (event) => {
   const availability = createAvailabilityReservationDeps(event)
   const payments = createPaymentsDeps(event)
   const customerIdentity = createCustomerIdentityComplianceDeps(event)
+  const catalog = createCatalogDeps(event)
   const notification = createNotificationDeps(event)
 
   try {
@@ -63,7 +66,11 @@ export default defineEventHandler(async (event) => {
           const { token } = await issueCustomerAccessLink(customerIdentity.repo, { tenantId, customerId: customer.id })
           const accessLinkUrl = `${getAppBaseUrl(event)}/reservations/access/${token}`
 
-          const reservations = await availability.repo.listReservationsForGroup(tenantId, customer.reservationGroupId)
+          const [reservations, group] = await Promise.all([
+            availability.repo.listReservationsForGroup(tenantId, customer.reservationGroupId),
+            availability.repo.getReservationGroup(tenantId, customer.reservationGroupId),
+          ])
+          const { lines, depositTotal } = await buildConfirmationSummary(catalog.repo, tenantId, reservations)
           await dispatchReservationConfirmation(
             { repo: notification.repo, gateway: notification.gateway },
             {
@@ -72,7 +79,9 @@ export default defineEventHandler(async (event) => {
               reservationGroupId: customer.reservationGroupId,
               to: customer.email,
               customerName: customer.name,
-              lines: reservations.map((r) => ({ assetTypeId: r.assetTypeId, startDay: r.period.startDay, endDay: r.period.endDay })),
+              lines,
+              depositTotal,
+              termsVersion: group?.termsVersion ?? null,
               accessLinkUrl,
             },
           )
@@ -86,6 +95,6 @@ export default defineEventHandler(async (event) => {
   } catch (err) {
     translatePaymentsError(err)
   } finally {
-    await Promise.all([availability.close(), payments.close(), customerIdentity.close(), notification.close()])
+    await Promise.all([availability.close(), payments.close(), customerIdentity.close(), catalog.close(), notification.close()])
   }
 })

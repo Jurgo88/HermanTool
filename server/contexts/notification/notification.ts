@@ -1,5 +1,5 @@
 // Notification core (D-28, FR-32, A-08, FR-41, W6, D-17; issues #35,
-// #36). All four named message kinds: 'confirmation' (dispatched at
+// #36, #189). All four named message kinds: 'confirmation' (dispatched at
 // ReservationConfirmed — see server/api/webhooks/stripe.post.ts),
 // 'return_reminder' (server/utils/return-reminder-dispatch.ts),
 // 'pickup_reminder' (server/utils/pickup-reminder-dispatch.ts) and
@@ -21,76 +21,39 @@
 // Possession's published interfaces directly (arrows point into
 // Notification from both). Every caller assembles whatever display data
 // it needs from wherever it needs it and passes plain values in — this
-// keeps Notification "deliberately dumb" (D-28, P1 §4) in the strongest
+// keeps Notification "deliberately stupid" (D-28, P1 §4) in the strongest
 // sense: it has no opinion about what a Reservation or a RentalAgreement
 // is, only about how to format and send a message once it already has
-// the words. No AssetType name is resolved anywhere here — same minimal
-// scope already established for the Customer's own view
-// (server/api/public/customer-access/[token].get.ts): an id and dates,
-// not a display name.
-import type { TenantId } from '../_shared'
+// the words.
+//
+// #189: the caller now resolves the AssetType's NAME (Catalog) and passes it
+// in, so a Customer reads "Generátor ozónu" and not "AssetType 13". Days and
+// money are formatted here through the one formatting module (D-51,
+// shared/format.ts); the words themselves are in ./copy.ts.
+import type { MonetaryAmount, TenantId } from '../_shared'
+import { formatDay, formatDayRange, formatMoney } from '../../../shared/format'
 import type { NotificationGateway } from './resend-gateway'
 import type { NotificationRepository } from './repository'
 import type { NotificationDispatch } from './types'
+import {
+  overdueReminderText,
+  pickupReminderText,
+  reservationConfirmationText,
+  returnReminderText,
+} from './copy'
 
 export interface NotificationDeps {
   repo: NotificationRepository
   gateway: NotificationGateway
 }
 
-interface ReservationLine {
-  assetTypeId: number
+// One line of a confirmation: a tool, how many units, for which days. FR-06
+// makes a unit its own Reservation, so the caller groups equal ones.
+export interface ConfirmationLine {
+  assetTypeName: string
+  quantity: number
   startDay: string
   endDay: string
-}
-
-function formatReservationConfirmationEmail(params: {
-  customerName: string
-  lines: ReservationLine[]
-  accessLinkUrl: string
-}): {
-  subject: string
-  body: string
-} {
-  const lineText = params.lines
-    .map((l) => `- AssetType ${l.assetTypeId}: ${l.startDay} to ${l.endDay}`)
-    .join('\n')
-  return {
-    subject: 'Your reservation is confirmed',
-    body:
-      `Hi ${params.customerName},\n\nYour reservation is confirmed:\n${lineText}\n\n` +
-      `View your reservation and upload your ID: ${params.accessLinkUrl}\n\nSee you soon.`,
-  }
-}
-
-function formatReturnReminderEmail(params: { customerName: string; assetTypeId: number; endDay: string }): {
-  subject: string
-  body: string
-} {
-  return {
-    subject: 'Your rental is due back soon',
-    body: `Hi ${params.customerName},\n\nA reminder that your rental (AssetType ${params.assetTypeId}) is due back on ${params.endDay}.\n\nThanks for returning it on time.`,
-  }
-}
-
-function formatPickupReminderEmail(params: { customerName: string; assetTypeId: number; startDay: string }): {
-  subject: string
-  body: string
-} {
-  return {
-    subject: 'Your reservation is ready for pickup',
-    body: `Hi ${params.customerName},\n\nA reminder that your reservation (AssetType ${params.assetTypeId}) is ready for pickup on ${params.startDay}.\n\nSee you soon.`,
-  }
-}
-
-function formatOverdueReminderEmail(params: { customerName: string; assetTypeId: number; endDay: string }): {
-  subject: string
-  body: string
-} {
-  return {
-    subject: 'Your rental is overdue',
-    body: `Hi ${params.customerName},\n\nYour rental (AssetType ${params.assetTypeId}) was due back on ${params.endDay} and has not yet been returned. Please bring it back as soon as possible, or contact us.`,
-  }
 }
 
 // FR-32's at-most-once guard: checked before sending, so a retried
@@ -130,12 +93,27 @@ export async function dispatchReservationConfirmation(
     reservationGroupId: number
     to: string
     customerName: string
-    lines: ReservationLine[]
+    lines: ConfirmationLine[]
+    // The cash deposit across the group (D-07), or null when it cannot be
+    // named; the email then says only that it is paid in cash at pickup.
+    depositTotal: MonetaryAmount | null
+    // The terms version the Customer accepted before paying (D-35).
+    termsVersion: string | null
     accessLinkUrl: string
   },
 ): Promise<NotificationDispatch | null> {
-  const { tenantId, customerId, reservationGroupId, to, customerName, lines, accessLinkUrl } = params
-  const { subject, body } = formatReservationConfirmationEmail({ customerName, lines, accessLinkUrl })
+  const { tenantId, customerId, reservationGroupId, to, customerName, accessLinkUrl } = params
+  const { subject, body } = reservationConfirmationText({
+    customerName,
+    lines: params.lines.map((line) => ({
+      name: line.assetTypeName,
+      quantity: line.quantity,
+      period: formatDayRange(line.startDay, line.endDay),
+    })),
+    depositTotal: params.depositTotal ? formatMoney(params.depositTotal) : null,
+    termsVersion: params.termsVersion,
+    accessLinkUrl,
+  })
   return sendAndRecord(deps, { tenantId, customerId, kind: 'confirmation', referenceId: reservationGroupId, to, subject, body })
 }
 
@@ -147,12 +125,12 @@ export async function dispatchReturnReminder(
     reservationId: number
     to: string
     customerName: string
-    assetTypeId: number
+    assetTypeName: string
     endDay: string
   },
 ): Promise<NotificationDispatch | null> {
-  const { tenantId, customerId, reservationId, to, customerName, assetTypeId, endDay } = params
-  const { subject, body } = formatReturnReminderEmail({ customerName, assetTypeId, endDay })
+  const { tenantId, customerId, reservationId, to, customerName, assetTypeName, endDay } = params
+  const { subject, body } = returnReminderText({ customerName, assetTypeName, dueDay: formatDay(endDay) })
   return sendAndRecord(deps, { tenantId, customerId, kind: 'return_reminder', referenceId: reservationId, to, subject, body })
 }
 
@@ -169,12 +147,17 @@ export async function dispatchPickupReminder(
     reservationId: number
     to: string
     customerName: string
-    assetTypeId: number
+    assetTypeName: string
     startDay: string
+    endDay: string
   },
 ): Promise<NotificationDispatch | null> {
-  const { tenantId, customerId, reservationId, to, customerName, assetTypeId, startDay } = params
-  const { subject, body } = formatPickupReminderEmail({ customerName, assetTypeId, startDay })
+  const { tenantId, customerId, reservationId, to, customerName, assetTypeName, startDay, endDay } = params
+  const { subject, body } = pickupReminderText({
+    customerName,
+    assetTypeName,
+    period: formatDayRange(startDay, endDay),
+  })
   return sendAndRecord(deps, { tenantId, customerId, kind: 'pickup_reminder', referenceId: reservationId, to, subject, body })
 }
 
@@ -193,11 +176,11 @@ export async function dispatchOverdueReminder(
     reservationId: number
     to: string
     customerName: string
-    assetTypeId: number
+    assetTypeName: string
     endDay: string
   },
 ): Promise<NotificationDispatch | null> {
-  const { tenantId, customerId, reservationId, to, customerName, assetTypeId, endDay } = params
-  const { subject, body } = formatOverdueReminderEmail({ customerName, assetTypeId, endDay })
+  const { tenantId, customerId, reservationId, to, customerName, assetTypeName, endDay } = params
+  const { subject, body } = overdueReminderText({ customerName, assetTypeName, dueDay: formatDay(endDay) })
   return sendAndRecord(deps, { tenantId, customerId, kind: 'overdue_reminder', referenceId: reservationId, to, subject, body })
 }

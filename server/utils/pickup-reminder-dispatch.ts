@@ -14,14 +14,17 @@
 // Operator take any Rentable unit whenever the Customer shows up — needs
 // no reminder; there is nothing left to remind them of.
 import type { AvailabilityReservationRepository } from '../contexts/availability-reservation'
+import type { CatalogRepository } from '../contexts/catalog'
 import type { CustomerIdentityComplianceRepository } from '../contexts/customer-identity-compliance'
 import type { HandoverPossessionRepository } from '../contexts/handover-possession'
 import { dispatchPickupReminder, type NotificationDispatch, type NotificationGateway, type NotificationRepository } from '../contexts/notification'
 import type { TenantId } from '../contexts/_shared'
+import { assetTypeNameForEmail } from './customer-email-data'
 
 export interface DispatchDuePickupRemindersDeps {
   availabilityRepo: AvailabilityReservationRepository
   handoverRepo: HandoverPossessionRepository
+  catalogRepo: CatalogRepository
   identityRepo: CustomerIdentityComplianceRepository
   notificationRepo: NotificationRepository
   notificationGateway: NotificationGateway
@@ -31,7 +34,7 @@ export async function dispatchDuePickupReminders(
   deps: DispatchDuePickupRemindersDeps,
   params: { tenantId: TenantId; today: string },
 ): Promise<NotificationDispatch[]> {
-  const { availabilityRepo, handoverRepo, identityRepo, notificationRepo, notificationGateway } = deps
+  const { availabilityRepo, handoverRepo, catalogRepo, identityRepo, notificationRepo, notificationGateway } = deps
   const { tenantId, today } = params
 
   const candidates = await availabilityRepo.listReservationsStartingOn(tenantId, today)
@@ -53,8 +56,9 @@ export async function dispatchDuePickupReminders(
         reservationId: reservation.id,
         to: customer.email,
         customerName: customer.name,
-        assetTypeId: reservation.assetTypeId,
+        assetTypeName: await assetTypeNameForEmail(catalogRepo, tenantId, reservation.assetTypeId),
         startDay: reservation.period.startDay,
+        endDay: reservation.period.endDay,
       },
     )
     if (result) dispatched.push(result)
