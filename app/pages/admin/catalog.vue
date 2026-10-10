@@ -16,6 +16,7 @@
 // the D-55 content, the shipped image and the Accessory link; the
 // classification lists themselves are maintained below the table.
 import { sk } from '~/i18n/sk'
+import { loginLocation } from '~/utils/operator-redirect'
 import { getErrorCode } from '~/utils/error-code'
 import type { EditableAssetType } from '~/components/AssetTypeEditor.vue'
 
@@ -94,7 +95,7 @@ async function handleFetchError(err: unknown) {
     // where Nuxt's composable context (needed by navigateTo) isn't
     // reliably available otherwise — see the Nuxt app captured at the
     // top of setup.
-    await nuxtApp.runWithContext(() => navigateTo('/login'))
+    await nuxtApp.runWithContext(() => navigateTo(loginLocation(useRoute().fullPath)))
     return
   }
   errorCode.value = getErrorCode(err) ?? 'UNKNOWN'

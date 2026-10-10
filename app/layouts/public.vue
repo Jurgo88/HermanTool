@@ -36,6 +36,11 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
     <footer class="public-surface__footer">
       <NuxtLink to="/podmienky">{{ sk.publicFooter.termsLink }}</NuxtLink>
       <NuxtLink to="/sukromie">{{ sk.publicFooter.privacyLink }}</NuxtLink>
+      <!-- The way in for Rent Star's own people. Customers have no account
+        (D-14), so it is not in the header where a Customer would look for one. -->
+      <NuxtLink to="/login" class="public-surface__staff-link">{{
+        sk.publicFooter.staffLogin
+      }}</NuxtLink>
     </footer>
   </div>
 </template>
@@ -130,7 +135,23 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
   outline-offset: 2px;
 }
 
+.public-surface__footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ht-hit-min);
+}
+
+/* Its own row on every width, set apart from the pages a Customer reads. */
+.public-surface__footer .public-surface__staff-link {
+  flex: 1 0 100%;
+  justify-content: center;
+  margin-top: var(--ht-space-2);
+  padding-top: var(--ht-space-2);
+  border-top: 1px solid var(--ht-line);
+}
+
 .public-surface__footer {
+  flex-wrap: wrap;
   margin-top: auto;
   padding: var(--ht-space-5) var(--ht-space-5) calc(var(--ht-space-5) + var(--ht-safe-bottom));
   display: flex;

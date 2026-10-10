@@ -6,6 +6,7 @@
 // Declare lost (S-16) is reachable from here too — same ConfirmAction +
 // PinPrompt sequence as the Asset view (S-13).
 import { sk } from '~/i18n/sk'
+import { loginLocation } from '~/utils/operator-redirect'
 import { getErrorCode } from '~/utils/error-code'
 import { formatDay, formatDayRange } from '~/utils/format'
 
@@ -32,7 +33,7 @@ async function handleFetchError(err: unknown): Promise<boolean> {
   const statusCode = (err as { statusCode?: number })?.statusCode
   const code = getErrorCode(err)
   if (statusCode === 401 && code !== 'InvalidPinError') {
-    await nuxtApp.runWithContext(() => navigateTo('/login'))
+    await nuxtApp.runWithContext(() => navigateTo(loginLocation(useRoute().fullPath)))
     return true
   }
   errorMessage.value = null

@@ -13,6 +13,7 @@
 // satisfies FR-20's deduction check, and an unconfirmed IdentityEvidence
 // row names an object that may not exist.
 import { sk } from '~/i18n/sk'
+import { loginLocation } from '~/utils/operator-redirect'
 import type { PhotoState } from '~/components/PhotoCapture.vue'
 import { getErrorCode } from '~/utils/error-code'
 import { formatDayRange, formatMoney } from '~/utils/format'
@@ -94,7 +95,7 @@ async function handleFetchError(err: unknown): Promise<boolean> {
   // Operator mistyped a PIN. Only a genuine session expiry (no code — it
   // never goes through a translate*Error function) redirects.
   if (statusCode === 401 && code !== 'InvalidPinError') {
-    await nuxtApp.runWithContext(() => navigateTo('/login'))
+    await nuxtApp.runWithContext(() => navigateTo(loginLocation(useRoute().fullPath)))
     return true
   }
   errorMessage.value = null

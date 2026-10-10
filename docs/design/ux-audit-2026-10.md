@@ -19,6 +19,23 @@ The public pages were run locally and photographed at a true **390 × 844** view
 | 7 | The reserve action was at the end of a long page, grey, with the reason far above it | A disabled button with no nearby explanation reads as broken | A bar that stays at the bottom of the screen on a phone: says what is missing, then the button |
 | 8 | "obsadené" and "posledný kus" inside 48 px calendar cells | The words ran together at phone width | The cell is only its number plus the hatch or dotted edge; the meaning is a legend under the grid, and the full word stays in each cell's accessible name |
 
+## Workflow: signing in and the Customer journey (built, then filed)
+
+The owner pointed out that there was no sign-in button. That was true and was the visible part of a wider problem: the Operator's route into the app was an address you had to know.
+
+| # | Finding | Change |
+|---|---|---|
+| 9 | No link to `/login` anywhere on the public surface | A "Prihlásenie pre personál" link in the footer, on its own row. **Not in the header**: Customers have no account (D-14), and a sign-in there reads as something they need to do |
+| 10 | Login always landed on the catalog admin, even for the employee who works at the counter | Lands on the counter (S-08), the high-frequency destination; the owner reaches the catalog from the bar |
+| 11 | An expired session lost where the Operator was | Every "session gone" redirect carries the current page as `?redirect=`, and login returns there. The target is untrusted and only a path inside `/admin` is honoured (tested against other-site, `//host`, backslash, control-character and `..` forms) |
+| 12 | An already signed-in Operator opening `/login` was asked for the password again | Goes straight to the target |
+| 13 | The payment-received page said only "thank you" | "Čo bude ďalej": confirmation by email, an ID document at pickup, the deposit in cash. It states no amount and does not promise an ID *upload*, which is blocked until OQ #2 gives the retention window a value |
+
+**Found, not built (issues filed):**
+
+- **#189: Customer emails are in English** and name the tool as "AssetType 13". They are the first thing a Customer reads after paying, and the only route back to the reservation. They also lack the terms reference FR-10 asks for.
+- **#190: an abandoned payment is a dead end.** The draft is cleared when the reservation is created, so the Customer must rebuild it, and their own Pending hold makes the tool look taken.
+
 ## Open for a decision, not built
 
 - **No page transitions.** A native app animates between screens. Design foundation §4.1 decided "no page transitions, no entrance animation" deliberately. Reversing that is a design decision, not a polish item.
