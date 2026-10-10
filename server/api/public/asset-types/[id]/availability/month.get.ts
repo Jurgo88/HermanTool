@@ -29,19 +29,21 @@ export default defineEventHandler(async (event) => {
 
   try {
     const tenantId = await getSeededTenantId(catalog.sql)
-    const assetType = await catalog.repo.getAssetType(tenantId, assetTypeId)
-    if (!assetType || !assetType.published) {
-      throw createError({ statusCode: 404, statusMessage: 'AssetType not found.' })
-    }
-
-    return await availability.repo.transaction((trx, getRentablePoolCount) =>
-      getAvailabilityMonth(trx, getRentablePoolCount, {
+    // A display read: no transaction (D-33 decides at checkout), and the
+    // publish check runs alongside the month instead of before it.
+    const [assetType, calendar] = await Promise.all([
+      catalog.repo.getAssetType(tenantId, assetTypeId),
+      getAvailabilityMonth(availability.repo, availability.repo.readRentablePoolCount, {
         tenantId,
         assetTypeId,
         month: month ?? monthOfDay(todayRentalDay()),
         today: todayRentalDay(),
       }),
-    )
+    ])
+    if (!assetType || !assetType.published) {
+      throw createError({ statusCode: 404, statusMessage: 'AssetType not found.' })
+    }
+    return calendar
   } catch (err) {
     if (err instanceof InvalidMonthError) {
       throw createError({

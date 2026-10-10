@@ -7,7 +7,7 @@
 import type { TenantId } from '../_shared'
 import type { AvailabilityReservationRepository, CapacitySource } from './repository'
 import { eachDayOfMonth, monthOfDay, shiftMonth, weekdayOf } from './rental-period'
-import { getAvailableCount } from './reservation'
+import { getAvailableCountsForPeriod } from './reservation'
 
 export type AvailabilityLevel = 'free' | 'last' | 'none'
 
@@ -44,19 +44,29 @@ export async function getAvailabilityMonth(
   const { tenantId, assetTypeId, month, today } = params
   const days = eachDayOfMonth(month)
 
-  // D-38: the pool is a fact about the units, not the day — read once and
-  // reused, so every day is measured against the same capacity.
+  // D-38: the pool is a fact about the units, not the day — read once, so
+  // every day is measured against the same capacity.
   const pool = await getRentablePoolCount(tenantId, assetTypeId)
   const poolOnce: CapacitySource = async () => pool
 
-  const calendar = await Promise.all(
-    days.map(async (day): Promise<AvailabilityDay> => {
-      const selectable = day >= today
-      if (!selectable) return { day, weekday: weekdayOf(day), selectable, level: null }
-      const available = await getAvailableCount(repo, poolOnce, { tenantId, assetTypeId, day })
-      return { day, weekday: weekdayOf(day), selectable, level: availabilityLevel(available, pool) }
-    }),
-  )
+  const firstSelectable = days.find((day) => day >= today)
+  const available = firstSelectable
+    ? new Map(
+        (
+          await getAvailableCountsForPeriod(repo, poolOnce, {
+            tenantId,
+            assetTypeId,
+            period: { startDay: firstSelectable, endDay: days.at(-1)! },
+          })
+        ).map(({ day, available }) => [day, available]),
+      )
+    : new Map<string, number>()
+
+  const calendar = days.map((day): AvailabilityDay => {
+    const count = available.get(day)
+    if (count === undefined) return { day, weekday: weekdayOf(day), selectable: false, level: null }
+    return { day, weekday: weekdayOf(day), selectable: true, level: availabilityLevel(count, pool) }
+  })
 
   const previousMonth = shiftMonth(month, -1)
   return {

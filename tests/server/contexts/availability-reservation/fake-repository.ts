@@ -17,6 +17,7 @@ import type {
   ReservationGroup,
   ReservationState,
 } from '../../../../server/contexts/availability-reservation/types'
+import { eachDayOfPeriod } from '../../../../server/contexts/availability-reservation/rental-period'
 
 interface State {
   reservationGroups: ReservationGroup[]
@@ -202,6 +203,25 @@ export function createFakeAvailabilityReservationRepository(): FakeAvailabilityR
             (r.state === 'confirmed' || (r.state === 'pending' && r.pendingExpiresAt.getTime() > now)),
         ).length
       },
+
+      async countActiveReservationsPerDay(tenantId, assetTypeId, startDay, endDay) {
+        const now = Date.now()
+        const counts = new Map<string, number>()
+        for (const day of eachDayOfPeriod({ startDay, endDay })) {
+          const count = target.reservations.filter(
+            (r) =>
+              r.tenantId === tenantId &&
+              r.assetTypeId === assetTypeId &&
+              r.period.startDay <= day &&
+              r.period.endDay >= day &&
+              (r.state === 'confirmed' || (r.state === 'pending' && r.pendingExpiresAt.getTime() > now)),
+          ).length
+          if (count > 0) counts.set(day, count)
+        }
+        return counts
+      },
+
+      readRentablePoolCount: async (_tenantId, assetTypeId) => target.capacities.get(assetTypeId) ?? 0,
 
       async listReservationsStartingOn(tenantId, day) {
         return target.reservations
