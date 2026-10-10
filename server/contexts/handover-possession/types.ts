@@ -330,6 +330,15 @@ export class BackdateReasonRequiredError extends HandoverPossessionError {
   }
 }
 
+// FR-24: "backdated" means earlier. A repair that claims the handover
+// happens after it is being recorded would put a Possession in the future,
+// and everything derived from the two clocks (Overdue, NoShow, FR-28) with it.
+export class BackdateInFutureError extends HandoverPossessionError {
+  constructor(kind: 'handover_out' | 'handover_in') {
+    super(`A backdated ${kind === 'handover_out' ? 'HandoverOut' : 'HandoverIn'} cannot be dated after the moment it is recorded (FR-24).`)
+  }
+}
+
 // FR-31: "The transition to LostAsset is always an Operator declaration
 // with a reason." No reason, no declaration — mirrors
 // DeductionReasonRequiredError/BackdateReasonRequiredError's established

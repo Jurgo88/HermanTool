@@ -16,6 +16,12 @@ import { sk } from '~/i18n/sk'
 import type { PhotoState } from '~/components/PhotoCapture.vue'
 import { getErrorCode } from '~/utils/error-code'
 import { formatDayRange, formatMoney } from '~/utils/format'
+import {
+  emptyLateAttestation,
+  isLateAttestationComplete,
+  toBackdate,
+  type LateAttestation,
+} from '~/utils/late-attestation'
 
 definePageMeta({ layout: 'counter' })
 
@@ -171,6 +177,7 @@ const uploadingEvidence = ref(false)
 const rejectionReason = ref('')
 
 const outTagCode = ref('')
+const outLate = ref<LateAttestation>(emptyLateAttestation())
 const outPhotos = ref<File[]>([])
 const outPhotoStates = ref<PhotoState[]>([])
 const outUploadUrls = ref<string[]>([])
@@ -198,6 +205,7 @@ async function startHandoverOut(pickup: TodaysPickupView) {
   evidenceFile.value = null
   outTagCode.value = ''
   outPhotos.value = []
+  outLate.value = emptyLateAttestation()
   panel.value = 'handoverOut'
 
   if (pickup.customerId) {
@@ -309,6 +317,29 @@ async function retryOutPhoto(index: number) {
   if (outPhotoStates.value.every((s) => s === 'uploaded')) await finishHandoverOut()
 }
 
+// S-17: a late record needs its time and reason before the PIN is asked for.
+function requestOutPin() {
+  if (outPhotos.value.length === 0) return
+  if (!isLateAttestationComplete(outLate.value)) {
+    errorCode.value = null
+    errorMessage.value = sk.lateAttestation.incomplete
+    return
+  }
+  errorMessage.value = null
+  showOutPinPrompt.value = true
+}
+
+function requestInPin() {
+  if (inPhotos.value.length === 0) return
+  if (!isLateAttestationComplete(inLate.value)) {
+    errorCode.value = null
+    errorMessage.value = sk.lateAttestation.incomplete
+    return
+  }
+  errorMessage.value = null
+  showInPinPrompt.value = true
+}
+
 async function confirmHandoverOut(pin: string) {
   if (!activePickup.value) return
   errorCode.value = null
@@ -328,6 +359,7 @@ async function confirmHandoverOut(pin: string) {
         customerId: pickup.customerId,
         conditionPhotoContentTypes: outPhotos.value.map((f) => f.type),
         pin,
+        backdate: toBackdate(outLate.value),
       },
     })
 
@@ -355,6 +387,7 @@ async function confirmHandoverOut(pin: string) {
 // HandoverIn (W5) then Settlement
 // ---------------------------------------------------------------------
 const inTagCode = ref('')
+const inLate = ref<LateAttestation>(emptyLateAttestation())
 const inPhotos = ref<File[]>([])
 const inPhotoStates = ref<PhotoState[]>([])
 const inUploadUrls = ref<string[]>([])
@@ -377,6 +410,7 @@ function startHandoverIn(tagCode: string) {
   info.value = null
   inTagCode.value = tagCode
   inPhotos.value = []
+  inLate.value = emptyLateAttestation()
   panel.value = 'handoverIn'
 }
 
@@ -426,6 +460,7 @@ async function confirmHandoverIn(pin: string) {
         tagCode: inTagCode.value,
         conditionPhotoContentTypes: inPhotos.value.map((f) => f.type),
         pin,
+        backdate: toBackdate(inLate.value),
       },
     })
 
@@ -611,7 +646,7 @@ async function confirmSettlement(pin: string) {
         </button>
       </section>
 
-      <form v-else @submit.prevent="outPhotos.length > 0 && (showOutPinPrompt = true)">
+      <form v-else @submit.prevent="requestOutPin">
         <p>{{ sk.adminCounter.depositLabel.replace('{amount}', depositFor(activePickup.reservation.assetTypeId)) }}</p>
         <label>
           {{ sk.adminCounter.tagCodeLabel }}
@@ -627,6 +662,7 @@ async function confirmSettlement(pin: string) {
           :remove-label="sk.adminCounter.removePhotoAction"
           @retry="retryOutPhoto"
         />
+        <LateAttestationFields v-model="outLate" />
         <AppButton type="submit" size="counter" :disabled="outPhotos.length === 0">
           {{ sk.adminCounter.submitHandoverOutAction }}
         </AppButton>
@@ -642,7 +678,7 @@ async function confirmSettlement(pin: string) {
 
     <section v-else-if="panel === 'handoverIn'">
       <StepHeader :title="sk.adminCounter.handoverInHeading" :guard-message="handoverInBackGuard" @back="resetToWorklist" />
-      <form @submit.prevent="inPhotos.length > 0 && (showInPinPrompt = true)">
+      <form @submit.prevent="requestInPin">
         <label>
           {{ sk.adminCounter.tagCodeLabel }}
           <input v-model="inTagCode" type="text" readonly />
@@ -657,6 +693,7 @@ async function confirmSettlement(pin: string) {
           :remove-label="sk.adminCounter.removePhotoAction"
           @retry="retryInPhoto"
         />
+        <LateAttestationFields v-model="inLate" />
         <AppButton type="submit" size="counter" :disabled="inPhotos.length === 0">
           {{ sk.adminCounter.submitHandoverInAction }}
         </AppButton>

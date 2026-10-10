@@ -9,6 +9,7 @@ import { createCustomer, issueCustomerAccessLink, resolveCustomerAccessLink } fr
 import { performHandoverOut } from '../../../../server/contexts/handover-possession/handover-out'
 import {
   AssetTypeMismatchError,
+  BackdateInFutureError,
   BackdateReasonRequiredError,
   CustomerReservationMismatchError,
   EmptyConditionReportError,
@@ -184,6 +185,21 @@ describe('performHandoverOut', () => {
         backdate: { occurredAt: new Date('2026-03-05T09:00:00.000Z'), reason: '   ' },
       }),
     ).rejects.toThrow(BackdateReasonRequiredError)
+  })
+
+  it('refuses a HandoverOut dated after the moment it is recorded (FR-24)', async () => {
+    await expect(
+      performHandoverOut(deps(), {
+        tenantId: tenantA,
+        tagCode,
+        reservationId,
+        customerId,
+        operatorId,
+        depositAmount,
+        conditionPhotoContentTypes: ['image/jpeg'],
+        backdate: { occurredAt: new Date(Date.now() + 60 * 60 * 1000), reason: 'Typed the wrong day' },
+      }),
+    ).rejects.toThrow(BackdateInFutureError)
   })
 
   it('refuses when the Reservation is not Confirmed', async () => {

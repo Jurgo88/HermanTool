@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { backdateBodySchema } from '../../utils/attestation-backdate'
 import { AssetTypeNotFoundError } from '../../contexts/catalog'
 import { performHandoverOut, ReservationNotConfirmedError } from '../../contexts/handover-possession'
 import { createAvailabilityReservationDeps } from '../../utils/availability-reservation-deps'
@@ -12,7 +13,6 @@ import { requireOperator } from '../../utils/operator-session'
 // D-10, FR-24, Finding 9: omit for an ordinary live scan (occurredAt
 // defaults to now() in the domain layer). Supply to record the "Operator
 // forgot to scan" repair — occurredAt is backdated, reason is mandatory.
-const backdateSchema = z.object({ occurredAt: z.coerce.date(), reason: z.string().min(1) })
 
 const bodySchema = z.object({
   tagCode: z.string().min(1),
@@ -25,7 +25,7 @@ const bodySchema = z.object({
   // below), which is exactly the shared-counter-phone problem this
   // guards against.
   pin: z.string().min(1),
-  backdate: backdateSchema.optional(),
+  backdate: backdateBodySchema.optional(),
 })
 
 // D-04, D-05, FR-14, FR-15, FR-18, FR-19, FR-21, FR-22, W4: "the thirty
