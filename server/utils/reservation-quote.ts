@@ -21,6 +21,9 @@ export interface QuoteLine {
 
 export interface QuotedLine extends QuoteLine {
   days: number
+  // Set only when the caller passes `today`: a draft kept in the browser
+  // can outlive its first day, and the page may not compare dates (D-51).
+  startsInPast?: boolean
   rentalFee: MonetaryAmount
   deposit: MonetaryAmount
 }
@@ -36,6 +39,7 @@ export interface ReservationQuote {
 export async function quoteReservationLines(
   lines: QuoteLine[],
   lookupAssetType: (assetTypeId: number) => Promise<AssetType | null>,
+  options: { today?: string } = {},
 ): Promise<ReservationQuote> {
   const quoted: QuotedLine[] = []
   const feeInputs: { dayRate: MonetaryAmount; days: number }[] = []
@@ -51,6 +55,7 @@ export async function quoteReservationLines(
     quoted.push({
       ...line,
       days,
+      ...(options.today ? { startsInPast: line.period.startDay < options.today } : {}),
       rentalFee: computeRentalFeeAmount([feeInput]),
       deposit: createMonetaryAmount(
         assetType.depositAmount.amount * line.quantity,

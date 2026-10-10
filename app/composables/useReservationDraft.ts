@@ -1,12 +1,16 @@
 // Client-side-only staging area for W1's "Visitor... may assemble several
 // AssetTypes with different RentalPeriods" before checkout commitment
 // (docs/architecture/architecture-foundation-part-2-users-workflows-events.md,
-// W1). Never persisted, never sent as-is to the server — checkout.vue
-// flattens it (app/utils/reservation-draft.ts) into the
-// `lines: ReservationLine[]` shape
-// /api/reservations/checkout.post.ts expects, one line per unit
+// W1). Never sent as-is to the server — checkout.vue flattens it
+// (app/utils/reservation-draft.ts) into the `lines: ReservationLine[]`
+// shape /api/reservations/checkout.post.ts expects, one line per unit
 // (the backend has no quantity field: FR-06 is "n AssetTypes -> n
 // Reservations", one Reservation per unit).
+//
+// Kept in this browser's localStorage so a reload or a closed tab does not
+// lose it (app/plugins/reservation-draft.client.ts). Only AssetType names,
+// days and prices: no Customer data is ever stored here. It is advisory:
+// the quote and the checkout hold ask the server again.
 //
 // Deliberately not named "cart" anywhere (CLAUDE.md's banned-terms list)
 // — this models the same pre-commitment browsing state W1 describes, it
@@ -27,6 +31,9 @@ export interface DraftReservationLine {
 
 export function useReservationDraft() {
   const lines = useState<DraftReservationLine[]>('reservationDraftLines', () => [])
+  // False until the stored draft has been read after hydration, so a page
+  // does not flash "nothing added yet" before it arrives.
+  const restored = useState('reservationDraftRestored', () => false)
 
   function addLine(line: Omit<DraftReservationLine, 'quantity'> & { quantity: number }) {
     const existing = lines.value.find(
@@ -47,5 +54,5 @@ export function useReservationDraft() {
     lines.value = []
   }
 
-  return { lines, addLine, removeLine, clearLines }
+  return { lines, restored, addLine, removeLine, clearLines }
 }

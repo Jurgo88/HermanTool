@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  formatCount,
   formatDay,
   formatDateTime,
   formatDayOfMonth,
@@ -101,5 +102,21 @@ describe('formatMonth / formatDayOfMonth (S-02, D-51)', () => {
   it('gives the day number without leading zero', () => {
     expect(formatDayOfMonth('2026-10-05')).toBe('5')
     expect(formatDayOfMonth('2026-10-31')).toBe('31')
+  })
+})
+
+describe('formatCount (Slovak plural forms)', () => {
+  const forms = { one: '{count} deň', few: '{count} dni', many: '{count} dní' }
+
+  it('picks 1 / 2–4 / other', () => {
+    expect([0, 1, 2, 4, 5, 11, 21].map((n) => formatCount(n, forms))).toEqual([
+      '0 dní',
+      '1 deň',
+      '2 dni',
+      '4 dni',
+      '5 dní',
+      '11 dní',
+      '21 dní',
+    ])
   })
 })
