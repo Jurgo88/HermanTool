@@ -25,5 +25,7 @@ usePwaHead('operator', 'public')
 .admin-surface {
   min-height: 100vh;
   min-height: 100dvh;
+  /* Keep the last content clear of the home indicator (viewport-fit=cover). */
+  padding-bottom: var(--ht-safe-bottom);
 }
 </style>

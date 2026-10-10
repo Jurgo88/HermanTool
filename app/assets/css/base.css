@@ -105,3 +105,73 @@ summary {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Native controls never show the browser's own colours (design foundation
+ * §4.3, NFR-11). On the dark counter an unstyled <button> inherited light
+ * text but kept the browser's light-grey background, so its label could not
+ * be read: the identity check's three buttons were blank. AppButton, the
+ * chips and the calendar cells set their own look and win by specificity;
+ * this is only the floor. Borders use --ht-ink-muted for the 3:1 a control
+ * edge needs on both surfaces. */
+button {
+  min-height: var(--ht-hit-min);
+  padding: 0 var(--ht-space-4);
+  background: var(--ht-surface);
+  color: var(--ht-ink);
+  border: 1px solid var(--ht-ink-muted);
+  border-radius: var(--ht-radius-plate);
+  cursor: pointer;
+}
+
+button:disabled {
+  background: var(--ht-surface-sunk);
+  color: var(--ht-ink-muted);
+  cursor: default;
+}
+
+input:not([type='checkbox'], [type='radio'], [type='file'], [type='range']),
+select,
+textarea {
+  min-height: var(--ht-hit-min);
+  padding: var(--ht-space-2) var(--ht-space-3);
+  background: var(--ht-surface);
+  color: var(--ht-ink);
+  border: 1px solid var(--ht-ink-muted);
+  border-radius: var(--ht-radius-plate);
+}
+
+input:read-only:not([type='checkbox'], [type='radio'], [type='file']) {
+  background: var(--ht-surface-sunk);
+}
+
+input[type='file'] {
+  max-width: 100%;
+}
+
+input[type='file']::file-selector-button {
+  min-height: var(--ht-hit-min);
+  margin-right: var(--ht-space-3);
+  padding: 0 var(--ht-space-4);
+  background: var(--ht-surface);
+  color: var(--ht-ink);
+  border: 1px solid var(--ht-ink-muted);
+  border-radius: var(--ht-radius-plate);
+  font: inherit;
+  cursor: pointer;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--ht-signal);
+}
+
+::placeholder {
+  color: var(--ht-ink-muted);
+  opacity: 1;
+}
+
+/* Native pickers, dropdowns and scrollbars on the counter follow its dark
+ * surface instead of flashing white. */
+[data-surface='counter'] {
+  color-scheme: dark;
+}

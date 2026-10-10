@@ -438,6 +438,8 @@ export const sk = {
     verifiedAction: 'Zhoduje sa — overiť',
     rejectedAction: 'Nezhoduje sa — zamietnuť',
     rejectionReasonLabel: 'Dôvod zamietnutia',
+    rejectionNeedsReason: 'Zamietnuť sa dá až po zadaní dôvodu.',
+    photosRequiredHint: 'Pridajte aspoň jednu fotografiu stavu, potom sa dá pokračovať.',
     verificationRecorded: 'Overenie totožnosti zaznamenané.',
 
     handoverOutHeading: 'Vydanie náradia — {customerName}',

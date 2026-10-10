@@ -22,5 +22,6 @@ usePwaHead('operator', 'public')
 .auth-surface {
   min-height: 100vh;
   min-height: 100dvh;
+  padding-bottom: var(--ht-safe-bottom);
 }
 </style>

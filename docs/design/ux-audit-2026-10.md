@@ -44,6 +44,34 @@ The owner pointed out that there was no sign-in button. That was true and was th
 - **Left and right safe areas** are applied to the public header only. They matter in landscape on a phone with a notch, which this app barely uses.
 - **No bottom navigation.** The Visitor surface has one task (find, pick, reserve), so a tab bar would add chrome without adding a destination. The counter is a different question; see batch 2.
 
-## Batch 2: counter, batch 3: admin (not started)
+## Batch 2: the counter (built)
 
-To be audited with the surfaces open. Likely candidates, **unverified**: hit targets and one-handed reach on the HandoverOut/HandoverIn forms, the position of the primary action while the keyboard is open, the camera-first scan flow on the real counter phone, and the density of the admin tables on a tablet.
+The counter is behind a login, so it was photographed with a temporary stand-in server (canned worklist data, never committed) and a real browser at 390 × 844 with touch emulation, before and after. **Not tried on a real phone, with a real session, or with the camera.**
+
+What the "before" photographs showed, and it was worse than expected:
+
+| # | Finding | Why it matters | Change |
+|---|---|---|---|
+| 14 | **The identity check's three buttons were blank.** A bare `<button>` on the dark counter inherited light text but kept the browser's light-grey background | The Operator could not read "Zhoduje sa — overiť" or "Nezhoduje sa — zamietnuť" on the step that gates every handover (FR-14) | A floor of styles for every native button, input, select and textarea in `base.css`, so no control shows the browser's own colours; the check uses `AppButton` at counter size, the rejection as `danger` and disabled until a reason is typed |
+| 15 | None of the four counter pages had any style at all | Text touched the edges of the screen, blocks ran together, two links read as one word ("OmeškanéNedostavili sa") | The counter layout supplies the shell: edge padding including the home indicator, one column up to 720 px, a rhythm between blocks; the step bar stays edge to edge |
+| 16 | Bare `<label><input>` pairs | Inconsistent with the rest of the app, no hint or description wiring | `AppField` for every counter field; tag-code and amount fields get the right mobile keyboard and no autocorrect |
+| 17 | Main actions were 44 px, auto-width | The primary action at a counter should be a thumb-sized target | "Vydať", "Potvrdiť vydanie / vrátenie" and the settlement action at counter size, full width; "Vydať" is the yellow action |
+| 18 | A disabled "Potvrdiť vydanie" gave no reason | The design says a disabled control states why | A line under it: "Pridajte aspoň jednu fotografiu stavu…" |
+| 19 | In the overdue list a small link sat against the red "Nahlásiť ako stratené" button | A tired tap on the wrong one | Stacked with a gap; both full size |
+| 20 | The deposit, a cash instruction, was ordinary text | S-10 asks for it large | Large, first on the handover form |
+| 21 | The evidence timestamp was formatted in the component (`toLocaleString`) | D-51 | `formatDateTime` |
+
+The control floor is checked by a contrast test (`tests/shared/contrast.test.ts`): edges reach 3:1 on the light surface and on the counter.
+
+**A correction to my own earlier work:** the contrast test I added for the Rent Star palette lived in `tests/app/`, which the UI-005 harness does not collect, so it had stopped running while CI stayed green. It is now in `tests/shared/` and runs.
+
+**Not done, found:**
+
+- An evidence marked "(ešte nepotvrdené)" (not yet confirmed stored, D-40) can still be marked as verified from this screen. Whether the server refuses it, I have not checked.
+- The Returns list has no action on its rows: a return starts from a scan. That is by design (P3) but a Customer standing at the counter with a tool in hand is not helped by it.
+- `ScanTarget`'s own manual field keeps its small label, and the camera states could not be seen (a headless browser has no camera).
+- The no-shows page and the Asset view (S-13) got the shared shell and the control floor but were not photographed individually.
+
+## Batch 3: admin (not started)
+
+To be audited with the surfaces open. Likely candidates, **unverified**: the density of the admin tables on a tablet, and whether the admin pages need the same shell the counter just got.

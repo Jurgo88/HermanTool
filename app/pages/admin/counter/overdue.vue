@@ -78,10 +78,13 @@ async function confirmDeclareLost(pin: string) {
   errorMessage.value = null
   submittingDeclareLost.value = true
   try {
-    await $fetch(`/api/handover/rental-agreements/${declareLostTarget.value.rentalAgreement.id}/declare-lost`, {
-      method: 'POST',
-      body: { reason: declareLostReason.value, pin },
-    })
+    await $fetch(
+      `/api/handover/rental-agreements/${declareLostTarget.value.rentalAgreement.id}/declare-lost`,
+      {
+        method: 'POST',
+        body: { reason: declareLostReason.value, pin },
+      },
+    )
     info.value = sk.assetHistory.declareLostSuccess
     declareLostTarget.value = null
     await load()
@@ -98,7 +101,7 @@ async function confirmDeclareLost(pin: string) {
   <main>
     <StepHeader :title="sk.adminCounterOverdue.title" @back="navigateTo('/admin/counter')" />
     <AppAlert :code="errorCode" :message="errorMessage" />
-    <p v-if="info">{{ info }}</p>
+    <AppAlert v-if="info" variant="info" :message="info" />
     <p>{{ sk.adminCounterOverdue.intro }}</p>
 
     <EmptyState v-if="overdue.length === 0" :message="sk.adminCounterOverdue.empty" />
@@ -107,22 +110,29 @@ async function confirmDeclareLost(pin: string) {
       :key="entry.reservation.id"
       :title="`${entry.customerName} — ${entry.assetTypeName}`"
       :expected-label="sk.adminCounter.expectedLabel"
-      :expected-value="formatDayRange(entry.reservation.period.startDay, entry.reservation.period.endDay)"
+      :expected-value="
+        formatDayRange(entry.reservation.period.startDay, entry.reservation.period.endDay)
+      "
       :actual-label="sk.adminCounter.actualLabelReturn"
       :actual-value="sk.adminCounterOverdue.actualValueOverdue"
     >
       <p>
-        {{ sk.adminCounterOverdue.daysOverdueLabel }}: {{ entry.daysOverdue }}
-        · {{ sk.adminCounterOverdue.shortfallLabel }}:
+        {{ sk.adminCounterOverdue.daysOverdueLabel }}: {{ entry.daysOverdue }} ·
+        {{ sk.adminCounterOverdue.shortfallLabel }}:
         <DerivedBadge v-if="entry.shortfallDay">{{ formatDay(entry.shortfallDay) }}</DerivedBadge>
         <span v-else>{{ sk.adminCounterOverdue.noShortfall }}</span>
       </p>
-      <NuxtLink :to="`/admin/counter/assets/${entry.rentalAgreement.assetId}`">
-        {{ sk.adminCounterOverdue.viewAssetAction }}
-      </NuxtLink>
-      <AppButton variant="danger" @click="startDeclareLost(entry)">
-        {{ sk.assetHistory.declareLostAction }}
-      </AppButton>
+      <div class="counter-actions">
+        <NuxtLink
+          :to="`/admin/counter/assets/${entry.rentalAgreement.assetId}`"
+          class="counter-link"
+        >
+          {{ sk.adminCounterOverdue.viewAssetAction }}
+        </NuxtLink>
+        <AppButton variant="danger" size="counter" @click="startDeclareLost(entry)">
+          {{ sk.assetHistory.declareLostAction }}
+        </AppButton>
+      </div>
     </TwoClockRow>
 
     <ConfirmAction
