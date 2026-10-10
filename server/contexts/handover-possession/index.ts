@@ -49,6 +49,7 @@ export type {
 export {
   AssetNotYetReturnableError,
   AssetTypeMismatchError,
+  BackdateInFutureError,
   BackdateReasonRequiredError,
   ConditionReportNotFoundError,
   CustomerReservationMismatchError,

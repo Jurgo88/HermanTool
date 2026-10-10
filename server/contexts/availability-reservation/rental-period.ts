@@ -91,6 +91,72 @@ export function todayRentalDay(now: Date = new Date()): string {
   }).format(now)
 }
 
+export class InvalidLocalDateTimeError extends Error {
+  constructor(local: string) {
+    super(`"${local}" is not a time that exists in the Tenant's timezone (YYYY-MM-DDTHH:mm).`)
+    this.name = new.target.name
+  }
+}
+
+const LOCAL_DATE_TIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/
+
+const tenantClock = new Intl.DateTimeFormat('en-GB', {
+  timeZone: TENANT_TIME_ZONE,
+  hourCycle: 'h23',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+
+// The Tenant's wall clock at `instant`, read back as if it were UTC, so two
+// of them can be subtracted to give the zone's offset at that moment.
+function tenantWallClockAsUtc(instant: number): number {
+  const parts = Object.fromEntries(tenantClock.formatToParts(new Date(instant)).map((p) => [p.type, p.value]))
+  return Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+  )
+}
+
+// A time typed on the counter (<input type="datetime-local">, no offset) is
+// the Tenant's wall clock (A-04). The server may run in another zone and the
+// browser must not do this arithmetic (D-51), so it is resolved here. A
+// wall-clock time that does not exist (the hour skipped when clocks go
+// forward) is refused rather than silently moved; one that happens twice (the
+// hour repeated when they go back) resolves to its first occurrence.
+export function parseTenantLocalDateTime(local: string): Date {
+  const match = LOCAL_DATE_TIME_PATTERN.exec(local)
+  if (!match) throw new InvalidLocalDateTimeError(local)
+  const [year, month, day, hour, minute] = match.slice(1).map(Number) as [number, number, number, number, number]
+  const wall = Date.UTC(year, month - 1, day, hour, minute)
+  // Date.UTC rolls 24:00, month 13 or 30 February over into another date, so
+  // the typed parts must survive the round trip unchanged.
+  const typed = new Date(wall)
+  if (
+    typed.getUTCFullYear() !== year ||
+    typed.getUTCMonth() !== month - 1 ||
+    typed.getUTCDate() !== day ||
+    typed.getUTCHours() !== hour ||
+    typed.getUTCMinutes() !== minute
+  ) {
+    throw new InvalidLocalDateTimeError(local)
+  }
+
+  let instant = wall - (tenantWallClockAsUtc(wall) - wall)
+  instant = wall - (tenantWallClockAsUtc(instant) - instant)
+  // Try the earlier of two candidates around a repeated hour.
+  const earlier = instant - 60 * 60 * 1000
+  if (tenantWallClockAsUtc(earlier) === wall) instant = earlier
+
+  if (tenantWallClockAsUtc(instant) !== wall) throw new InvalidLocalDateTimeError(local)
+  return new Date(instant)
+}
+
 export function monthOfDay(day: string): string {
   return day.slice(0, 7)
 }

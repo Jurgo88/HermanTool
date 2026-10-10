@@ -22,6 +22,7 @@ import {
 import {
   AssetNotYetReturnableError,
   AssetTypeMismatchError,
+  BackdateInFutureError,
   BackdateReasonRequiredError,
   ConditionReportNotFoundError,
   createPostgresHandoverPossessionRepository,
@@ -118,6 +119,7 @@ export function translateHandoverPossessionError(err: unknown): never {
     err instanceof DeductionReasonRequiredError ||
     err instanceof DepositReturnExceedsTakenError ||
     err instanceof BackdateReasonRequiredError ||
+    err instanceof BackdateInFutureError ||
     err instanceof LostAssetReasonRequiredError
   ) {
     throw createError({ statusCode: 400, statusMessage: err.message, data: { code: err.constructor.name } })

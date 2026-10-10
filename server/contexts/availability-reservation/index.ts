@@ -47,10 +47,12 @@
 // WORKFLOW (W11) stays unbuilt pending OQ #1 (CLAUDE.md KNOWN GAPS).
 export type { RentalPeriod } from './rental-period'
 export {
+  InvalidLocalDateTimeError,
   InvalidMonthError,
   InvalidRentalPeriodError,
   eachDayOfPeriod,
   monthOfDay,
+  parseTenantLocalDateTime,
   rentalPeriodLengthInDays,
   todayRentalDay,
   validateRentalPeriod,

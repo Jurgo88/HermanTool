@@ -31,6 +31,7 @@ import type { ConditionReportStorageGateway } from './r2-gateway'
 import type { HandoverPossessionRepository } from './repository'
 import {
   AssetTypeMismatchError,
+  BackdateInFutureError,
   BackdateReasonRequiredError,
   CustomerReservationMismatchError,
   EmptyConditionReportError,
@@ -88,6 +89,9 @@ export async function performHandoverOut(
   if (backdate && !backdate.reason.trim()) throw new BackdateReasonRequiredError('handover_out')
 
   const recordedAt = new Date()
+  if (backdate && backdate.occurredAt.getTime() > recordedAt.getTime()) {
+    throw new BackdateInFutureError('handover_out')
+  }
   const occurredAt = backdate?.occurredAt ?? recordedAt
   const backdateReason = backdate?.reason ?? null
 

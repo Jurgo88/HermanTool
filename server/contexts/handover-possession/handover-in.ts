@@ -32,6 +32,7 @@ import { resolveScanEvent } from './scan-resolution'
 import type { HandoverPossessionRepository } from './repository'
 import {
   AssetNotYetReturnableError,
+  BackdateInFutureError,
   BackdateReasonRequiredError,
   DeductionReasonRequiredError,
   DeductionRequiresPairedConditionReportsError,
@@ -97,6 +98,9 @@ export async function performHandoverIn(
   if (backdate && !backdate.reason.trim()) throw new BackdateReasonRequiredError('handover_in')
 
   const recordedAt = new Date()
+  if (backdate && backdate.occurredAt.getTime() > recordedAt.getTime()) {
+    throw new BackdateInFutureError('handover_in')
+  }
   const occurredAt = backdate?.occurredAt ?? recordedAt
   const backdateReason = backdate?.reason ?? null
 
