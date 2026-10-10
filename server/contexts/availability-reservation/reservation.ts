@@ -378,3 +378,19 @@ export async function getAvailableCount(
   ])
   return Math.max(0, rentable - active)
 }
+
+// getAvailableCount for every day of a period, with one pool read and one
+// count query instead of two queries per day.
+export async function getAvailableCountsForPeriod(
+  repo: AvailabilityReservationRepository,
+  getRentablePoolCount: CapacitySource,
+  params: { tenantId: TenantId; assetTypeId: number; period: RentalPeriod },
+): Promise<{ day: string; available: number }[]> {
+  const { tenantId, assetTypeId, period } = params
+  const days = eachDayOfPeriod(period)
+  const [pool, active] = await Promise.all([
+    getRentablePoolCount(tenantId, assetTypeId),
+    repo.countActiveReservationsPerDay(tenantId, assetTypeId, period.startDay, period.endDay),
+  ])
+  return days.map((day) => ({ day, available: Math.max(0, pool - (active.get(day) ?? 0)) }))
+}

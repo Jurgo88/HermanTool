@@ -37,33 +37,60 @@ interface AssetTypeDetailView {
 const route = useRoute()
 const assetTypeId = Number(route.params.id)
 
-const { data: assetType, error: loadError } = await useFetch<AssetTypeDetailView>(
-  `/api/public/asset-types/${assetTypeId}`,
-)
+// The current month arrives with the page, in parallel with the detail; the
+// server picks the month when none is given.
+const calendarUrl = `/api/public/asset-types/${assetTypeId}/availability/month`
+const [{ data: assetType, error: loadError }, { data: firstMonth }] = await Promise.all([
+  useFetch<AssetTypeDetailView>(`/api/public/asset-types/${assetTypeId}`),
+  useFetch<CalendarMonth>(calendarUrl),
+])
 if (loadError.value?.statusCode === 404) {
   throw createError({ statusCode: 404, statusMessage: 'Not found', fatal: true })
 }
 
-// Calendar: the server picks the current month when none is given.
-const calendar = ref<CalendarMonth | null>(null)
-const calendarStatus = ref<'loading' | 'loaded' | 'error'>('loading')
+const calendar = ref<CalendarMonth | null>(firstMonth.value ?? null)
+const calendarStatus = ref<'loading' | 'loaded' | 'error'>(firstMonth.value ? 'loaded' : 'loading')
+
+// Months already seen stay for the life of the page, and the next one is
+// fetched ahead, so paging is instant. Advisory only: the period check and
+// the checkout hold always ask the server again.
+const monthCache = new Map<string, Promise<CalendarMonth>>()
+let latestRequest: string | undefined
+
+function fetchMonth(month?: string): Promise<CalendarMonth> {
+  if (!month) return $fetch<CalendarMonth>(calendarUrl)
+  let pending = monthCache.get(month)
+  if (!pending) {
+    pending = $fetch<CalendarMonth>(calendarUrl, { query: { month } })
+    pending.catch(() => monthCache.delete(month))
+    monthCache.set(month, pending)
+  }
+  return pending
+}
+
+function remember(loaded: CalendarMonth) {
+  monthCache.set(loaded.month, Promise.resolve(loaded))
+  fetchMonth(loaded.nextMonth).catch(() => {})
+}
 
 async function loadMonth(month?: string) {
+  latestRequest = month
   calendarStatus.value = 'loading'
   try {
-    calendar.value = await $fetch<CalendarMonth>(
-      `/api/public/asset-types/${assetTypeId}/availability/month`,
-      {
-        query: month ? { month } : {},
-      },
-    )
+    const loaded = await fetchMonth(month)
+    if (latestRequest !== month) return
+    calendar.value = loaded
     calendarStatus.value = 'loaded'
+    remember(loaded)
   } catch {
-    calendarStatus.value = 'error'
+    if (latestRequest === month) calendarStatus.value = 'error'
   }
 }
 
-onMounted(() => loadMonth())
+onMounted(() => {
+  if (calendar.value) remember(calendar.value)
+  else loadMonth()
+})
 
 // Period: first pick is the start, the second the end (the same day again
 // makes a one-day rental); a pick before the start restarts.

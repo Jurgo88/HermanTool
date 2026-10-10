@@ -17,6 +17,7 @@ import {
   checkoutReservationGroup,
   confirmReservationGroup,
   getAvailableCount,
+  getAvailableCountsForPeriod,
   recordTermsAcceptance,
   sweepExpiredReservations,
 } from '../../../../server/contexts/availability-reservation/reservation'
@@ -322,6 +323,57 @@ describe('getAvailableCount (FR-03, read-side — independent of the D-33 holds 
     // The stale Pending's state column hasn't been swept — still
     // 'pending' in the record — but lazy evaluation excludes it anyway.
     expect(available).toBe(3)
+  })
+})
+
+describe('getAvailableCountsForPeriod (FR-03, D-38: one query per period)', () => {
+  let repo: FakeAvailabilityReservationRepository
+
+  beforeEach(() => {
+    repo = createFakeAvailabilityReservationRepository()
+    repo.seedCapacity(HAMMER, 3)
+    repo.seedCapacity(SCAFFOLD, 3)
+  })
+
+  it('agrees with getAvailableCount on every day of the period', async () => {
+    await checkoutReservationGroup(repo, {
+      tenantId: tenantA,
+      lines: [
+        { assetTypeId: HAMMER, period: { startDay: '2026-03-04', endDay: '2026-03-06' } },
+        { assetTypeId: HAMMER, period: { startDay: '2026-03-06', endDay: '2026-03-08' } },
+        { assetTypeId: SCAFFOLD, period: { startDay: '2026-03-05', endDay: '2026-03-05' } },
+      ],
+    })
+    await checkoutReservationGroup(repo, {
+      tenantId: tenantB,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: '2026-03-05', endDay: '2026-03-05' } }],
+    })
+    const pool = async () => 3
+    const period = { startDay: '2026-03-03', endDay: '2026-03-09' }
+
+    const perPeriod = await getAvailableCountsForPeriod(repo, pool, { tenantId: tenantA, assetTypeId: HAMMER, period })
+    const perDay = await Promise.all(
+      perPeriod.map(async ({ day }) => ({
+        day,
+        available: await getAvailableCount(repo, pool, { tenantId: tenantA, assetTypeId: HAMMER, day }),
+      })),
+    )
+
+    expect(perPeriod).toEqual(perDay)
+    expect(perPeriod.map((d) => d.available)).toEqual([3, 2, 2, 1, 2, 2, 3])
+  })
+
+  it('reads the pool once for the whole period', async () => {
+    let reads = 0
+    await getAvailableCountsForPeriod(
+      repo,
+      async () => {
+        reads++
+        return 3
+      },
+      { tenantId: tenantA, assetTypeId: HAMMER, period: { startDay: '2026-03-01', endDay: '2026-03-31' } },
+    )
+    expect(reads).toBe(1)
   })
 })
 
