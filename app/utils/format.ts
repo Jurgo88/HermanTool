@@ -78,6 +78,13 @@ export function formatDateTime(isoTimestamp: string | Date): string {
   }).format(instant)
 }
 
+// Slovak counts take three forms: 1 deň, 2–4 dni, 0 or 5+ dní. The words
+// come from sk.ts; only the choice and the number are made here.
+export function formatCount(count: number, forms: { one: string; few: string; many: string }): string {
+  const form = count === 1 ? forms.one : count >= 2 && count <= 4 ? forms.few : forms.many
+  return form.replace('{count}', String(count))
+}
+
 // UIF-01: the one narrow exception to "this module never computes" — a
 // default value for the public catalog's date range has to come from
 // somewhere, and `.toISOString()` (UTC) silently shows yesterday's

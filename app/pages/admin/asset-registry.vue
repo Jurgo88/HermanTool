@@ -26,6 +26,7 @@
 // not yet tagged are all there is to reprint a lost sheet from.
 import QRCode from 'qrcode'
 import { sk } from '~/i18n/sk'
+import { loginLocation } from '~/utils/operator-redirect'
 import { getErrorCode } from '~/utils/error-code'
 import type { AssetTagSheetEntry } from '~/components/AssetTagSheet.vue'
 
@@ -81,7 +82,7 @@ function assetTypeName(assetTypeId: number): string {
 async function handleFetchError(err: unknown) {
   const statusCode = (err as { statusCode?: number })?.statusCode
   if (statusCode === 401) {
-    await nuxtApp.runWithContext(() => navigateTo('/login'))
+    await nuxtApp.runWithContext(() => navigateTo(loginLocation(useRoute().fullPath)))
     return
   }
   errorMessage.value = null
