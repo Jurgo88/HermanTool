@@ -49,15 +49,30 @@ describe('AvailabilityCalendar (C-21, D-58)', () => {
     ).toHaveLength(3)
   })
 
-  it('words the derived levels instead of relying on colour', async () => {
+  it('words the derived levels outside the cells, which are too narrow for words', async () => {
     const calendar = await mountCalendar()
 
-    expect(dayButton(calendar, 4).text()).toContain(sk.availabilityCalendar.levelLast)
-    expect(dayButton(calendar, 5).text()).toContain(sk.availabilityCalendar.levelNone)
-    expect(dayButton(calendar, 3).text()).not.toContain(sk.availabilityCalendar.levelFree)
-    // The accessible name carries the date and the level for a screen reader.
+    // A cell is only its day number: at phone width the word does not fit.
+    expect(dayButton(calendar, 4).text()).toBe('4')
+    expect(dayButton(calendar, 5).text()).toBe('5')
+    // The meaning of the two marks is spelled out once, in a legend.
+    const legend = calendar.find('ul.availability-calendar__legend')
+    expect(legend.attributes('aria-label')).toBe(sk.availabilityCalendar.legendLabel)
+    expect(legend.text()).toContain(sk.availabilityCalendar.levelLast)
+    expect(legend.text()).toContain(sk.availabilityCalendar.levelNone)
+  })
+
+  it('gives every cell the date and the level in its accessible name', async () => {
+    const calendar = await mountCalendar()
+
+    expect(dayButton(calendar, 4).attributes('aria-label')).toContain(
+      sk.availabilityCalendar.levelLast,
+    )
     expect(dayButton(calendar, 5).attributes('aria-label')).toContain(
       sk.availabilityCalendar.levelNone,
+    )
+    expect(dayButton(calendar, 1).attributes('aria-label')).toContain(
+      sk.availabilityCalendar.levelPast,
     )
   })
 

@@ -151,6 +151,8 @@ export const sk = {
     password: 'Heslo',
     submit: 'Prihlásiť sa',
     invalidCredentials: 'Nesprávny email alebo heslo.',
+    returnNotice: 'Po prihlásení sa vrátite na stránku, ktorú ste otvárali.',
+    backToCatalog: 'Späť do katalógu',
   },
   publicCatalog: {
     title: 'Požičovňa náradia',
@@ -200,6 +202,7 @@ export const sk = {
     previousGlyph: '‹',
     nextGlyph: '›',
     weekdays: ['Po', 'Ut', 'St', 'Št', 'Pi', 'So', 'Ne'],
+    legendLabel: 'Význam označenia dní',
     levelFree: 'voľné',
     levelLast: 'posledný kus',
     levelNone: 'obsadené',
@@ -236,6 +239,12 @@ export const sk = {
   checkoutResult: {
     successTitle: 'Platba prijatá',
     successBody: 'Ďakujeme. Vašu rezerváciu čoskoro potvrdíme, potvrdenie dostanete emailom.',
+    nextHeading: 'Čo bude ďalej',
+    nextSteps: [
+      'Potvrdenie rezervácie vám príde e-mailom.',
+      'Pri prevzatí budete potrebovať doklad totožnosti.',
+      'Zálohu zaplatíte v hotovosti pri prevzatí, nie kartou.',
+    ],
     cancelTitle: 'Platba zrušená',
     cancelBody: 'Platba nebola dokončená, rezervácia nie je potvrdená. Skúsiť môžete znova z katalógu.',
     backToCatalogAction: 'Späť do katalógu',
@@ -277,6 +286,7 @@ export const sk = {
   publicFooter: {
     termsLink: 'Podmienky prenájmu',
     privacyLink: 'Ochrana súkromia',
+    staffLogin: 'Prihlásenie pre personál',
   },
   legalTerms: {
     title: 'Podmienky prenájmu',
@@ -438,6 +448,8 @@ export const sk = {
     verifiedAction: 'Zhoduje sa — overiť',
     rejectedAction: 'Nezhoduje sa — zamietnuť',
     rejectionReasonLabel: 'Dôvod zamietnutia',
+    rejectionNeedsReason: 'Zamietnuť sa dá až po zadaní dôvodu.',
+    photosRequiredHint: 'Pridajte aspoň jednu fotografiu stavu, potom sa dá pokračovať.',
     verificationRecorded: 'Overenie totožnosti zaznamenané.',
 
     handoverOutHeading: 'Vydanie náradia — {customerName}',
