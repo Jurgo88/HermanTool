@@ -43,6 +43,7 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
 <style scoped>
 .public-surface {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -56,7 +57,8 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
 .public-header__inner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: var(--ht-space-5) var(--ht-space-4) var(--ht-space-6);
+  padding: calc(var(--ht-space-5) + var(--ht-safe-top)) max(var(--ht-space-4), var(--ht-safe-right))
+    var(--ht-space-6) max(var(--ht-space-4), var(--ht-safe-left));
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -130,7 +132,7 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
 
 .public-surface__footer {
   margin-top: auto;
-  padding: var(--ht-space-5);
+  padding: var(--ht-space-5) var(--ht-space-5) calc(var(--ht-space-5) + var(--ht-safe-bottom));
   display: flex;
   gap: var(--ht-space-4);
   justify-content: center;

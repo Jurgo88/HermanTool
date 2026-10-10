@@ -10,11 +10,20 @@
 
 html {
   font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* An installed app does not flash a grey box on every tap. Focus stays
+   * visible through :focus-visible below (NFR-11). */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   margin: 0;
+  /* Pulling down in the installed app must not reload the page: on the
+   * counter that would drop a handover with photos still uploading. */
+  overscroll-behavior-y: contain;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--ht-paper);
   color: var(--ht-ink);
   font-family: var(--ht-font-sans);
@@ -59,6 +68,17 @@ select,
 textarea {
   font: inherit;
   color: inherit;
+}
+
+/* No 300 ms tap delay and no double-tap zoom on controls. */
+a,
+button,
+input,
+select,
+textarea,
+label,
+summary {
+  touch-action: manipulation;
 }
 
 /* NFR-11: visible focus ring everywhere, never outline: none. */

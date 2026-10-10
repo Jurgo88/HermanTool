@@ -21,6 +21,7 @@ usePwaHead('operator')
 <style scoped>
 .counter-surface {
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--ht-paper);
   color: var(--ht-ink);
 }

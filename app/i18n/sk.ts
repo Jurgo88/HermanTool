@@ -199,6 +199,7 @@ export const sk = {
     previousGlyph: '‹',
     nextGlyph: '›',
     weekdays: ['Po', 'Ut', 'St', 'Št', 'Pi', 'So', 'Ne'],
+    legendLabel: 'Význam označenia dní',
     levelFree: 'voľné',
     levelLast: 'posledný kus',
     levelNone: 'obsadené',

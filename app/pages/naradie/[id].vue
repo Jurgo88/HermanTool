@@ -215,12 +215,6 @@ const hint = computed(() => {
             @pick="pick"
             @navigate="loadMonth"
           />
-          <p v-if="hint" class="detail__hint">{{ hint }}</p>
-          <p v-else-if="startDay && endDay">
-            {{ sk.assetTypeDetail.selectedPeriodLabel }}:
-            <DayRange :start-day="startDay" :end-day="endDay" />
-          </p>
-
           <AppField :label="sk.assetTypeDetail.quantityLabel">
             <template #default="slotProps">
               <input
@@ -273,28 +267,42 @@ const hint = computed(() => {
           </div>
           <p class="detail__hint">{{ sk.assetTypeDetail.depositNote }}</p>
 
-          <p v-if="rangeStatus === 'checking'" aria-busy="true">
-            {{ sk.assetTypeDetail.rangeChecking }}
-          </p>
-          <AppAlert
-            v-else-if="rangeStatus === 'unavailable'"
-            variant="warn"
-            :message="sk.assetTypeDetail.rangeUnavailable"
-          />
-          <AppAlert v-else-if="rangeStatus === 'error'" :message="sk.assetTypeDetail.rangeError" />
+          <!-- On a phone this bar stays at the bottom of the screen while the
+            Visitor scrolls through the calendar and the Accessories, and it says
+            in words what is still missing before the button works. -->
+          <div class="detail__action">
+            <p v-if="hint" class="detail__hint">{{ hint }}</p>
+            <p v-else-if="startDay && endDay" class="detail__period">
+              {{ sk.assetTypeDetail.selectedPeriodLabel }}:
+              <DayRange :start-day="startDay" :end-day="endDay" />
+            </p>
+            <p v-if="rangeStatus === 'checking'" aria-busy="true">
+              {{ sk.assetTypeDetail.rangeChecking }}
+            </p>
+            <AppAlert
+              v-else-if="rangeStatus === 'unavailable'"
+              variant="warn"
+              :message="sk.assetTypeDetail.rangeUnavailable"
+            />
+            <AppAlert
+              v-else-if="rangeStatus === 'error'"
+              :message="sk.assetTypeDetail.rangeError"
+            />
 
-          <AppButton
-            variant="primary"
-            :pending="rangeStatus === 'checking'"
-            :disabled="rangeStatus !== 'ok'"
-            @click="reserve"
-          >
-            {{ sk.assetTypeDetail.reserveAction }}
-          </AppButton>
-          <p v-if="added" class="detail__added" role="status">
-            {{ sk.assetTypeDetail.added }}
-            <NuxtLink to="/checkout">{{ sk.assetTypeDetail.goToCheckout }}</NuxtLink>
-          </p>
+            <AppButton
+              class="detail__cta"
+              variant="primary"
+              :pending="rangeStatus === 'checking'"
+              :disabled="rangeStatus !== 'ok'"
+              @click="reserve"
+            >
+              {{ sk.assetTypeDetail.reserveAction }}
+            </AppButton>
+            <p v-if="added" class="detail__added" role="status">
+              {{ sk.assetTypeDetail.added }}
+              <NuxtLink to="/checkout">{{ sk.assetTypeDetail.goToCheckout }}</NuxtLink>
+            </p>
+          </div>
 
           <NuxtLink to="/podmienky" class="detail__terms">{{
             sk.assetTypeDetail.termsLink
@@ -325,12 +333,54 @@ const hint = computed(() => {
 .detail__columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--ht-space-6);
+  gap: var(--ht-space-4);
+}
+
+/* Phone: the booking section's children join the page grid, so the action
+ * bar below can stick to the bottom of the whole page instead of only inside
+ * its own section (where it would appear once the Visitor had scrolled to it). */
+.detail__columns > .detail__reserve {
+  display: contents;
+}
+
+.detail__action {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+  margin: 0 calc(var(--ht-space-4) * -1);
+  padding: var(--ht-space-3) max(var(--ht-space-4), var(--ht-safe-right))
+    calc(var(--ht-space-3) + var(--ht-safe-bottom)) max(var(--ht-space-4), var(--ht-safe-left));
+  background: var(--ht-paper);
+  border-top: 1px solid var(--ht-line);
+}
+
+.detail__cta {
+  width: 100%;
+}
+
+.detail__period {
+  font-weight: 600;
 }
 
 @media (min-width: 900px) {
   .detail__columns {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--ht-space-6);
+  }
+
+  .detail__columns > .detail__reserve {
+    display: flex;
+  }
+
+  .detail__action {
+    position: static;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border-top: 0;
   }
 }
 

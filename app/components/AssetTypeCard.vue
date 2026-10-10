@@ -37,6 +37,8 @@ defineProps<{
 
 <style scoped>
 .asset-type-card {
+  /* Fills its grid cell, so every card in a row is the same height. */
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-2);
@@ -79,6 +81,8 @@ defineProps<{
 }
 
 .asset-type-card__name {
+  /* Takes the spare height, so the price always sits on the bottom edge. */
+  flex: 1 1 auto;
   font-family: var(--ht-font-condensed);
   font-weight: 600;
   font-size: var(--ht-text-3);

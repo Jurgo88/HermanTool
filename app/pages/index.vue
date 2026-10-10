@@ -100,6 +100,10 @@ function clearSelection() {
   text-align: center;
 }
 
+.catalog__grid > li {
+  display: flex;
+}
+
 .catalog__grid {
   list-style: none;
   margin: 0;
