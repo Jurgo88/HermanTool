@@ -30,7 +30,9 @@ describe('dispatchReservationConfirmation (D-28, FR-32, issue #35)', () => {
         reservationGroupId: 1,
         to: 'jana@example.sk',
         customerName: 'Jana Nováková',
-        lines: [{ assetTypeId: 1, startDay: '2026-03-05', endDay: '2026-03-07' }],
+        lines: [{ assetTypeName: 'Vŕtačka', quantity: 1, startDay: '2026-03-05', endDay: '2026-03-07' }],
+        depositTotal: null,
+        termsVersion: null,
         accessLinkUrl: 'https://example.test/reservations/access/tok',
       },
     )
@@ -40,7 +42,9 @@ describe('dispatchReservationConfirmation (D-28, FR-32, issue #35)', () => {
     expect(result!.referenceId).toBe(1)
     expect(gateway.sentEmails).toHaveLength(1)
     expect(gateway.sentEmails[0]!.to).toBe('jana@example.sk')
-    expect(gateway.sentEmails[0]!.text).toBeTruthy()
+    expect(gateway.sentEmails[0]!.subject).toBe('Rezervácia je potvrdená')
+    expect(gateway.sentEmails[0]!.text).toContain('Vŕtačka')
+    expect(gateway.sentEmails[0]!.text).not.toMatch(/AssetType|assetTypeId/)
     expect(repo.allDispatches()).toHaveLength(1)
   })
 
@@ -53,7 +57,9 @@ describe('dispatchReservationConfirmation (D-28, FR-32, issue #35)', () => {
         reservationGroupId: 1,
         to: 'jana@example.sk',
         customerName: 'Jana Nováková',
-        lines: [{ assetTypeId: 1, startDay: '2026-03-05', endDay: '2026-03-07' }],
+        lines: [{ assetTypeName: 'Vŕtačka', quantity: 1, startDay: '2026-03-05', endDay: '2026-03-07' }],
+        depositTotal: null,
+        termsVersion: null,
         accessLinkUrl: 'https://example.test/reservations/access/tok',
       },
     )
@@ -66,7 +72,9 @@ describe('dispatchReservationConfirmation (D-28, FR-32, issue #35)', () => {
         reservationGroupId: 1,
         to: 'jana@example.sk',
         customerName: 'Jana Nováková',
-        lines: [{ assetTypeId: 1, startDay: '2026-03-05', endDay: '2026-03-07' }],
+        lines: [{ assetTypeName: 'Vŕtačka', quantity: 1, startDay: '2026-03-05', endDay: '2026-03-07' }],
+        depositTotal: null,
+        termsVersion: null,
         accessLinkUrl: 'https://example.test/reservations/access/tok',
       },
     )
@@ -79,7 +87,7 @@ describe('dispatchReservationConfirmation (D-28, FR-32, issue #35)', () => {
   it('dispatches independently per ReservationGroup', async () => {
     await dispatchReservationConfirmation(
       { repo, gateway },
-      { tenantId: tenantA, customerId, reservationGroupId: 1, to: 'a@example.sk', customerName: 'A', lines: [], accessLinkUrl: 'https://example.test/reservations/access/tok-a' },
+      { tenantId: tenantA, customerId, reservationGroupId: 1, to: 'a@example.sk', customerName: 'A', lines: [], depositTotal: null, termsVersion: null, accessLinkUrl: 'https://example.test/reservations/access/tok-a' },
     )
     await dispatchReservationConfirmation(
       { repo, gateway },
@@ -109,7 +117,7 @@ describe('dispatchReturnReminder (A-08, FR-32, issue #35)', () => {
         reservationId: 42,
         to: 'jana@example.sk',
         customerName: 'Jana Nováková',
-        assetTypeId: 1,
+        assetTypeName: 'Vŕtačka',
         endDay: '2026-03-07',
       },
     )
@@ -127,7 +135,7 @@ describe('dispatchReturnReminder (A-08, FR-32, issue #35)', () => {
       reservationId: 42,
       to: 'jana@example.sk',
       customerName: 'Jana Nováková',
-      assetTypeId: 1,
+      assetTypeName: 'Vŕtačka',
       endDay: '2026-03-07',
     }
     await dispatchReturnReminder({ repo, gateway }, params)
@@ -150,7 +158,7 @@ describe('dispatchReturnReminder (A-08, FR-32, issue #35)', () => {
         reservationId: 42, // same numeric id, different kind
         to: 'jana@example.sk',
         customerName: 'Jana',
-        assetTypeId: 1,
+        assetTypeName: 'Vŕtačka',
         endDay: '2026-03-07',
       },
     )
@@ -178,8 +186,9 @@ describe('dispatchPickupReminder (FR-41, issue #36)', () => {
         reservationId: 7,
         to: 'jana@example.sk',
         customerName: 'Jana Nováková',
-        assetTypeId: 1,
+        assetTypeName: 'Vŕtačka',
         startDay: '2026-03-05',
+        endDay: '2026-03-07',
       },
     )
 
@@ -196,8 +205,9 @@ describe('dispatchPickupReminder (FR-41, issue #36)', () => {
       reservationId: 7,
       to: 'jana@example.sk',
       customerName: 'Jana Nováková',
-      assetTypeId: 1,
+      assetTypeName: 'Vŕtačka',
       startDay: '2026-03-05',
+      endDay: '2026-03-07',
     }
     await dispatchPickupReminder({ repo, gateway }, params)
     const second = await dispatchPickupReminder({ repo, gateway }, params)
@@ -225,7 +235,7 @@ describe('dispatchOverdueReminder (D-17, W6, FR-41, issue #36)', () => {
         reservationId: 99,
         to: 'jana@example.sk',
         customerName: 'Jana Nováková',
-        assetTypeId: 1,
+        assetTypeName: 'Vŕtačka',
         endDay: '2026-03-01',
       },
     )
@@ -243,7 +253,7 @@ describe('dispatchOverdueReminder (D-17, W6, FR-41, issue #36)', () => {
       reservationId: 99,
       to: 'jana@example.sk',
       customerName: 'Jana Nováková',
-      assetTypeId: 1,
+      assetTypeName: 'Vŕtačka',
       endDay: '2026-03-01',
     }
     await dispatchOverdueReminder({ repo, gateway }, params)
@@ -264,7 +274,7 @@ describe('dispatchOverdueReminder (D-17, W6, FR-41, issue #36)', () => {
         reservationId: 99,
         to: 'jana@example.sk',
         customerName: 'Jana',
-        assetTypeId: 1,
+        assetTypeName: 'Vŕtačka',
         endDay: '2026-03-01',
       },
     )
@@ -276,7 +286,7 @@ describe('dispatchOverdueReminder (D-17, W6, FR-41, issue #36)', () => {
         reservationId: 99,
         to: 'jana@example.sk',
         customerName: 'Jana',
-        assetTypeId: 1,
+        assetTypeName: 'Vŕtačka',
         endDay: '2026-03-01',
       },
     )

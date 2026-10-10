@@ -16,14 +16,17 @@
 // back early or on time) or was declared LostAsset needs no reminder —
 // same exclusion logic overdue-noshow-views.ts already established.
 import type { AvailabilityReservationRepository } from '../contexts/availability-reservation'
+import type { CatalogRepository } from '../contexts/catalog'
 import type { CustomerIdentityComplianceRepository } from '../contexts/customer-identity-compliance'
 import type { HandoverPossessionRepository } from '../contexts/handover-possession'
 import { dispatchReturnReminder, type NotificationDispatch, type NotificationGateway, type NotificationRepository } from '../contexts/notification'
 import type { TenantId } from '../contexts/_shared'
+import { assetTypeNameForEmail } from './customer-email-data'
 
 export interface DispatchDueReturnRemindersDeps {
   availabilityRepo: AvailabilityReservationRepository
   handoverRepo: HandoverPossessionRepository
+  catalogRepo: CatalogRepository
   identityRepo: CustomerIdentityComplianceRepository
   notificationRepo: NotificationRepository
   notificationGateway: NotificationGateway
@@ -33,7 +36,7 @@ export async function dispatchDueReturnReminders(
   deps: DispatchDueReturnRemindersDeps,
   params: { tenantId: TenantId; today: string },
 ): Promise<NotificationDispatch[]> {
-  const { availabilityRepo, handoverRepo, identityRepo, notificationRepo, notificationGateway } = deps
+  const { availabilityRepo, handoverRepo, catalogRepo, identityRepo, notificationRepo, notificationGateway } = deps
   const { tenantId, today } = params
 
   const candidates = await availabilityRepo.listReservationsEndingOn(tenantId, today)
@@ -58,7 +61,7 @@ export async function dispatchDueReturnReminders(
         reservationId: reservation.id,
         to: customer.email,
         customerName: customer.name,
-        assetTypeId: reservation.assetTypeId,
+        assetTypeName: await assetTypeNameForEmail(catalogRepo, tenantId, reservation.assetTypeId),
         endDay: reservation.period.endDay,
       },
     )

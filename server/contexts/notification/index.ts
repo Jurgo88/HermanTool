@@ -27,7 +27,8 @@ export { createPostgresNotificationRepository } from './repository'
 export type { NotificationGateway, SendEmailRequest } from './resend-gateway'
 export { createResendNotificationGateway } from './resend-gateway'
 
-export type { NotificationDeps } from './notification'
+export type { ConfirmationLine, NotificationDeps } from './notification'
+export { UNNAMED_ASSET_TYPE } from './copy'
 export {
   dispatchOverdueReminder,
   dispatchPickupReminder,
