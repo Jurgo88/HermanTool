@@ -20,6 +20,8 @@ import {
   createFakeHandoverPossessionRepository,
   type FakeHandoverPossessionRepository,
 } from '../contexts/handover-possession/fake-repository'
+import { createFakeCatalogRepository } from '../contexts/catalog/fake-repository'
+import type { CatalogRepository } from '../../../server/contexts/catalog'
 import { createFakeNotificationGateway, type FakeNotificationGateway } from '../contexts/notification/fake-gateway'
 import { createFakeNotificationRepository, type FakeNotificationRepository } from '../contexts/notification/fake-repository'
 
@@ -32,23 +34,33 @@ describe('dispatchDueReturnReminders (A-08, D-28, FR-32, issue #35)', () => {
   let assetRegistry: FakeAssetRegistryRepository
   let availabilityRepo: FakeAvailabilityReservationRepository
   let handoverRepo: FakeHandoverPossessionRepository
+  let catalogRepo: CatalogRepository
   let identityRepo: FakeCustomerIdentityComplianceRepository
   let notificationRepo: FakeNotificationRepository
   let notificationGateway: FakeNotificationGateway
 
-  beforeEach(() => {
+  beforeEach(async () => {
     assetRegistry = createFakeAssetRegistryRepository()
     assetRegistry.seedAssetType(tenantA, HAMMER)
     availabilityRepo = createFakeAvailabilityReservationRepository()
     availabilityRepo.seedCapacity(HAMMER, 5)
     handoverRepo = createFakeHandoverPossessionRepository(assetRegistry)
+    catalogRepo = createFakeCatalogRepository()
     identityRepo = createFakeCustomerIdentityComplianceRepository()
     notificationRepo = createFakeNotificationRepository()
     notificationGateway = createFakeNotificationGateway()
+
+    await catalogRepo.insertAssetType(tenantA, {
+      name: 'Príklepová vŕtačka',
+      description: '',
+      dayRate: { amount: 1000, currency: 'EUR' },
+      depositAmount: { amount: 5000, currency: 'EUR' },
+      operatorId,
+    })
   })
 
   function deps() {
-    return { availabilityRepo, handoverRepo, identityRepo, notificationRepo, notificationGateway }
+    return { availabilityRepo, handoverRepo, catalogRepo, identityRepo, notificationRepo, notificationGateway }
   }
 
   async function confirmedReservationWithCustomer(startDay: string, endDay: string) {
@@ -93,6 +105,7 @@ describe('dispatchDueReturnReminders (A-08, D-28, FR-32, issue #35)', () => {
     expect(dispatched[0]!.kind).toBe('return_reminder')
     expect(notificationGateway.sentEmails).toHaveLength(1)
     expect(notificationGateway.sentEmails[0]!.to).toBe('jana@example.sk')
+    expect(notificationGateway.sentEmails[0]!.text).toContain('Príklepová vŕtačka')
   })
 
   it('excludes a Reservation whose RentalPeriod ends on a different day', async () => {

@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config'
 import { defineVitestProject } from '@nuxt/test-utils/config'
+import { fileURLToPath } from 'node:url'
 
 // Two suites, one `vitest run` (UI-005, D-34, IR-03). Front-end tests are not
 // a separate workflow: ci.yml already runs `pnpm test`, so a failing component
@@ -13,6 +14,11 @@ export default defineConfig({
   test: {
     projects: [
       {
+        resolve: {
+          alias: {
+            '#shared': fileURLToPath(new URL('./shared', import.meta.url)),
+          },
+        },
         test: {
           name: 'unit',
           environment: 'node',
