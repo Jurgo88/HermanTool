@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { toCheckoutLines, toQuoteLines, withoutLine } from '../../../app/utils/reservation-draft'
+import {
+  orderForDisplay,
+  parseStoredDraft,
+  toCheckoutLines,
+  toQuoteLines,
+  withoutLine,
+} from '../../../app/utils/reservation-draft'
 import type { DraftReservationLine } from '../../../app/composables/useReservationDraft'
 
 const money = (amount: number) => ({ amount, currency: 'EUR' })
@@ -58,5 +64,45 @@ describe('withoutLine (D-57)', () => {
   it('keeps an Accessory added for a different RentalPeriod', () => {
     const otherWeek = { ...bitsWithHammer, period: { startDay: '2026-10-12', endDay: '2026-10-13' } }
     expect(withoutLine([hammer, otherWeek], 0)).toEqual([otherWeek])
+  })
+})
+
+describe('parseStoredDraft (S-03, draft kept in the browser)', () => {
+  it('reads back what was stored', () => {
+    const stored = JSON.stringify([hammer, { ...bits, principalAssetTypeId: 7 }])
+    expect(parseStoredDraft(stored)).toEqual([hammer, { ...bits, principalAssetTypeId: 7 }])
+  })
+
+  it('yields an empty draft for anything malformed, never an error', () => {
+    for (const raw of [
+      null,
+      '',
+      'not json',
+      '{}',
+      JSON.stringify([{ ...hammer, quantity: 0 }]),
+      JSON.stringify([{ ...hammer, period: { startDay: '5.10.2026', endDay: '2026-10-07' } }]),
+      JSON.stringify([{ ...hammer, dayRate: 15 }]),
+    ]) {
+      expect(parseStoredDraft(raw)).toEqual([])
+    }
+  })
+})
+
+describe('orderForDisplay (D-57: an Accessory sits under its principal)', () => {
+  it('places each Accessory right after the principal it was added with, keeping draft indexes', () => {
+    const accessory: DraftReservationLine = { ...bits, principalAssetTypeId: 7 }
+    const other: DraftReservationLine = { ...bits, assetTypeId: 11, assetTypeName: 'Píla' }
+    const ordered = orderForDisplay([accessory, other, hammer])
+
+    expect(ordered.map((entry) => [entry.line.assetTypeId, entry.index, entry.isAccessory])).toEqual([
+      [11, 1, false],
+      [7, 2, false],
+      [9, 0, true],
+    ])
+  })
+
+  it('still shows an Accessory whose principal is missing', () => {
+    const accessory: DraftReservationLine = { ...bits, principalAssetTypeId: 99 }
+    expect(orderForDisplay([accessory])).toEqual([{ line: accessory, index: 0, isAccessory: true }])
   })
 })

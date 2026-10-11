@@ -4,7 +4,7 @@
   plain, never technical), falling back to common.somethingWentWrong for
   a code with no translation yet. `message` is the escape hatch for
   already-Slovak, non-domain-error copy (client-side form validation,
-  e.g. sk.checkout.missingCustomerDetailsError) — it is never raw English
+  e.g. sk.checkout.linesInPastError) — it is never raw English
   or a server statusMessage. -->
 <script setup lang="ts">
 import { sk } from '~/i18n/sk'

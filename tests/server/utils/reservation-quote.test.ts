@@ -77,3 +77,25 @@ describe('quoteReservationLines (FR-09, D-07, #164)', () => {
     ).rejects.toThrow(InvalidRentalPeriodError)
   })
 })
+
+describe('quoteReservationLines with today (S-03, a stored draft can outlive its days)', () => {
+  it('marks a line whose first day is before today, and only then', async () => {
+    const quote = await quoteReservationLines(
+      [
+        { assetTypeId: 1, period: { startDay: '2026-10-09', endDay: '2026-10-12' }, quantity: 1 },
+        { assetTypeId: 1, period: { startDay: '2026-10-10', endDay: '2026-10-12' }, quantity: 1 },
+      ],
+      lookup,
+      { today: '2026-10-10' },
+    )
+    expect(quote.lines.map((line) => line.startsInPast)).toEqual([true, false])
+  })
+
+  it('says nothing about the past when no today is given (the payment path)', async () => {
+    const quote = await quoteReservationLines(
+      [{ assetTypeId: 1, period: { startDay: '2020-01-01', endDay: '2020-01-02' }, quantity: 1 }],
+      lookup,
+    )
+    expect(quote.lines[0]).not.toHaveProperty('startsInPast')
+  })
+})

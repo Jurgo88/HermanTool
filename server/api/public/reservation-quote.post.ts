@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { InvalidRentalPeriodError } from '../../contexts/availability-reservation'
+import { InvalidRentalPeriodError, todayRentalDay } from '../../contexts/availability-reservation'
 import { AssetTypeNotFoundError } from '../../contexts/catalog'
 import { createCatalogDeps } from '../../utils/catalog-deps'
 import { quoteReservationLines } from '../../utils/reservation-quote'
@@ -33,10 +33,14 @@ export default defineEventHandler(async (event) => {
 
   try {
     const tenantId = await getSeededTenantId(sql)
-    return await quoteReservationLines(lines, async (assetTypeId) => {
-      const assetType = await repo.getAssetType(tenantId, assetTypeId)
-      return assetType?.published ? assetType : null
-    })
+    return await quoteReservationLines(
+      lines,
+      async (assetTypeId) => {
+        const assetType = await repo.getAssetType(tenantId, assetTypeId)
+        return assetType?.published ? assetType : null
+      },
+      { today: todayRentalDay() },
+    )
   } catch (err) {
     if (err instanceof AssetTypeNotFoundError) {
       throw createError({

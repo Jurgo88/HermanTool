@@ -29,7 +29,7 @@ Note also, in passing, that `IR-01` reads as fixed in this snapshot: `getRentabl
 | Route | File | State | Verdict |
 |---|---|---|---|
 | `/` | `app/pages/index.vue` | Correct behaviour, unstyled, availability fan-out | Restyle (`S-01`) |
-| `/checkout` | `app/pages/checkout.vue` | Correct two-stage flow, terms placeholder marked | Restyle (`S-03`) |
+| `/checkout` | `app/pages/checkout.vue` | One page, one pay button (owner decision 2026-10-11), terms placeholder marked | Restyled (`S-03`) |
 | `/reservations/:groupId/success` · `/cancel` | 2 files | Correct, minimal | Restyle (`S-04`, `S-05`) |
 | `/reservations/access/:token` | `[token].vue` | Correct `D-40` upload sequence, never reads evidence back | Restyle (`S-06`) |
 | `/login` | `login.vue` | Correct | Restyle (`S-18`) |
@@ -332,7 +332,7 @@ Each screen: route · surface · governing identifiers · what it must show · s
 The calendar is advisory. A hold lost at checkout surfaces in `S-03`'s existing error path (`D-33`).
 
 **`S-03` Checkout** — `/checkout` · `FR-06`, `FR-09`, `D-14`, `D-35`
-Two stages as built. Stage 1: summary + Customer details. Stage 2: terms + pay. **The deposit total is restated at stage 2** — it is not part of the card payment (`D-07`, `FR-21`: the platform moves no deposit money) and the Customer must understand they will hand over cash at the counter. Terms occupy the `draft.` slot (`UI-D-10`). Errors in Customer register only (`UI-D-08`).
+One page, three numbered parts: the tools, the Customer's details, the payment with the terms. One button, "Zaplatiť {suma} kartou", creates the ReservationGroup, records the terms acceptance and starts the payment, in that order — W1's "terms before payment" holds, and a Visitor who only looks holds nothing (owner decision 2026-10-11, replacing the earlier two stages). Errors appear at the field and next to the button, which stays at the bottom of a phone screen. The draft is kept in the browser's localStorage, never any Customer data. **The deposit total is shown beside the card sum, as prominent as it** — it is not part of the card payment (`D-07`, `FR-21`: the platform moves no deposit money) and the Customer must understand they will hand over cash at the counter. Terms occupy the `draft.` slot (`UI-D-10`). Errors in Customer register only (`UI-D-08`).
 
 **`S-04` Payment received** — `/reservations/:groupId/success` · `W2`
 Acknowledges the payment step; must not claim confirmation, which the webhook owns. Says what happens next and that the link arrives by email.
