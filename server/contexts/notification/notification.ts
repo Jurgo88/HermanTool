@@ -31,7 +31,7 @@
 // money are formatted here through the one formatting module (D-51,
 // shared/format.ts); the words themselves are in ./copy.ts.
 import type { MonetaryAmount, TenantId } from '../_shared'
-import { formatDay, formatDayRange, formatMoney } from '../../../shared/format'
+import { formatDay, formatDayRange, formatMoney } from '#shared/format'
 import type { NotificationGateway } from './resend-gateway'
 import type { NotificationRepository } from './repository'
 import type { NotificationDispatch } from './types'
