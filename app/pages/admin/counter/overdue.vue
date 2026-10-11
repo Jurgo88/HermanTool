@@ -6,6 +6,7 @@
 // Declare lost (S-16) is reachable from here too — same ConfirmAction +
 // PinPrompt sequence as the Asset view (S-13).
 import { sk } from '~/i18n/sk'
+import { loginLocation } from '~/utils/operator-redirect'
 import { getErrorCode } from '~/utils/error-code'
 import { formatDay, formatDayRange } from '~/utils/format'
 
@@ -32,7 +33,7 @@ async function handleFetchError(err: unknown): Promise<boolean> {
   const statusCode = (err as { statusCode?: number })?.statusCode
   const code = getErrorCode(err)
   if (statusCode === 401 && code !== 'InvalidPinError') {
-    await nuxtApp.runWithContext(() => navigateTo('/login'))
+    await nuxtApp.runWithContext(() => navigateTo(loginLocation(useRoute().fullPath)))
     return true
   }
   errorMessage.value = null
@@ -77,10 +78,13 @@ async function confirmDeclareLost(pin: string) {
   errorMessage.value = null
   submittingDeclareLost.value = true
   try {
-    await $fetch(`/api/handover/rental-agreements/${declareLostTarget.value.rentalAgreement.id}/declare-lost`, {
-      method: 'POST',
-      body: { reason: declareLostReason.value, pin },
-    })
+    await $fetch(
+      `/api/handover/rental-agreements/${declareLostTarget.value.rentalAgreement.id}/declare-lost`,
+      {
+        method: 'POST',
+        body: { reason: declareLostReason.value, pin },
+      },
+    )
     info.value = sk.assetHistory.declareLostSuccess
     declareLostTarget.value = null
     await load()
@@ -97,7 +101,7 @@ async function confirmDeclareLost(pin: string) {
   <main>
     <StepHeader :title="sk.adminCounterOverdue.title" @back="navigateTo('/admin/counter')" />
     <AppAlert :code="errorCode" :message="errorMessage" />
-    <p v-if="info">{{ info }}</p>
+    <AppAlert v-if="info" variant="info" :message="info" />
     <p>{{ sk.adminCounterOverdue.intro }}</p>
 
     <EmptyState v-if="overdue.length === 0" :message="sk.adminCounterOverdue.empty" />
@@ -106,22 +110,29 @@ async function confirmDeclareLost(pin: string) {
       :key="entry.reservation.id"
       :title="`${entry.customerName} — ${entry.assetTypeName}`"
       :expected-label="sk.adminCounter.expectedLabel"
-      :expected-value="formatDayRange(entry.reservation.period.startDay, entry.reservation.period.endDay)"
+      :expected-value="
+        formatDayRange(entry.reservation.period.startDay, entry.reservation.period.endDay)
+      "
       :actual-label="sk.adminCounter.actualLabelReturn"
       :actual-value="sk.adminCounterOverdue.actualValueOverdue"
     >
       <p>
-        {{ sk.adminCounterOverdue.daysOverdueLabel }}: {{ entry.daysOverdue }}
-        · {{ sk.adminCounterOverdue.shortfallLabel }}:
+        {{ sk.adminCounterOverdue.daysOverdueLabel }}: {{ entry.daysOverdue }} ·
+        {{ sk.adminCounterOverdue.shortfallLabel }}:
         <DerivedBadge v-if="entry.shortfallDay">{{ formatDay(entry.shortfallDay) }}</DerivedBadge>
         <span v-else>{{ sk.adminCounterOverdue.noShortfall }}</span>
       </p>
-      <NuxtLink :to="`/admin/counter/assets/${entry.rentalAgreement.assetId}`">
-        {{ sk.adminCounterOverdue.viewAssetAction }}
-      </NuxtLink>
-      <AppButton variant="danger" @click="startDeclareLost(entry)">
-        {{ sk.assetHistory.declareLostAction }}
-      </AppButton>
+      <div class="counter-actions">
+        <NuxtLink
+          :to="`/admin/counter/assets/${entry.rentalAgreement.assetId}`"
+          class="counter-link"
+        >
+          {{ sk.adminCounterOverdue.viewAssetAction }}
+        </NuxtLink>
+        <AppButton variant="danger" size="counter" @click="startDeclareLost(entry)">
+          {{ sk.assetHistory.declareLostAction }}
+        </AppButton>
+      </div>
     </TwoClockRow>
 
     <ConfirmAction

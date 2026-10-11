@@ -8,6 +8,7 @@
 // currently open on this Asset — both append a new fact, neither edits
 // what is already recorded (P1).
 import { sk } from '~/i18n/sk'
+import { loginLocation } from '~/utils/operator-redirect'
 import type { PhotoState } from '~/components/PhotoCapture.vue'
 import type { AttestationHistoryEntryView } from '~/components/AttestationTimeline.vue'
 import { getErrorCode } from '~/utils/error-code'
@@ -62,7 +63,7 @@ async function handleFetchError(err: unknown): Promise<boolean> {
   const statusCode = (err as { statusCode?: number })?.statusCode
   const code = getErrorCode(err)
   if (statusCode === 401 && code !== 'InvalidPinError') {
-    await nuxtApp.runWithContext(() => navigateTo('/login'))
+    await nuxtApp.runWithContext(() => navigateTo(loginLocation(useRoute().fullPath)))
     return true
   }
   errorMessage.value = null

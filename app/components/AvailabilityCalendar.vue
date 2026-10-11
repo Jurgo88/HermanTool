@@ -104,16 +104,43 @@ function levelLabel(day: CalendarDay): string {
         @click="emit('pick', day.day)"
       >
         <span class="availability-calendar__number">{{ formatDayOfMonth(day.day) }}</span>
-        <span v-if="day.selectable && day.level !== 'free'" class="availability-calendar__level">
-          {{ levelLabel(day) }}
-        </span>
       </button>
     </div>
+
+    <!-- The words live here, not in the cells: at phone width a cell is about
+      48 px, too narrow for "obsadené" or "posledný kus". Each cell keeps the
+      hatch or the dotted edge and the full word in its accessible name. -->
+    <ul
+      v-if="month"
+      class="availability-calendar__legend"
+      :aria-label="sk.availabilityCalendar.legendLabel"
+    >
+      <li>
+        <span
+          class="availability-calendar__swatch availability-calendar__swatch--last"
+          aria-hidden="true"
+        />
+        {{ sk.availabilityCalendar.levelLast }}
+      </li>
+      <li>
+        <span
+          class="availability-calendar__swatch availability-calendar__swatch--none"
+          aria-hidden="true"
+        />
+        {{ sk.availabilityCalendar.levelNone }}
+      </li>
+    </ul>
   </div>
 </template>
 
 <style scoped>
 .availability-calendar {
+  --ht-hatch: repeating-linear-gradient(
+    135deg,
+    var(--ht-surface-sunk) 0 var(--ht-space-1),
+    var(--ht-surface) var(--ht-space-1) var(--ht-space-2)
+  );
+
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-3);
@@ -180,24 +207,47 @@ function levelLabel(day: CalendarDay): string {
   font-weight: 600;
 }
 
-.availability-calendar__level {
-  font-size: var(--ht-text-1);
-  line-height: 1.1;
-  text-align: center;
+.availability-calendar__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ht-space-2) var(--ht-space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--ht-text-2);
+  color: var(--ht-ink-muted);
 }
 
-/* Derived: one unit left — dotted edge plus the word. */
+.availability-calendar__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ht-space-2);
+}
+
+.availability-calendar__swatch {
+  width: var(--ht-space-5);
+  height: var(--ht-space-5);
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius-plate);
+  background: var(--ht-surface);
+}
+
+.availability-calendar__swatch--last {
+  border: 2px dotted var(--ht-warn);
+}
+
+.availability-calendar__swatch--none {
+  background: var(--ht-hatch);
+}
+
+/* Derived: one unit left — dotted edge (explained in the legend). */
 .availability-calendar__day--last {
   border: 2px dotted var(--ht-warn);
 }
 
-/* Derived: nothing free — hatched plus the word. */
+/* Derived: nothing free — hatched (explained in the legend). */
 .availability-calendar__day--none {
-  background: repeating-linear-gradient(
-    135deg,
-    var(--ht-surface-sunk) 0 var(--ht-space-1),
-    var(--ht-surface) var(--ht-space-1) var(--ht-space-2)
-  );
+  background: var(--ht-hatch);
   color: var(--ht-ink-muted);
   cursor: not-allowed;
 }

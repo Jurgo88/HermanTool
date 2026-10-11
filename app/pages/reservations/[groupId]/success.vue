@@ -15,11 +15,36 @@ definePageMeta({ layout: 'public' })
   <main class="result">
     <h1>{{ sk.checkoutResult.successTitle }}</h1>
     <p>{{ sk.checkoutResult.successBody }}</p>
-    <NuxtLink to="/"><AppButton variant="primary">{{ sk.checkoutResult.backToCatalogAction }}</AppButton></NuxtLink>
+    <section class="result__next">
+      <h2>{{ sk.checkoutResult.nextHeading }}</h2>
+      <ol>
+        <li v-for="step in sk.checkoutResult.nextSteps" :key="step">{{ step }}</li>
+      </ol>
+    </section>
+    <NuxtLink to="/"
+      ><AppButton variant="primary">{{
+        sk.checkoutResult.backToCatalogAction
+      }}</AppButton></NuxtLink
+    >
   </main>
 </template>
 
 <style scoped>
+.result__next {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+}
+
+.result__next ol {
+  margin: 0;
+  padding-left: var(--ht-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+}
+
 .result {
   max-width: 480px;
   margin: var(--ht-space-7) auto;

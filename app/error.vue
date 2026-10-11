@@ -38,6 +38,7 @@ function goHome() {
 <style scoped>
 .error-page {
   min-height: 100vh;
+  min-height: 100dvh;
   max-width: 480px;
   margin: 0 auto;
   padding: var(--ht-space-5);

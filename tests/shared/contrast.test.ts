@@ -43,3 +43,39 @@ describe('Rent Star public palette (D-59, NFR-11)', () => {
     expect(contrast(token('ht-brand-deep'), paper)).toBeGreaterThanOrEqual(3)
   })
 })
+
+// base.css draws every native control's edge in --ht-ink-muted. NFR-11 asks 3:1
+// for a control's edge, against the field's own fill and against the page it
+// sits on, on every surface. (The dark counter used to have unreadable bare
+// buttons; this keeps the floor from sliding back.)
+function block(start: string): string {
+  const from = css.indexOf(start)
+  if (from < 0) throw new Error(`${start} not found in tokens.css`)
+  return css.slice(from, css.indexOf('\n}', from))
+}
+
+describe('control edges (NFR-11)', () => {
+  for (const [surface, tokens] of [
+    ['light (public, admin)', block(':root {')],
+    ['counter', block("[data-surface='counter']")],
+  ] as const) {
+    it(`reach 3:1 on the ${surface} surface`, () => {
+      // The counter block overrides only some tokens; the rest come from :root.
+      const root = block(':root {')
+      const pick = (name: string) => {
+        try {
+          return token(name, tokens)
+        } catch {
+          return token(name, root)
+        }
+      }
+      const edge = pick('ht-ink-muted')
+      for (const ground of ['ht-surface', 'ht-surface-sunk', 'ht-paper']) {
+        expect(
+          contrast(edge, pick(ground)),
+          `${surface}: edge on ${ground}`,
+        ).toBeGreaterThanOrEqual(3)
+      }
+    })
+  }
+})

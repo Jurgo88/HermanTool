@@ -3,6 +3,7 @@
 // NOT released — no cancellation path exists yet (W11, OQ #1). No action
 // beyond contacting the Customer; none is invented here.
 import { sk } from '~/i18n/sk'
+import { loginLocation } from '~/utils/operator-redirect'
 import { getErrorCode } from '~/utils/error-code'
 import { formatDayRange } from '~/utils/format'
 
@@ -25,7 +26,7 @@ async function handleFetchError(err: unknown): Promise<boolean> {
   const statusCode = (err as { statusCode?: number })?.statusCode
   const code = getErrorCode(err)
   if (statusCode === 401 && code !== 'InvalidPinError') {
-    await nuxtApp.runWithContext(() => navigateTo('/login'))
+    await nuxtApp.runWithContext(() => navigateTo(loginLocation(useRoute().fullPath)))
     return true
   }
   errorMessage.value = null

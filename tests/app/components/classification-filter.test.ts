@@ -30,12 +30,18 @@ describe('ClassificationFilter (C-22, D-54)', () => {
       'Záhrada',
       'Stavba',
     ])
-    expect(
-      filter.find(`[role="group"][aria-label="${sk.publicCatalog.powerSourceGroup}"]`).exists(),
-    ).toBe(true)
-    expect(
-      filter.find(`[role="group"][aria-label="${sk.publicCatalog.useAreaGroup}"]`).exists(),
-    ).toBe(true)
+  })
+
+  it('names each group with a visible label, which also labels it for a screen reader', async () => {
+    const filter = await mountFilter()
+
+    for (const [id, label] of [
+      ['classification-filter-power', sk.publicCatalog.powerSourceGroup],
+      ['classification-filter-area', sk.publicCatalog.useAreaGroup],
+    ] as const) {
+      expect(filter.find(`#${id}`).text()).toBe(label)
+      expect(filter.find(`[role="group"][aria-labelledby="${id}"]`).exists()).toBe(true)
+    }
   })
 
   it('reports a PowerSource and a UseArea into their own dimension', async () => {
@@ -85,6 +91,7 @@ describe('ClassificationFilter (C-22, D-54)', () => {
       props: { powerSources: [], useAreas, modelValue: none },
     })
 
-    expect(filter.find(`[aria-label="${sk.publicCatalog.powerSourceGroup}"]`).exists()).toBe(false)
+    expect(filter.find('#classification-filter-power').exists()).toBe(false)
+    expect(filter.find('#classification-filter-area').exists()).toBe(true)
   })
 })

@@ -13,9 +13,10 @@
 // satisfies FR-20's deduction check, and an unconfirmed IdentityEvidence
 // row names an object that may not exist.
 import { sk } from '~/i18n/sk'
+import { loginLocation } from '~/utils/operator-redirect'
 import type { PhotoState } from '~/components/PhotoCapture.vue'
 import { getErrorCode } from '~/utils/error-code'
-import { formatDayRange, formatMoney } from '~/utils/format'
+import { formatDateTime, formatDayRange, formatMoney } from '~/utils/format'
 import {
   emptyLateAttestation,
   isLateAttestationComplete,
@@ -100,7 +101,7 @@ async function handleFetchError(err: unknown): Promise<boolean> {
   // Operator mistyped a PIN. Only a genuine session expiry (no code — it
   // never goes through a translate*Error function) redirects.
   if (statusCode === 401 && code !== 'InvalidPinError') {
-    await nuxtApp.runWithContext(() => navigateTo('/login'))
+    await nuxtApp.runWithContext(() => navigateTo(loginLocation(useRoute().fullPath)))
     return true
   }
   errorMessage.value = null
@@ -111,7 +112,9 @@ async function handleFetchError(err: unknown): Promise<boolean> {
 async function loadWorklist() {
   try {
     const [today, catalog] = await Promise.all([
-      requestFetch<{ pickups: TodaysPickupView[]; returns: TodaysReturnView[] }>('/api/handover/today'),
+      requestFetch<{ pickups: TodaysPickupView[]; returns: TodaysReturnView[] }>(
+        '/api/handover/today',
+      ),
       requestFetch<AssetTypeView[]>('/api/catalog/asset-types'),
     ])
     pickups.value = today.pickups
@@ -244,14 +247,20 @@ async function captureEvidenceFallback() {
   uploadingEvidence.value = true
   try {
     const customerId = activePickup.value.customerId
-    const { identityEvidenceId, uploadUrl } = await $fetch<{ identityEvidenceId: number; uploadUrl: string }>(
-      `/api/handover/customers/${customerId}/identity-evidence`,
-      { method: 'POST', body: { contentType: evidenceFile.value.type } },
-    )
-    await uploadFile(uploadUrl, evidenceFile.value)
-    await $fetch(`/api/handover/customers/${customerId}/identity-evidence/${identityEvidenceId}/confirm`, {
+    const { identityEvidenceId, uploadUrl } = await $fetch<{
+      identityEvidenceId: number
+      uploadUrl: string
+    }>(`/api/handover/customers/${customerId}/identity-evidence`, {
       method: 'POST',
+      body: { contentType: evidenceFile.value.type },
     })
+    await uploadFile(uploadUrl, evidenceFile.value)
+    await $fetch(
+      `/api/handover/customers/${customerId}/identity-evidence/${identityEvidenceId}/confirm`,
+      {
+        method: 'POST',
+      },
+    )
     evidenceList.value = await requestFetch<IdentityEvidenceView[]>(
       `/api/handover/customers/${customerId}/identity-evidence`,
     )
@@ -301,9 +310,14 @@ async function uploadOneOutPhoto(index: number) {
 async function finishHandoverOut() {
   if (!outConditionReportId.value || !outRentalAgreementId.value) return
   try {
-    await $fetch(`/api/handover/condition-reports/${outConditionReportId.value}/confirm`, { method: 'POST' })
+    await $fetch(`/api/handover/condition-reports/${outConditionReportId.value}/confirm`, {
+      method: 'POST',
+    })
     outPhotoStates.value = outPhotoStates.value.map(() => 'confirmed')
-    info.value = sk.adminCounter.handoverOutSuccess.replace('{id}', String(outRentalAgreementId.value))
+    info.value = sk.adminCounter.handoverOutSuccess.replace(
+      '{id}',
+      String(outRentalAgreementId.value),
+    )
     panel.value = 'none'
     activePickup.value = null
     await loadWorklist()
@@ -430,7 +444,9 @@ async function uploadOneInPhoto(index: number) {
 async function finishHandoverIn() {
   if (!inConditionReportId.value || !settlingAgreementId.value) return
   try {
-    await $fetch(`/api/handover/condition-reports/${inConditionReportId.value}/confirm`, { method: 'POST' })
+    await $fetch(`/api/handover/condition-reports/${inConditionReportId.value}/confirm`, {
+      method: 'POST',
+    })
     inPhotoStates.value = inPhotoStates.value.map(() => 'confirmed')
     info.value = sk.adminCounter.handoverInSuccess
     panel.value = 'settlement'
@@ -500,8 +516,12 @@ async function loadPairedEvidenceStatus(rentalAgreementId: number) {
     const reports = await requestFetch<{ stage: string; confirmedAt: string | null }[]>(
       `/api/handover/rental-agreements/${rentalAgreementId}/condition-reports`,
     )
-    pairedEvidenceOut.value = reports.some((r) => r.stage === 'handover_out' && r.confirmedAt !== null)
-    pairedEvidenceIn.value = reports.some((r) => r.stage === 'handover_in' && r.confirmedAt !== null)
+    pairedEvidenceOut.value = reports.some(
+      (r) => r.stage === 'handover_out' && r.confirmedAt !== null,
+    )
+    pairedEvidenceIn.value = reports.some(
+      (r) => r.stage === 'handover_in' && r.confirmedAt !== null,
+    )
   } catch (err: unknown) {
     await handleFetchError(err)
   }
@@ -516,7 +536,10 @@ async function confirmSettlement(pin: string) {
     await $fetch(`/api/handover/rental-agreements/${settlingAgreementId.value}/settlement`, {
       method: 'POST',
       body: {
-        returnedAmount: { amount: Math.round(Number(returnedAmountEuros.value) * 100), currency: 'EUR' },
+        returnedAmount: {
+          amount: Math.round(Number(returnedAmountEuros.value) * 100),
+          currency: 'EUR',
+        },
         deductionReason: deductionReason.value || undefined,
         pin,
       },
@@ -545,7 +568,7 @@ async function confirmSettlement(pin: string) {
       on being the only one on screen. -->
     <h1 v-if="panel === 'none'">{{ sk.adminCounter.title }}</h1>
     <AppAlert :code="errorCode" :message="errorMessage" />
-    <p v-if="info">{{ info }}</p>
+    <AppAlert v-if="info" variant="info" :message="info" />
 
     <section v-if="panel === 'none'">
       <section>
@@ -570,11 +593,18 @@ async function confirmSettlement(pin: string) {
           :key="pickup.reservation.id"
           :title="`${pickup.customerName} — ${pickup.assetTypeName}`"
           :expected-label="sk.adminCounter.expectedLabel"
-          :expected-value="formatDayRange(pickup.reservation.period.startDay, pickup.reservation.period.endDay)"
+          :expected-value="
+            formatDayRange(pickup.reservation.period.startDay, pickup.reservation.period.endDay)
+          "
           :actual-label="sk.adminCounter.actualLabelPickup"
           :actual-value="sk.adminCounter.actualValueNotPickedUp"
         >
-          <AppButton variant="secondary" @click="startHandoverOut(pickup)">
+          <AppButton
+            variant="primary"
+            size="counter"
+            class="counter-submit"
+            @click="startHandoverOut(pickup)"
+          >
             {{ sk.adminCounter.handoverOutAction }}
           </AppButton>
         </TwoClockRow>
@@ -588,7 +618,9 @@ async function confirmSettlement(pin: string) {
           :key="ret.reservation.id"
           :title="`${ret.customerName} — ${ret.assetTypeName}`"
           :expected-label="sk.adminCounter.expectedLabel"
-          :expected-value="formatDayRange(ret.reservation.period.startDay, ret.reservation.period.endDay)"
+          :expected-value="
+            formatDayRange(ret.reservation.period.startDay, ret.reservation.period.endDay)
+          "
           :actual-label="sk.adminCounter.actualLabelReturn"
           :actual-value="sk.adminCounter.actualValueWithCustomer"
         />
@@ -596,21 +628,33 @@ async function confirmSettlement(pin: string) {
 
       <section>
         <h2>{{ sk.adminCounter.worklistNavHeading }}</h2>
-        <NuxtLink to="/admin/counter/overdue">{{ sk.adminCounter.overdueNavAction }}</NuxtLink>
-        <NuxtLink to="/admin/counter/no-shows">{{ sk.adminCounter.noShowsNavAction }}</NuxtLink>
+        <div class="counter-links">
+          <NuxtLink to="/admin/counter/overdue" class="counter-link">{{
+            sk.adminCounter.overdueNavAction
+          }}</NuxtLink>
+          <NuxtLink to="/admin/counter/no-shows" class="counter-link">{{
+            sk.adminCounter.noShowsNavAction
+          }}</NuxtLink>
+        </div>
       </section>
     </section>
 
     <section v-else-if="panel === 'lookup'">
       <StepHeader :title="sk.adminCounter.lookupHeading" @back="resetToWorklist" />
       <p v-if="lookupResult">
-        {{ sk.adminCounter.assetLookupResult.replace('{assetId}', String(lookupResult.asset.id)).replace('{status}', lookupResult.asset.status) }}
+        {{
+          sk.adminCounter.assetLookupResult
+            .replace('{assetId}', String(lookupResult.asset.id))
+            .replace('{status}', lookupResult.asset.status)
+        }}
       </p>
     </section>
 
     <section v-else-if="panel === 'handoverOut' && activePickup">
       <StepHeader
-        :title="sk.adminCounter.handoverOutHeading.replace('{customerName}', activePickup.customerName)"
+        :title="
+          sk.adminCounter.handoverOutHeading.replace('{customerName}', activePickup.customerName)
+        "
         :guard-message="handoverOutBackGuard"
         @back="resetToWorklist"
       />
@@ -618,40 +662,102 @@ async function confirmSettlement(pin: string) {
       <section v-if="!verificationDone">
         <h3>{{ sk.adminCounter.identityVerificationHeading }}</h3>
         <p v-if="evidenceList.length === 0">{{ sk.adminCounter.noEvidence }}</p>
-        <ul v-else>
-          <li v-for="evidence in evidenceList" :key="evidence.id">
-            {{ sk.adminCounter.evidenceUploadedAt.replace('{date}', new Date(evidence.createdAt).toLocaleString('sk-SK')) }}
-            <span v-if="!evidence.confirmedAt">{{ sk.adminCounter.evidenceUnconfirmed }}</span>
-            <button type="button" @click="viewEvidence(evidence.id)">{{ sk.adminCounter.viewEvidenceAction }}</button>
-            <button type="button" @click="recordVerification(evidence.id, 'verified')">
+        <ul v-else class="counter-evidence">
+          <li v-for="evidence in evidenceList" :key="evidence.id" class="counter-evidence__row">
+            <p class="counter-evidence__meta">
+              {{
+                sk.adminCounter.evidenceUploadedAt.replace(
+                  '{date}',
+                  formatDateTime(evidence.createdAt),
+                )
+              }}
+              <span v-if="!evidence.confirmedAt" class="counter-evidence__flag">{{
+                sk.adminCounter.evidenceUnconfirmed
+              }}</span>
+            </p>
+            <AppButton variant="secondary" size="counter" @click="viewEvidence(evidence.id)">{{
+              sk.adminCounter.viewEvidenceAction
+            }}</AppButton>
+            <AppButton
+              variant="primary"
+              size="counter"
+              @click="recordVerification(evidence.id, 'verified')"
+            >
               {{ sk.adminCounter.verifiedAction }}
-            </button>
-            <button type="button" @click="recordVerification(evidence.id, 'rejected')">
+            </AppButton>
+            <AppButton
+              variant="danger"
+              size="counter"
+              :disabled="rejectionReason.trim() === ''"
+              @click="recordVerification(evidence.id, 'rejected')"
+            >
               {{ sk.adminCounter.rejectedAction }}
-            </button>
+            </AppButton>
           </li>
         </ul>
-        <label>
-          {{ sk.adminCounter.rejectionReasonLabel }}
-          <input v-model="rejectionReason" type="text" />
-        </label>
+        <AppField
+          v-if="evidenceList.length > 0"
+          :label="sk.adminCounter.rejectionReasonLabel"
+          :hint="sk.adminCounter.rejectionNeedsReason"
+        >
+          <template #default="slotProps">
+            <input
+              :id="slotProps.id"
+              v-model="rejectionReason"
+              type="text"
+              autocomplete="off"
+              :aria-describedby="slotProps.ariaDescribedby"
+            />
+          </template>
+        </AppField>
 
         <h4>{{ sk.adminCounter.captureFallbackHeading }}</h4>
-        <label>
-          {{ sk.adminCounter.fileLabel }}
-          <input type="file" accept="image/*" capture="environment" @change="onEvidenceFileChange" />
-        </label>
-        <button type="button" :disabled="!evidenceFile || uploadingEvidence" @click="captureEvidenceFallback">
+        <AppField :label="sk.adminCounter.fileLabel">
+          <template #default="slotProps">
+            <input
+              :id="slotProps.id"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              @change="onEvidenceFileChange"
+            />
+          </template>
+        </AppField>
+        <AppButton
+          variant="secondary"
+          size="counter"
+          :disabled="!evidenceFile"
+          :pending="uploadingEvidence"
+          @click="captureEvidenceFallback"
+        >
           {{ uploadingEvidence ? sk.adminCounter.uploading : sk.adminCounter.uploadAction }}
-        </button>
+        </AppButton>
       </section>
 
       <form v-else @submit.prevent="requestOutPin">
-        <p>{{ sk.adminCounter.depositLabel.replace('{amount}', depositFor(activePickup.reservation.assetTypeId)) }}</p>
-        <label>
-          {{ sk.adminCounter.tagCodeLabel }}
-          <input v-model="outTagCode" type="text" required autofocus />
-        </label>
+        <!-- The deposit is a cash instruction to the Customer (S-10): large, first. -->
+        <p class="counter-deposit">
+          {{
+            sk.adminCounter.depositLabel.replace(
+              '{amount}',
+              depositFor(activePickup.reservation.assetTypeId),
+            )
+          }}
+        </p>
+        <AppField :label="sk.adminCounter.tagCodeLabel">
+          <template #default="slotProps">
+            <input
+              :id="slotProps.id"
+              v-model="outTagCode"
+              type="text"
+              required
+              autofocus
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+            />
+          </template>
+        </AppField>
         <PhotoCapture
           v-model="outPhotos"
           :states="outPhotoStates"
@@ -663,9 +769,17 @@ async function confirmSettlement(pin: string) {
           @retry="retryOutPhoto"
         />
         <LateAttestationFields v-model="outLate" />
-        <AppButton type="submit" size="counter" :disabled="outPhotos.length === 0">
+        <AppButton
+          type="submit"
+          size="counter"
+          class="counter-submit"
+          :disabled="outPhotos.length === 0"
+        >
           {{ sk.adminCounter.submitHandoverOutAction }}
         </AppButton>
+        <p v-if="outPhotos.length === 0" class="counter-hint">
+          {{ sk.adminCounter.photosRequiredHint }}
+        </p>
       </form>
       <PinPrompt
         :open="showOutPinPrompt"
@@ -677,12 +791,17 @@ async function confirmSettlement(pin: string) {
     </section>
 
     <section v-else-if="panel === 'handoverIn'">
-      <StepHeader :title="sk.adminCounter.handoverInHeading" :guard-message="handoverInBackGuard" @back="resetToWorklist" />
+      <StepHeader
+        :title="sk.adminCounter.handoverInHeading"
+        :guard-message="handoverInBackGuard"
+        @back="resetToWorklist"
+      />
       <form @submit.prevent="requestInPin">
-        <label>
-          {{ sk.adminCounter.tagCodeLabel }}
-          <input v-model="inTagCode" type="text" readonly />
-        </label>
+        <AppField :label="sk.adminCounter.tagCodeLabel">
+          <template #default="slotProps">
+            <input :id="slotProps.id" v-model="inTagCode" type="text" readonly />
+          </template>
+        </AppField>
         <PhotoCapture
           v-model="inPhotos"
           :states="inPhotoStates"
@@ -694,9 +813,17 @@ async function confirmSettlement(pin: string) {
           @retry="retryInPhoto"
         />
         <LateAttestationFields v-model="inLate" />
-        <AppButton type="submit" size="counter" :disabled="inPhotos.length === 0">
+        <AppButton
+          type="submit"
+          size="counter"
+          class="counter-submit"
+          :disabled="inPhotos.length === 0"
+        >
           {{ sk.adminCounter.submitHandoverInAction }}
         </AppButton>
+        <p v-if="inPhotos.length === 0" class="counter-hint">
+          {{ sk.adminCounter.photosRequiredHint }}
+        </p>
       </form>
       <PinPrompt
         :open="showInPinPrompt"
@@ -711,21 +838,47 @@ async function confirmSettlement(pin: string) {
       <StepHeader :title="sk.adminCounter.settlementHeading" :show-back="false" />
       <p>
         {{ sk.adminCounter.pairedEvidenceOutLabel }}:
-        {{ pairedEvidenceOut ? sk.adminCounter.pairedEvidenceOk : sk.adminCounter.pairedEvidenceMissing }}
+        {{
+          pairedEvidenceOut
+            ? sk.adminCounter.pairedEvidenceOk
+            : sk.adminCounter.pairedEvidenceMissing
+        }}
         · {{ sk.adminCounter.pairedEvidenceInLabel }}:
-        {{ pairedEvidenceIn ? sk.adminCounter.pairedEvidenceOk : sk.adminCounter.pairedEvidenceMissing }}
+        {{
+          pairedEvidenceIn
+            ? sk.adminCounter.pairedEvidenceOk
+            : sk.adminCounter.pairedEvidenceMissing
+        }}
       </p>
       <p v-if="!pairedEvidenceComplete">{{ sk.adminCounter.pairedEvidenceIncompleteNote }}</p>
       <form @submit.prevent="showSettlementPinPrompt = true">
-        <label>
-          {{ sk.adminCounter.returnedAmountLabel }}
-          <input v-model="returnedAmountEuros" type="number" min="0" step="0.01" required />
-        </label>
-        <label>
-          {{ sk.adminCounter.deductionReasonLabel }}
-          <input v-model="deductionReason" type="text" :disabled="!pairedEvidenceComplete" />
-        </label>
-        <AppButton type="submit" size="counter">{{ sk.adminCounter.submitSettlementAction }}</AppButton>
+        <AppField :label="sk.adminCounter.returnedAmountLabel">
+          <template #default="slotProps">
+            <input
+              :id="slotProps.id"
+              v-model="returnedAmountEuros"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.01"
+              required
+            />
+          </template>
+        </AppField>
+        <AppField :label="sk.adminCounter.deductionReasonLabel">
+          <template #default="slotProps">
+            <input
+              :id="slotProps.id"
+              v-model="deductionReason"
+              type="text"
+              autocomplete="off"
+              :disabled="!pairedEvidenceComplete"
+            />
+          </template>
+        </AppField>
+        <AppButton type="submit" size="counter" class="counter-submit">{{
+          sk.adminCounter.submitSettlementAction
+        }}</AppButton>
       </form>
       <PinPrompt
         :open="showSettlementPinPrompt"
@@ -737,3 +890,63 @@ async function confirmSettlement(pin: string) {
     </section>
   </main>
 </template>
+
+<style scoped>
+/* S-08: the two worklists the counter links to, as full-size touch targets
+ * (--ht-hit-counter) instead of two bare links run together. */
+.counter-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ht-space-3);
+}
+
+/* S-09: identity check, one evidence per block, each action a full-width
+ * counter-size control so the Operator cannot hit the wrong one. */
+.counter-evidence {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-4);
+}
+
+.counter-evidence__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+  padding: var(--ht-space-3);
+  background: var(--ht-surface);
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+}
+
+.counter-evidence__meta {
+  font-family: var(--ht-font-mono);
+  font-size: var(--ht-text-2);
+}
+
+.counter-evidence__flag {
+  display: block;
+  color: var(--ht-warn);
+  font-family: var(--ht-font-sans);
+  font-weight: 600;
+}
+
+/* The one main action of a step fills the width, within thumb reach. */
+.counter-submit {
+  width: 100%;
+}
+
+.counter-hint {
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-2);
+}
+
+/* S-10: the deposit is cash the Customer has to hand over. */
+.counter-deposit {
+  font-family: var(--ht-font-mono);
+  font-size: var(--ht-text-5);
+  font-weight: 600;
+}
+</style>

@@ -16,6 +16,9 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'sk' },
+      // cover: the installed app draws edge to edge and the --ht-safe-* tokens
+      // keep content out from under the notch and the home indicator.
+      viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
       link: [
         { rel: 'apple-touch-icon', href: '/icons/apple-touch-icon.png' },
         { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/icons/favicon-32.png' },

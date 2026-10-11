@@ -53,6 +53,13 @@
   --ht-hit-counter: 56px; /* counter primary controls */
   --ht-motion: 120ms;
 
+  /* Notch, rounded corners and the home indicator of an installed app
+   * (viewport-fit=cover, nuxt.config.ts). 0 in a normal browser tab. */
+  --ht-safe-top: env(safe-area-inset-top, 0px);
+  --ht-safe-right: env(safe-area-inset-right, 0px);
+  --ht-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ht-safe-left: env(safe-area-inset-left, 0px);
+
   /* Typography (§4.2) */
   --ht-font-sans: 'IBM Plex Sans', system-ui, sans-serif;
   --ht-font-condensed: 'IBM Plex Sans Condensed', 'IBM Plex Sans', system-ui, sans-serif;

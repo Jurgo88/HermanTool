@@ -8,6 +8,7 @@
   the layout itself trivial. -->
 <script setup lang="ts">
 import { sk } from '~/i18n/sk'
+import { loginLocation } from '~/utils/operator-redirect'
 
 const nuxtApp = useNuxtApp()
 const requestFetch = useRequestFetch()
@@ -22,7 +23,7 @@ async function load() {
   } catch (err: unknown) {
     const statusCode = (err as { statusCode?: number })?.statusCode
     if (statusCode === 401) {
-      await nuxtApp.runWithContext(() => navigateTo('/login'))
+      await nuxtApp.runWithContext(() => navigateTo(loginLocation(useRoute().fullPath)))
     }
   }
 }
