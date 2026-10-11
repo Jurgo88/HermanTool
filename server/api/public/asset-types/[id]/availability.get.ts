@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import {
-  eachDayOfPeriod,
-  getAvailableCount,
+  getAvailableCountsForPeriod,
   rentalPeriodLengthInDays,
+  validateRentalPeriod,
 } from '../../../../contexts/availability-reservation'
 import { createAvailabilityReservationDeps, translateAvailabilityReservationError } from '../../../../utils/availability-reservation-deps'
 import { createCatalogDeps, getAssetTypeIdParam } from '../../../../utils/catalog-deps'
@@ -41,19 +41,16 @@ export default defineEventHandler(async (event) => {
     }
 
     const period = { startDay, endDay }
-    const days = eachDayOfPeriod(period) // throws InvalidRentalPeriodError for a malformed/inverted range
+    validateRentalPeriod(period) // throws InvalidRentalPeriodError for a malformed/inverted range
     if (rentalPeriodLengthInDays(period) > MAX_WINDOW_DAYS) {
       throw createError({ statusCode: 400, statusMessage: `Range exceeds ${MAX_WINDOW_DAYS} days.` })
     }
 
-    const perDay = await availability.repo.transaction(async (trx, getRentablePoolCount) =>
-      Promise.all(
-        days.map(async (day) => ({
-          day,
-          available: await getAvailableCount(trx, getRentablePoolCount, { tenantId, assetTypeId, day }),
-        })),
-      ),
-    )
+    const perDay = await getAvailableCountsForPeriod(availability.repo, availability.repo.readRentablePoolCount, {
+      tenantId,
+      assetTypeId,
+      period,
+    })
 
     return { assetTypeId, days: perDay }
   } catch (err) {

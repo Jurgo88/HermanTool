@@ -54,7 +54,7 @@ export async function dispatchDueOverdueReminders(
         reservationId: entry.reservation.id,
         to: customer.email,
         customerName: customer.name,
-        assetTypeId: entry.reservation.assetTypeId,
+        assetTypeName: entry.assetTypeName,
         endDay: entry.reservation.period.endDay,
       },
     )

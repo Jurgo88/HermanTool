@@ -97,6 +97,21 @@ export interface AvailabilityReservationRepository {
   // flipped its state column yet.
   countActiveReservations(tenantId: TenantId, assetTypeId: number, day: string): Promise<number>
 
+  // The same count for every day of [startDay, endDay] in one query, so a
+  // month calendar is one round trip and not thirty. A day with no active
+  // Reservation is absent from the map.
+  countActiveReservationsPerDay(
+    tenantId: TenantId,
+    assetTypeId: number,
+    startDay: string,
+    endDay: string,
+  ): Promise<Map<string, number>>
+
+  // The D-38 pool for a display read (S-02 calendar, FR-03), on the plain
+  // connection. Never the capacity bound of a hold: that one must come from
+  // `transaction` (D-33).
+  readRentablePoolCount: CapacitySource
+
   // FR-42: "today's pickups" — Confirmed Reservations whose RentalPeriod
   // begins on `day`. Only Confirmed: a Pending Reservation starting today
   // is not a real commitment yet (unpaid), and Cancelled/Expired ones
@@ -315,6 +330,22 @@ export function createPostgresAvailabilityReservationRepository(
       `
       return Number(rows[0]!.count)
     },
+
+    async countActiveReservationsPerDay(tenantId, assetTypeId, startDay, endDay) {
+      const rows = await sql<{ day: string; count: string }[]>`
+        select g.ts::date::text as day, count(*)::text as count
+        from generate_series(${startDay}::date, ${endDay}::date, interval '1 day') as g(ts)
+        join reservations r
+          on r.start_day <= g.ts::date and r.end_day >= g.ts::date
+        where r.tenant_id = ${tenantId} and r.asset_type_id = ${assetTypeId}
+          and (r.state = 'confirmed' or (r.state = 'pending' and r.pending_expires_at > now()))
+        group by g.ts
+      `
+      return new Map(rows.map((row) => [row.day, Number(row.count)]))
+    },
+
+    readRentablePoolCount: (tenantId, assetTypeId) =>
+      createPostgresAssetRegistryRepository(sql).getRentablePoolCount(tenantId, assetTypeId),
 
     async listReservationsStartingOn(tenantId, day) {
       const rows = await sql<ReservationRow[]>`
