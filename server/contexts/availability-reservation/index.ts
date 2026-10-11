@@ -91,6 +91,7 @@ export {
   checkoutReservationGroup,
   confirmReservationGroup,
   getAvailableCount,
+  getAvailableCountsForPeriod,
   recordTermsAcceptance,
   sweepExpiredReservations,
 } from './reservation'
