@@ -20,11 +20,10 @@ import { getErrorCode } from '~/utils/error-code'
 
 definePageMeta({ layout: 'public' })
 
-// D-35, F1 KNOWN GAP: the mechanics of terms acceptance are built and
-// tested, but no lawyer has reviewed the terms content yet (OQ #1). This
-// version string and the draft copy are NOT real terms. Replace both
-// before a real Customer ever sees this page.
-const DRAFT_TERMS_VERSION = 'pilot-draft-v1'
+// D-35: the version of the text on /podmienky, recorded with the
+// acceptance. Still the owner's draft awaiting legal review (OQ #1), so
+// the page keeps its draft marker and check:no-draft-copy keeps failing.
+const TERMS_VERSION = sk.draft.terms.version
 
 const { lines: draftLines, restored, clearLines, removeLine } = useReservationDraft()
 const displayLines = computed(() => orderForDisplay(draftLines.value))
@@ -166,7 +165,7 @@ async function pay() {
     }
     await $fetch(`/api/reservations/${reservationGroupId.value}/accept-terms`, {
       method: 'POST',
-      body: { termsVersion: DRAFT_TERMS_VERSION },
+      body: { termsVersion: TERMS_VERSION },
     })
     const { redirectUrl } = await $fetch<{ redirectUrl: string }>('/api/payments/checkout-session', {
       method: 'POST',
