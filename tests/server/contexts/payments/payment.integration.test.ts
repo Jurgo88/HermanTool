@@ -11,6 +11,7 @@ import type postgres from 'postgres'
 import { createDatabaseClient } from '../../../../server/utils/db'
 import type { TenantId } from '../../../../server/contexts/_shared'
 import { createPostgresPaymentsRepository } from '../../../../server/contexts/payments/repository'
+import { SecondSucceededPaymentError } from '../../../../server/contexts/payments/types'
 
 const databaseUrl = process.env.NUXT_DATABASE_URL ?? ''
 
@@ -108,8 +109,9 @@ describe.skipIf(!databaseUrl)('Payments migration (integration)', () => {
       providerReference: 'sess_b',
     })
 
+    // #190: surfaced as a typed error, which the webhook flow refunds.
     await expect(
       repo.transitionPaymentStatus(tenantId, second.id, { from: 'pending', to: 'succeeded' }),
-    ).rejects.toThrow()
+    ).rejects.toThrow(SecondSucceededPaymentError)
   })
 })

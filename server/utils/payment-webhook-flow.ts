@@ -20,6 +20,7 @@ import {
 import {
   applyPaymentSucceeded,
   refundPayment,
+  refundSecondPayment,
   type Payment,
   type PaymentGateway,
   type PaymentsRepository,
@@ -31,6 +32,7 @@ export type PaymentWebhookOutcome =
   | { outcome: 'already_processed'; payment: Payment }
   | { outcome: 'confirmed'; payment: Payment }
   | { outcome: 'refunded'; payment: Payment; failedReservationIds: number[] }
+  | { outcome: 'second_payment_refunded'; payment: Payment }
 
 export interface PaymentWebhookDeps {
   tenantId: TenantId
@@ -93,6 +95,12 @@ export async function applyProviderWebhookEvent(
   })
   if (result.outcome === 'already_processed') {
     return { outcome: 'already_processed', payment: result.payment }
+  }
+  // FR-09, #190: two checkouts for one group were both paid. The group is
+  // already confirmed by the first; this one is returned, nothing else runs.
+  if (result.outcome === 'second_payment') {
+    const refunded = await refundSecondPayment(paymentsRepo, gateway, { tenantId, payment: result.payment })
+    return { outcome: 'second_payment_refunded', payment: refunded }
   }
 
   const succeeded = result.payment

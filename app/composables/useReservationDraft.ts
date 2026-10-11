@@ -34,6 +34,10 @@ export function useReservationDraft() {
   // False until the stored draft has been read after hydration, so a page
   // does not flash "nothing added yet" before it arrives.
   const restored = useState('reservationDraftRestored', () => false)
+  // #190: the ReservationGroup this browser left for the payment page with.
+  // The draft is kept until that payment succeeds, so an abandoned payment
+  // can be resumed or the choice edited without picking everything again.
+  const pendingGroupId = useState<number | null>('reservationPendingGroupId', () => null)
 
   function addLine(line: Omit<DraftReservationLine, 'quantity'> & { quantity: number }) {
     const existing = lines.value.find(
@@ -54,5 +58,11 @@ export function useReservationDraft() {
     lines.value = []
   }
 
-  return { lines, restored, addLine, removeLine, clearLines }
+  // The group is paid: nothing is left to resume.
+  function finishCheckout() {
+    lines.value = []
+    pendingGroupId.value = null
+  }
+
+  return { lines, restored, pendingGroupId, addLine, removeLine, clearLines, finishCheckout }
 }

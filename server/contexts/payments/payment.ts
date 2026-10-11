@@ -10,7 +10,12 @@ import { createMonetaryAmount } from '../_shared'
 import type { PaymentGateway } from './gateway'
 import type { PaymentsRepository } from './repository'
 import type { Payment } from './types'
-import { PaymentNotFoundError, PaymentNotRefundableError, ReservationGroupAlreadyPaidError } from './types'
+import {
+  PaymentNotFoundError,
+  PaymentNotRefundableError,
+  ReservationGroupAlreadyPaidError,
+  SecondSucceededPaymentError,
+} from './types'
 
 // FR-09: "One card payment covers exactly one ReservationGroup. Partial
 // payment is not representable." There is no per-line payment — every
@@ -57,6 +62,16 @@ export async function startPayment(
     throw new ReservationGroupAlreadyPaidError(reservationGroupId)
   }
 
+  // #190: a Customer who left the provider's page and pays again gets a
+  // new checkout. The earlier one is closed first, so the group cannot be
+  // paid twice; one the provider will not close may still complete, and
+  // applyPaymentSucceeded then reports it as a second payment.
+  for (const earlier of existing.filter((p) => p.status === 'pending')) {
+    if (await gateway.expireHostedCheckoutSession(earlier.providerReference)) {
+      await repo.transitionPaymentStatus(tenantId, earlier.id, { from: 'pending', to: 'failed' })
+    }
+  }
+
   const session = await gateway.createHostedCheckoutSession({ reservationGroupId, amount, successUrl, cancelUrl })
   const payment = await repo.insertPayment(tenantId, {
     reservationGroupId,
@@ -81,6 +96,7 @@ export async function startPayment(
 export type ApplyPaymentSucceededOutcome =
   | { outcome: 'already_processed'; payment: Payment }
   | { outcome: 'succeeded'; payment: Payment }
+  | { outcome: 'second_payment'; payment: Payment }
 
 // D-37/Finding 3: marks a Payment succeeded. Idempotent against a
 // duplicate webhook delivery for the same event — a Payment already
@@ -96,11 +112,24 @@ export async function applyPaymentSucceeded(
   const { tenantId, payment, providerPaymentReference } = params
   if (payment.status === 'succeeded') return { outcome: 'already_processed', payment }
 
-  const transitioned = await repo.transitionPaymentStatus(tenantId, payment.id, {
-    from: 'pending',
-    to: 'succeeded',
-    providerPaymentReference: providerPaymentReference ?? undefined,
-  })
+  let transitioned: Payment | null
+  try {
+    transitioned = await repo.transitionPaymentStatus(tenantId, payment.id, {
+      from: 'pending',
+      to: 'succeeded',
+      providerPaymentReference: providerPaymentReference ?? undefined,
+    })
+  } catch (err) {
+    // FR-09: the group is already paid by another Payment. This charge is
+    // real at the provider and must be returned (refundSecondPayment).
+    if (err instanceof SecondSucceededPaymentError) {
+      return {
+        outcome: 'second_payment',
+        payment: { ...payment, providerPaymentReference: providerPaymentReference ?? payment.providerPaymentReference },
+      }
+    }
+    throw err
+  }
   if (transitioned) return { outcome: 'succeeded', payment: transitioned }
 
   // A guard miss here means the row moved between our read and this
@@ -112,6 +141,34 @@ export async function applyPaymentSucceeded(
   const current = await repo.getPayment(tenantId, payment.id)
   if (!current) throw new PaymentNotFoundError(payment.id)
   return { outcome: 'already_processed', payment: current }
+}
+
+// FR-09, #190: returns a charge for a ReservationGroup another Payment has
+// already paid. A payment-mechanics error like D-37's, not a cancellation,
+// so it does not require OQ #1. The Payment never became 'succeeded' (the
+// unique index refused it), so it goes from 'pending' straight to
+// 'refunded'.
+export async function refundSecondPayment(
+  repo: PaymentsRepository,
+  gateway: PaymentGateway,
+  params: { tenantId: TenantId; payment: Payment },
+): Promise<Payment> {
+  const { tenantId, payment } = params
+  if (payment.status !== 'pending' || !payment.providerPaymentReference) {
+    throw new PaymentNotRefundableError(payment.id, payment.status)
+  }
+
+  await gateway.refund(payment.providerPaymentReference, payment.amount)
+
+  const transitioned = await repo.transitionPaymentStatus(tenantId, payment.id, {
+    from: 'pending',
+    to: 'refunded',
+    providerPaymentReference: payment.providerPaymentReference,
+  })
+  if (transitioned) return transitioned
+  const current = await repo.getPayment(tenantId, payment.id)
+  if (!current) throw new PaymentNotFoundError(payment.id)
+  return current
 }
 
 // D-37/Finding 3: the automatic refund path when PaymentReceived arrives

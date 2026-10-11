@@ -4,7 +4,7 @@
 // `tenantId` as its first parameter (FR-33).
 import type postgres from 'postgres'
 import type { CurrencyCode, MonetaryAmount, TenantId } from '../_shared'
-import type { Payment, PaymentStatus } from './types'
+import { SecondSucceededPaymentError, type Payment, type PaymentStatus } from './types'
 
 export interface NewPayment {
   reservationGroupId: number
@@ -94,14 +94,24 @@ export function createPostgresPaymentsRepository(sql: postgres.Sql | postgres.Tr
     },
 
     async transitionPaymentStatus(tenantId, id, { from, to, providerPaymentReference }) {
-      const rows = await sql<PaymentRow[]>`
-        update payments
-        set status = ${to},
-            updated_at = now(),
-            provider_payment_reference = coalesce(${providerPaymentReference ?? null}, provider_payment_reference)
-        where tenant_id = ${tenantId} and id = ${id} and status = ${from}
-        returning *
-      `
+      let rows: PaymentRow[]
+      try {
+        rows = await sql<PaymentRow[]>`
+          update payments
+          set status = ${to},
+              updated_at = now(),
+              provider_payment_reference = coalesce(${providerPaymentReference ?? null}, provider_payment_reference)
+          where tenant_id = ${tenantId} and id = ${id} and status = ${from}
+          returning *
+        `
+      } catch (err) {
+        // FR-09: payments_one_succeeded_per_group_idx refused a second
+        // 'succeeded' Payment for the same ReservationGroup.
+        if ((err as { constraint_name?: string }).constraint_name === 'payments_one_succeeded_per_group_idx') {
+          throw new SecondSucceededPaymentError(id)
+        }
+        throw err
+      }
       return rows[0] ? mapPayment(rows[0]) : null
     },
 

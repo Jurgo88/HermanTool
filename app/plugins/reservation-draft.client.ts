@@ -5,22 +5,28 @@
 //
 // Storage can be missing or refuse (a private window, blocked site data);
 // then the draft simply lives as long as the page, as it did before.
-import { DRAFT_STORAGE_KEY, parseStoredDraft } from '~/utils/reservation-draft'
+import {
+  DRAFT_STORAGE_KEY,
+  PENDING_GROUP_STORAGE_KEY,
+  parseStoredDraft,
+  parseStoredGroupId,
+} from '~/utils/reservation-draft'
 
 export default defineNuxtPlugin((nuxtApp) => {
-  const { lines, restored } = useReservationDraft()
+  const { lines, restored, pendingGroupId } = useReservationDraft()
 
   nuxtApp.hook('app:mounted', () => {
     try {
       const stored = parseStoredDraft(localStorage.getItem(DRAFT_STORAGE_KEY))
       if (lines.value.length === 0) lines.value = stored
+      pendingGroupId.value ??= parseStoredGroupId(localStorage.getItem(PENDING_GROUP_STORAGE_KEY))
     } catch {
       // No storage: nothing to restore.
     }
     restored.value = true
 
-    // Synchronous, so a draft cleared right before leaving for the payment
-    // page is cleared in storage too.
+    // Synchronous, so what checkout sets right before leaving for the
+    // payment page reaches storage before the browser goes.
     watch(
       lines,
       (value) => {
@@ -32,6 +38,19 @@ export default defineNuxtPlugin((nuxtApp) => {
         }
       },
       { deep: true, flush: 'sync' },
+    )
+
+    watch(
+      pendingGroupId,
+      (value) => {
+        try {
+          if (value === null) localStorage.removeItem(PENDING_GROUP_STORAGE_KEY)
+          else localStorage.setItem(PENDING_GROUP_STORAGE_KEY, String(value))
+        } catch {
+          // No storage: resuming works only within this page.
+        }
+      },
+      { flush: 'sync' },
     )
   })
 })

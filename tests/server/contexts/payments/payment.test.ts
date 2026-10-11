@@ -67,6 +67,24 @@ describe('startPayment', () => {
 
     await expect(startPayment(repo, gateway, startPaymentParams)).rejects.toThrow(ReservationGroupAlreadyPaidError)
   })
+
+  it('closes the earlier unpaid checkout when the Customer pays again (#190)', async () => {
+    const first = await startPayment(repo, gateway, startPaymentParams)
+    const second = await startPayment(repo, gateway, startPaymentParams)
+
+    expect(gateway.expiredSessions).toEqual([first.payment.providerReference])
+    expect((await repo.getPayment(tenantA, first.payment.id))?.status).toBe('failed')
+    expect(second.payment.status).toBe('pending')
+  })
+
+  it('leaves an earlier checkout pending when the provider will not close it (#190)', async () => {
+    const first = await startPayment(repo, gateway, startPaymentParams)
+    gateway.unexpirable.add(first.payment.providerReference)
+
+    await startPayment(repo, gateway, startPaymentParams)
+
+    expect((await repo.getPayment(tenantA, first.payment.id))?.status).toBe('pending')
+  })
 })
 
 describe('applyPaymentSucceeded', () => {

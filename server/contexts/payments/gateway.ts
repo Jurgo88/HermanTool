@@ -45,6 +45,11 @@ export interface PaymentGateway {
   createHostedCheckoutSession(request: CheckoutSessionRequest): Promise<CheckoutSessionResult>
   parseWebhookEvent(rawBody: string, signatureHeader: string | undefined): ProviderWebhookEvent
   refund(providerPaymentReference: string, amount: MonetaryAmount): Promise<void>
+  // Closes a hosted checkout that has not been paid, so it can no longer
+  // be paid. False when the provider refuses — already paid, already
+  // expired, or unreachable — and the caller must then assume it may
+  // still complete.
+  expireHostedCheckoutSession(providerReference: string): Promise<boolean>
 }
 
 export function createStripePaymentGateway(params: { secretKey: string; webhookSecret: string }): PaymentGateway {
@@ -106,6 +111,15 @@ export function createStripePaymentGateway(params: { secretKey: string; webhookS
       }
 
       return { type: 'unrecognized' }
+    },
+
+    async expireHostedCheckoutSession(providerReference) {
+      try {
+        await stripe.checkout.sessions.expire(providerReference)
+        return true
+      } catch {
+        return false
+      }
     },
 
     async refund(providerPaymentReference, amount) {
