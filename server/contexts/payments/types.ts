@@ -68,6 +68,16 @@ export class ProviderWebhookSignatureInvalidError extends PaymentsError {
   }
 }
 
+// FR-09: a second Payment for a ReservationGroup that another Payment has
+// already paid. Raised by the repository when the partial unique index
+// refuses the transition; the caller refunds it (two open checkouts for
+// one group, both completed).
+export class SecondSucceededPaymentError extends PaymentsError {
+  constructor(paymentId: number) {
+    super(`Payment ${paymentId} would be a second succeeded Payment for its ReservationGroup.`)
+  }
+}
+
 // A refund was attempted against a Payment that was never in a
 // refundable state (never succeeded, or already refunded).
 export class PaymentNotRefundableError extends PaymentsError {

@@ -9,6 +9,12 @@
 import { sk } from '~/i18n/sk'
 
 definePageMeta({ layout: 'public' })
+
+// #190: the payment went through, so the draft and the unpaid-group marker
+// kept for resuming are done. After the stored draft is read, or it would
+// come back.
+const { restored, finishCheckout } = useReservationDraft()
+watch(restored, (isRestored) => isRestored && finishCheckout(), { immediate: true })
 </script>
 
 <template>

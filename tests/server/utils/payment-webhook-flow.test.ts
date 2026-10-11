@@ -57,6 +57,52 @@ describe('applyProviderWebhookEvent', () => {
     expect(confirmedReservation?.state).toBe('confirmed')
   })
 
+  it('refunds a second completed checkout for a group that is already paid (FR-09, #190)', async () => {
+    const { group, reservations } = await checkoutReservationGroup(availabilityRepo, {
+      tenantId: tenantA,
+      lines: [{ assetTypeId: HAMMER, period: { startDay: DAY, endDay: DAY } }],
+    })
+    const params = {
+      tenantId: tenantA,
+      reservationGroupId: group.id,
+      amount: { amount: 1000, currency: 'EUR' as const },
+      successUrl: 'https://example.test/success',
+      cancelUrl: 'https://example.test/cancel',
+    }
+    const first = await startPayment(paymentsRepo, gateway, params)
+    // The provider would not close the first checkout: both get paid.
+    gateway.unexpirable.add(first.payment.providerReference)
+    const second = await startPayment(paymentsRepo, gateway, params)
+    const deps = { tenantId: tenantA, paymentsRepo, gateway, availabilityRepo }
+
+    const firstOutcome = await applyProviderWebhookEvent(deps, {
+      type: 'checkout_completed',
+      providerReference: first.payment.providerReference,
+      providerPaymentReference: 'pi_first',
+    })
+    const secondOutcome = await applyProviderWebhookEvent(deps, {
+      type: 'checkout_completed',
+      providerReference: second.payment.providerReference,
+      providerPaymentReference: 'pi_second',
+    })
+
+    expect(firstOutcome.outcome).toBe('confirmed')
+    expect(secondOutcome.outcome).toBe('second_payment_refunded')
+    expect(gateway.refundCalls).toEqual([{ providerPaymentReference: 'pi_second', amount: params.amount }])
+    expect((await paymentsRepo.getPayment(tenantA, second.payment.id))?.status).toBe('refunded')
+    expect((await paymentsRepo.getPayment(tenantA, first.payment.id))?.status).toBe('succeeded')
+    expect((await availabilityRepo.getReservation(tenantA, reservations[0]!.id))?.state).toBe('confirmed')
+
+    // Stripe redelivers the second event: nothing is refunded twice.
+    const redelivered = await applyProviderWebhookEvent(deps, {
+      type: 'checkout_completed',
+      providerReference: second.payment.providerReference,
+      providerPaymentReference: 'pi_second',
+    })
+    expect(redelivered.outcome).toBe('already_processed')
+    expect(gateway.refundCalls).toHaveLength(1)
+  })
+
   it('automatically refunds when PaymentReceived arrives too late to re-acquire the days (D-37, Finding 3)', async () => {
     // Group A's Pending window is already lapsed relative to real time —
     // built with a backdated `now` so pendingExpiresAt sits in the past.

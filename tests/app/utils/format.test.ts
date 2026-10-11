@@ -6,6 +6,7 @@ import {
   formatDayOfMonth,
   formatDayRange,
   formatMoney,
+  formatTime,
   formatMonth,
   todayInBratislava,
 } from '../../../app/utils/format'
@@ -118,5 +119,12 @@ describe('formatCount (Slovak plural forms)', () => {
       '11 dní',
       '21 dní',
     ])
+  })
+})
+
+describe('formatTime', () => {
+  it('shows the Bratislava time of day, summer and winter', () => {
+    expect(formatTime('2026-10-12T12:35:00Z')).toBe('14:35')
+    expect(formatTime('2026-12-12T12:35:00Z')).toBe('13:35')
   })
 })

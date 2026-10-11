@@ -6,7 +6,11 @@
 // and guarded-transition semantics, same convention as
 // tests/server/contexts/availability-reservation/fake-repository.ts.
 import type { NewPayment, PaymentsRepository } from '../../../../server/contexts/payments/repository'
-import type { Payment, PaymentStatus } from '../../../../server/contexts/payments/types'
+import {
+  SecondSucceededPaymentError,
+  type Payment,
+  type PaymentStatus,
+} from '../../../../server/contexts/payments/types'
 
 interface State {
   payments: Payment[]
@@ -64,6 +68,15 @@ export function createFakePaymentsRepository(): FakePaymentsRepository {
       async transitionPaymentStatus(tenantId, id, { from, to, providerPaymentReference }) {
         const payment = target.payments.find((p) => p.tenantId === tenantId && p.id === id && p.status === from)
         if (!payment) return null
+        // Mirrors payments_one_succeeded_per_group_idx.
+        if (
+          to === 'succeeded' &&
+          target.payments.some(
+            (p) => p.id !== id && p.reservationGroupId === payment.reservationGroupId && p.status === 'succeeded',
+          )
+        ) {
+          throw new SecondSucceededPaymentError(id)
+        }
         payment.status = to as PaymentStatus
         payment.updatedAt = new Date()
         if (providerPaymentReference) payment.providerPaymentReference = providerPaymentReference

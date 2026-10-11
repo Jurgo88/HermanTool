@@ -13,16 +13,23 @@ import type {
 export interface FakePaymentGateway extends PaymentGateway {
   createdSessions: CheckoutSessionRequest[]
   refundCalls: { providerPaymentReference: string; amount: MonetaryAmount }[]
+  expiredSessions: string[]
+  // References the provider will refuse to close (already paid there).
+  unexpirable: Set<string>
 }
 
 export function createFakePaymentGateway(): FakePaymentGateway {
   let counter = 0
   const createdSessions: CheckoutSessionRequest[] = []
   const refundCalls: { providerPaymentReference: string; amount: MonetaryAmount }[] = []
+  const expiredSessions: string[] = []
+  const unexpirable = new Set<string>()
 
   return {
     createdSessions,
     refundCalls,
+    expiredSessions,
+    unexpirable,
 
     async createHostedCheckoutSession(request) {
       createdSessions.push(request)
@@ -33,6 +40,12 @@ export function createFakePaymentGateway(): FakePaymentGateway {
     parseWebhookEvent(rawBody, signatureHeader): ProviderWebhookEvent {
       if (!signatureHeader) throw new Error('missing signature (test fake)')
       return JSON.parse(rawBody) as ProviderWebhookEvent
+    },
+
+    async expireHostedCheckoutSession(providerReference) {
+      if (unexpirable.has(providerReference)) return false
+      expiredSessions.push(providerReference)
+      return true
     },
 
     async refund(providerPaymentReference, amount) {

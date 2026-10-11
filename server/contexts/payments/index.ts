@@ -37,6 +37,7 @@ export {
   PaymentProviderUnavailableError,
   ProviderWebhookSignatureInvalidError,
   ReservationGroupAlreadyPaidError,
+  SecondSucceededPaymentError,
 } from './types'
 
 export type { CheckoutSessionRequest, CheckoutSessionResult, PaymentGateway, ProviderWebhookEvent } from './gateway'
@@ -46,4 +47,10 @@ export type { NewPayment, PaymentsRepository } from './repository'
 export { createPostgresPaymentsRepository } from './repository'
 
 export type { ApplyPaymentSucceededOutcome } from './payment'
-export { applyPaymentSucceeded, computeRentalFeeAmount, refundPayment, startPayment } from './payment'
+export {
+  applyPaymentSucceeded,
+  computeRentalFeeAmount,
+  refundPayment,
+  refundSecondPayment,
+  startPayment,
+} from './payment'

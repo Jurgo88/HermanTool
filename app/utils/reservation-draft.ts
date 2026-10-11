@@ -27,6 +27,12 @@ export function toQuoteLines(lines: DraftReservationLine[]) {
 }
 
 export const DRAFT_STORAGE_KEY = 'rentstar.reservationDraft.v1'
+export const PENDING_GROUP_STORAGE_KEY = 'rentstar.pendingReservationGroup.v1'
+
+export function parseStoredGroupId(raw: string | null): number | null {
+  const id = Number(raw)
+  return raw && Number.isInteger(id) && id > 0 ? id : null
+}
 
 const isMoney = (v: unknown): v is { amount: number; currency: string } =>
   typeof v === 'object' &&

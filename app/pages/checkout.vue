@@ -14,7 +14,7 @@
 // the details starts a new one (the old Pending hold expires on its own,
 // FR-08).
 import { sk } from '~/i18n/sk'
-import { formatCount, formatMoney } from '~/utils/format'
+import { formatCount, formatMoney, formatTime } from '~/utils/format'
 import { orderForDisplay, toCheckoutLines, toQuoteLines } from '~/utils/reservation-draft'
 import { getErrorCode } from '~/utils/error-code'
 
@@ -25,7 +25,7 @@ definePageMeta({ layout: 'public' })
 // the page keeps its draft marker and check:no-draft-copy keeps failing.
 const TERMS_VERSION = sk.draft.terms.version
 
-const { lines: draftLines, restored, clearLines, removeLine } = useReservationDraft()
+const { lines: draftLines, restored, pendingGroupId, finishCheckout, removeLine } = useReservationDraft()
 const displayLines = computed(() => orderForDisplay(draftLines.value))
 
 const customerName = ref('')
@@ -70,6 +70,28 @@ async function loadQuote() {
 }
 
 watch(draftLines, loadQuote, { immediate: true, deep: true })
+
+// #190: a group this browser left unpaid. Still payable: offer to finish it
+// (paying here instead would hold the same tools twice). Paid: the draft is
+// done. Expired or unknown: forget it and keep the draft.
+const unpaidHoldUntil = ref<string | null>(null)
+
+async function checkPendingGroup() {
+  const id = pendingGroupId.value
+  if (id === null) return
+  try {
+    const status = await $fetch<{ state: 'payable' | 'paid' | 'expired'; holdUntil: string | null }>(
+      `/api/reservations/${id}/payment-status`,
+    )
+    if (status.state === 'payable') unpaidHoldUntil.value = status.holdUntil
+    else if (status.state === 'paid') finishCheckout()
+    else pendingGroupId.value = null
+  } catch {
+    pendingGroupId.value = null
+  }
+}
+
+watch(restored, (isRestored) => isRestored && checkPendingGroup(), { immediate: true })
 
 const anyLineInPast = computed(() => quote.value?.lines.some((line) => line.startsInPast) ?? false)
 
@@ -171,8 +193,10 @@ async function pay() {
       method: 'POST',
       body: { reservationGroupId: reservationGroupId.value },
     })
-    // The draft is committed; the button stays pending until the browser leaves.
-    clearLines()
+    // #190: the draft stays until the payment succeeds (success page), so
+    // leaving Stripe's page can be undone. The button stays pending until
+    // the browser leaves.
+    pendingGroupId.value = reservationGroupId.value
     window.location.href = redirectUrl
   } catch (err: unknown) {
     error.value = messageFor(err)
@@ -196,6 +220,13 @@ async function pay() {
     </div>
 
     <form v-else class="checkout__form" novalidate @submit.prevent="pay">
+      <div v-if="unpaidHoldUntil && pendingGroupId" class="checkout__pending" role="status">
+        <p>{{ sk.checkout.pendingNotice.replace('{time}', formatTime(unpaidHoldUntil)) }}</p>
+        <NuxtLink :to="`/reservations/${pendingGroupId}/cancel`">
+          <AppButton variant="primary">{{ sk.checkout.pendingResumeAction }}</AppButton>
+        </NuxtLink>
+      </div>
+
       <section class="checkout__section" aria-labelledby="checkout-tools">
         <h2 id="checkout-tools" class="checkout__heading">
           <span class="checkout__step" aria-hidden="true">1</span>{{ sk.checkout.toolsHeading }}
@@ -377,6 +408,23 @@ async function pay() {
 
 .checkout__form input[aria-invalid='true'] {
   border-color: var(--ht-danger);
+}
+
+.checkout__pending {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ht-space-3);
+  padding: var(--ht-space-4);
+  background: var(--ht-surface);
+  border: 1px solid var(--ht-line-strong);
+  border-left: var(--ht-space-1) solid var(--ht-brand);
+  border-radius: var(--ht-radius-card);
+}
+
+.checkout__pending p {
+  margin: 0;
+  font-weight: 600;
 }
 
 .checkout__empty {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   orderForDisplay,
   parseStoredDraft,
+  parseStoredGroupId,
   toCheckoutLines,
   toQuoteLines,
   withoutLine,
@@ -104,5 +105,12 @@ describe('orderForDisplay (D-57: an Accessory sits under its principal)', () => 
   it('still shows an Accessory whose principal is missing', () => {
     const accessory: DraftReservationLine = { ...bits, principalAssetTypeId: 99 }
     expect(orderForDisplay([accessory])).toEqual([{ line: accessory, index: 0, isAccessory: true }])
+  })
+})
+
+describe('parseStoredGroupId (#190)', () => {
+  it('reads a positive integer and nothing else', () => {
+    expect(parseStoredGroupId('42')).toBe(42)
+    for (const raw of [null, '', '0', '-3', '4.5', 'abc']) expect(parseStoredGroupId(raw)).toBeNull()
   })
 })

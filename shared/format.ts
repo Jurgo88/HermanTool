@@ -78,6 +78,12 @@ export function formatDateTime(isoTimestamp: string | Date): string {
   }).format(instant)
 }
 
+// The time of day of an instant, Europe/Bratislava ("14:35").
+export function formatTime(isoTimestamp: string | Date): string {
+  const instant = typeof isoTimestamp === 'string' ? new Date(isoTimestamp) : isoTimestamp
+  return new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', timeZone: TIME_ZONE }).format(instant)
+}
+
 // Slovak counts take three forms: 1 deň, 2–4 dni, 0 or 5+ dní. The words
 // come from sk.ts; only the choice and the number are made here.
 export function formatCount(count: number, forms: { one: string; few: string; many: string }): string {
