@@ -42,6 +42,12 @@ describe('Rent Star public palette (D-59, NFR-11)', () => {
     const paper = token('ht-paper', css)
     expect(contrast(token('ht-brand-deep'), paper)).toBeGreaterThanOrEqual(3)
   })
+
+  it('keeps body text and muted text readable on the brand tint (picked days, chosen Accessory)', () => {
+    const tint = token('ht-brand-tint')
+    expect(contrast(token('ht-ink', css), tint)).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(token('ht-ink-muted', css), tint)).toBeGreaterThanOrEqual(4.5)
+  })
 })
 
 // base.css draws every native control's edge in --ht-ink-muted. NFR-11 asks 3:1

@@ -34,12 +34,15 @@ withDefaults(
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: var(--ht-radius-plate);
-  font-family: var(--ht-font-condensed);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  border-radius: var(--ht-button-radius);
+  font-family: var(--ht-button-font);
+  font-weight: var(--ht-button-weight);
+  text-transform: var(--ht-button-case);
+  letter-spacing: var(--ht-button-tracking);
   font-size: var(--ht-text-2);
+  transition:
+    transform var(--ht-motion),
+    box-shadow var(--ht-motion);
   padding: 0 var(--ht-space-4);
   height: var(--ht-hit-min);
   cursor: pointer;
@@ -51,8 +54,13 @@ withDefaults(
 }
 
 .app-button--primary {
-  background: var(--ht-signal);
+  background: var(--ht-button-primary-bg);
   color: var(--ht-on-signal);
+  box-shadow: var(--ht-button-primary-shadow);
+}
+
+.app-button--primary:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 .app-button--secondary {
@@ -76,6 +84,7 @@ withDefaults(
 }
 
 .app-button:disabled {
+  box-shadow: none;
   background: var(--ht-surface-sunk);
   color: var(--ht-ink-muted);
   border: 1px solid var(--ht-line);

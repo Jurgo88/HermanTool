@@ -5,7 +5,7 @@
 // (S-03) and the site footer.
 import { sk } from '~/i18n/sk'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', hero: true })
 
 const terms = sk.draft.terms
 const sectionId = (index: number) => `clanok-${index + 1}`
@@ -16,13 +16,14 @@ function print() {
 </script>
 
 <template>
-  <main class="legal-page">
-    <header class="legal-page__head">
+  <div class="legal-shell">
+    <PublicHero narrow>
       <h1>{{ sk.legalTerms.title }}</h1>
-      <p class="legal-page__meta">
+      <p>
         {{ terms.dateLabel }} · {{ sk.legalTerms.versionLabel.replace('{version}', terms.version) }}
       </p>
-    </header>
+    </PublicHero>
+  <main class="legal-page">
 
     <DraftNotice>
       <p>{{ sk.draft.termsPageBody }}</p>
@@ -57,33 +58,40 @@ function print() {
       <NuxtLink to="/"><AppButton variant="quiet">{{ sk.legalTerms.backToCatalogAction }}</AppButton></NuxtLink>
     </div>
   </main>
+  </div>
 </template>
 
 <style scoped>
+.legal-shell {
+  width: 100%;
+}
+
+/* One reading card, risen into the hero band. */
 .legal-page {
+  position: relative;
+  box-sizing: border-box;
+  width: calc(100% - var(--ht-space-4) * 2);
   max-width: 680px;
-  margin: 0 auto;
-  padding: var(--ht-space-5) var(--ht-space-4) var(--ht-space-7);
+  margin: calc(var(--ht-hero-overlap) * -1) auto var(--ht-space-7);
+  padding: var(--ht-space-5) var(--ht-space-4);
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-5);
   line-height: 1.6;
+  background: var(--ht-surface);
+  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  box-shadow: var(--ht-shadow-card);
 }
 
-.legal-page__head h1 {
-  margin: 0;
-}
-
-.legal-page__meta {
-  margin: var(--ht-space-1) 0 0;
-  color: var(--ht-ink-muted);
-  font-size: var(--ht-text-2);
+@media (min-width: 720px) {
+  .legal-page {
+    padding: var(--ht-space-6);
+  }
 }
 
 .legal-page__contents {
   padding: var(--ht-space-4);
-  background: var(--ht-surface);
-  border: 1px solid var(--ht-line);
+  background: var(--ht-paper);
   border-radius: var(--ht-radius-card);
 }
 
