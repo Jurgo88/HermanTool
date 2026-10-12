@@ -44,6 +44,15 @@ function inRange(day: string): boolean {
   return day >= props.startDay && day <= end
 }
 
+// The ends of the picked range get the full brand fill, the days between a
+// pale wash, so the whole RentalPeriod reads as one span.
+function rangeClass(day: string): string | null {
+  if (!inRange(day)) return null
+  const end = props.endDay ?? props.startDay
+  if (day === props.startDay || day === end) return 'availability-calendar__day--edge'
+  return 'availability-calendar__day--between'
+}
+
 function levelLabel(day: CalendarDay): string {
   if (!day.selectable || day.level === null) return sk.availabilityCalendar.levelPast
   if (day.level === 'none') return sk.availabilityCalendar.levelNone
@@ -97,7 +106,10 @@ function levelLabel(day: CalendarDay): string {
         :key="day.day"
         type="button"
         class="availability-calendar__day"
-        :class="[`availability-calendar__day--${day.selectable ? (day.level ?? 'past') : 'past'}`]"
+        :class="[
+          `availability-calendar__day--${day.selectable ? (day.level ?? 'past') : 'past'}`,
+          rangeClass(day.day),
+        ]"
         :disabled="!isPickable(day)"
         :aria-pressed="inRange(day.day)"
         :aria-label="`${formatDay(day.day)}, ${levelLabel(day)}`"
@@ -189,6 +201,9 @@ function levelLabel(day: CalendarDay): string {
 
 .availability-calendar__day {
   min-height: var(--ht-hit-min);
+  transition:
+    background-color var(--ht-motion),
+    border-color var(--ht-motion);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -259,7 +274,20 @@ function levelLabel(day: CalendarDay): string {
   cursor: default;
 }
 
-.availability-calendar__day[aria-pressed='true'] {
+@media (hover: hover) {
+  .availability-calendar__day--free:hover,
+  .availability-calendar__day--last:hover {
+    border-color: var(--ht-brand);
+  }
+}
+
+.availability-calendar__day--between {
+  background: var(--ht-brand-tint);
+  border-color: var(--ht-brand-tint);
+  color: var(--ht-ink);
+}
+
+.availability-calendar__day--edge {
   background: var(--ht-brand);
   border-color: var(--ht-brand-deep);
   color: var(--ht-on-brand);

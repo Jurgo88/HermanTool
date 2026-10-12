@@ -8,7 +8,7 @@
 // and D-33's hold at checkout remains the authority. Terms are accepted
 // at checkout (D-35), never here.
 import { sk } from '~/i18n/sk'
-import type { MonetaryAmountView } from '~/utils/format'
+import { formatCount, formatMoney, type MonetaryAmountView } from '~/utils/format'
 import type { CalendarMonth } from '~/components/AvailabilityCalendar.vue'
 
 definePageMeta({ layout: 'public' })
@@ -155,7 +155,44 @@ async function checkRange() {
 
 watch([startDay, endDay, quantity], checkRange)
 
+// The sum for the picked period, principal and chosen Accessories, from the
+// same server quote checkout and Stripe use (#164) — this page counts no
+// days and multiplies no rates (D-51).
+interface PeriodQuote {
+  lines: { days: number }[]
+  rentalFeeTotal: MonetaryAmountView
+  depositTotal: MonetaryAmountView
+}
+const periodQuote = ref<PeriodQuote | null>(null)
+let quoteRequest = 0
+
+async function loadPeriodQuote() {
+  const request = ++quoteRequest
+  if (!assetType.value || !startDay.value || !endDay.value || rangeStatus.value !== 'ok') {
+    periodQuote.value = null
+    return
+  }
+  const period = { startDay: startDay.value, endDay: endDay.value }
+  const ids = [assetType.value.id, ...chosenAccessoryIds.value]
+  try {
+    const quote = await $fetch<PeriodQuote>('/api/public/reservation-quote', {
+      method: 'POST',
+      body: { lines: ids.map((id) => ({ assetTypeId: id, period, quantity: quantity.value })) },
+    })
+    if (request === quoteRequest) periodQuote.value = quote
+  } catch {
+    if (request === quoteRequest) periodQuote.value = null
+  }
+}
+
+watch([rangeStatus, chosenAccessoryIds], loadPeriodQuote, { deep: true })
+
+const periodDays = computed(() => periodQuote.value?.lines[0]?.days ?? null)
+
+// After adding, the bar offers the next step instead of the same button, so
+// a second tap cannot add the same period twice. Any change starts over.
 const added = ref(false)
+watch([quantity, chosenAccessoryIds], () => (added.value = false), { deep: true })
 const { addLine } = useReservationDraft()
 
 function reserve() {
@@ -184,6 +221,13 @@ function reserve() {
   added.value = true
 }
 
+function pickAnother() {
+  added.value = false
+  startDay.value = null
+  endDay.value = null
+  chosenAccessoryIds.value = []
+}
+
 const hint = computed(() => {
   if (!startDay.value) return sk.assetTypeDetail.pickStartHint
   if (!endDay.value) return sk.assetTypeDetail.pickEndHint
@@ -197,43 +241,49 @@ const hint = computed(() => {
 
     <AppAlert v-if="loadError" :message="sk.assetTypeDetail.loadError" />
 
-    <template v-else-if="assetType">
-      <h1 class="detail__title">{{ assetType.name }}</h1>
+    <!-- Phone: one column — product, the reservation card, details, and a bar
+      fixed to the bottom with the sum and the button. Wide screens: the
+      product and details on the left, the card and the bar sticky on the
+      right. .detail__side is only a wrapper on a phone (display: contents),
+      so its children take part in the page order there. -->
+    <div v-else-if="assetType" class="detail__layout">
+      <section class="detail__intro">
+        <div class="detail__image" :class="{ 'detail__image--empty': !assetType.imageFile }">
+          <img
+            v-if="assetType.imageFile"
+            :src="`/catalog/${assetType.imageFile}`"
+            alt=""
+            width="800"
+            height="800"
+          />
+          <span v-else>{{ sk.publicCatalog.imagePlaceholder }}</span>
+        </div>
 
-      <div class="detail__columns">
-        <section class="detail__content">
-          <div class="detail__image">
-            <img
-              v-if="assetType.imageFile"
-              :src="`/catalog/${assetType.imageFile}`"
-              alt=""
-              width="800"
-              height="800"
-            />
-            <span v-else class="detail__placeholder">{{ sk.publicCatalog.imagePlaceholder }}</span>
-          </div>
+        <h1 class="detail__title">{{ assetType.name }}</h1>
+        <p v-if="assetType.description" class="detail__description">{{ assetType.description }}</p>
 
-          <p v-if="assetType.includedContents" class="detail__included">
-            {{ sk.assetTypeDetail.includedLabel }}: {{ assetType.includedContents }}
-          </p>
-          <p v-if="assetType.handlingNotice" class="detail__notice" role="note">
-            {{ assetType.handlingNotice }}
-          </p>
-          <p v-if="assetType.description">{{ assetType.description }}</p>
+        <!-- FR-02, S-02: the day rate and the cash deposit with equal weight. -->
+        <div class="detail__price">
+          <span class="detail__figure detail__figure--rate">
+            <MoneyAmount :amount="assetType.dayRate" size="large" />
+            <span class="detail__price-label">{{ sk.assetTypeDetail.dayRateLabel }}</span>
+          </span>
+          <span class="detail__figure">
+            <MoneyAmount :amount="assetType.depositAmount" size="large" />
+            <span class="detail__price-label">{{ sk.assetTypeDetail.depositCashLabel }}</span>
+          </span>
+        </div>
 
-          <template v-if="assetType.specifications.length > 0">
-            <h2>{{ sk.assetTypeDetail.specificationsHeading }}</h2>
-            <dl class="detail__specs">
-              <template v-for="spec in assetType.specifications" :key="spec.label">
-                <dt>{{ spec.label }}</dt>
-                <dd>{{ spec.value }}</dd>
-              </template>
-            </dl>
-          </template>
-        </section>
+        <p v-if="assetType.handlingNotice" class="detail__notice" role="note">
+          {{ assetType.handlingNotice }}
+        </p>
+      </section>
 
-        <section class="detail__reserve">
-          <h2>{{ sk.assetTypeDetail.calendarHeading }}</h2>
+      <div class="detail__side">
+        <section class="detail__card" aria-labelledby="detail-reserve-heading">
+          <h2 id="detail-reserve-heading" class="detail__card-heading">
+            {{ sk.assetTypeDetail.reserveHeading }}
+          </h2>
           <AvailabilityCalendar
             :month="calendar"
             :status="calendarStatus"
@@ -242,25 +292,31 @@ const hint = computed(() => {
             @pick="pick"
             @navigate="loadMonth"
           />
+
           <AppField :label="sk.assetTypeDetail.quantityLabel">
             <template #default="slotProps">
-              <input
+              <QuantityStepper
                 :id="slotProps.id"
-                v-model.number="quantity"
-                type="number"
-                min="1"
-                max="50"
-                step="1"
+                v-model="quantity"
+                :aria-describedby="slotProps.ariaDescribedby"
+                :decrease-label="sk.assetTypeDetail.quantityDecrease"
+                :increase-label="sk.assetTypeDetail.quantityIncrease"
               />
             </template>
           </AppField>
 
           <fieldset v-if="assetType.accessories.length > 0" class="detail__accessories">
-            <legend>{{ sk.assetTypeDetail.accessoriesHeading }}</legend>
+            <legend class="detail__accessories-heading">
+              {{ sk.assetTypeDetail.accessoriesHeading }}
+            </legend>
             <label
               v-for="accessory in assetType.accessories"
               :key="accessory.id"
               class="detail__accessory"
+              :class="{
+                'detail__accessory--chosen': chosenAccessoryIds.includes(accessory.id),
+                'detail__accessory--off': rangeStatus !== 'ok' || !accessoryFits[accessory.id],
+              }"
             >
               <input
                 v-model="chosenAccessoryIds"
@@ -268,10 +324,28 @@ const hint = computed(() => {
                 :value="accessory.id"
                 :disabled="rangeStatus !== 'ok' || !accessoryFits[accessory.id]"
               />
-              <span>
-                {{ accessory.name }} · <MoneyAmount :amount="accessory.dayRate" />
-                {{ sk.assetTypeDetail.perDaySuffix }}, {{ sk.assetTypeDetail.depositLabel }}
-                <MoneyAmount :amount="accessory.depositAmount" />
+              <span v-if="accessory.imageFile" class="detail__accessory-thumb" aria-hidden="true">
+                <img
+                  :src="`/catalog/${accessory.imageFile}`"
+                  alt=""
+                  width="96"
+                  height="96"
+                />
+              </span>
+              <span class="detail__accessory-text">
+                <span class="detail__accessory-name">{{ accessory.name }}</span>
+                <span class="detail__accessory-meta">
+                  {{
+                    sk.assetTypeDetail.accessoryPrice.replace('{amount}', formatMoney(accessory.dayRate))
+                  }}
+                  ·
+                  {{
+                    sk.assetTypeDetail.depositInline.replace(
+                      '{amount}',
+                      formatMoney(accessory.depositAmount),
+                    )
+                  }}
+                </span>
                 <small v-if="rangeStatus !== 'ok'" class="detail__reason">
                   {{ sk.assetTypeDetail.accessoryPickPeriodFirst }}
                 </small>
@@ -281,29 +355,42 @@ const hint = computed(() => {
               </span>
             </label>
           </fieldset>
+        </section>
 
-          <div class="detail__prices">
-            <div>
-              <span class="detail__price-label">{{ sk.assetTypeDetail.dayRateLabel }}</span>
-              <MoneyAmount :amount="assetType.dayRate" size="large" />
-            </div>
-            <div>
-              <span class="detail__price-label">{{ sk.assetTypeDetail.depositLabel }}</span>
-              <MoneyAmount :amount="assetType.depositAmount" size="large" />
-            </div>
-          </div>
-          <p class="detail__hint">{{ sk.assetTypeDetail.depositNote }}</p>
-
-          <!-- On a phone this bar stays at the bottom of the screen while the
-            Visitor scrolls through the calendar and the Accessories, and it says
-            in words what is still missing before the button works. -->
-          <div class="detail__action">
-            <p v-if="hint" class="detail__hint">{{ hint }}</p>
-            <p v-else-if="startDay && endDay" class="detail__period">
-              {{ sk.assetTypeDetail.selectedPeriodLabel }}:
-              <DayRange :start-day="startDay" :end-day="endDay" />
+        <!-- On a phone this bar stays at the bottom of the screen; it names the
+          period and its sum, says what is still missing, and after adding
+          offers the next step instead of the same button. -->
+        <div class="detail__action" :class="{ 'detail__action--added': added }">
+          <template v-if="added">
+            <p class="detail__added" role="status">
+              <span class="detail__added-mark" aria-hidden="true" />
+              {{ sk.assetTypeDetail.addedTitle }}
             </p>
-            <p v-if="rangeStatus === 'checking'" aria-busy="true">
+            <NuxtLink to="/checkout" class="detail__cta-link">
+              <AppButton class="detail__cta" variant="primary">
+                {{ sk.assetTypeDetail.continueAction }}
+              </AppButton>
+            </NuxtLink>
+            <AppButton variant="quiet" @click="pickAnother">
+              {{ sk.assetTypeDetail.pickAnotherAction }}
+            </AppButton>
+          </template>
+
+          <template v-else>
+            <p v-if="hint" class="detail__hint">{{ hint }}</p>
+            <div v-else-if="startDay && endDay" class="detail__summary">
+              <span class="detail__summary-period">
+                <DayRange :start-day="startDay" :end-day="endDay" />
+                <template v-if="periodDays !== null">
+                  · {{ formatCount(periodDays, sk.assetTypeDetail.dayCount) }}
+                </template>
+              </span>
+              <span v-if="periodQuote" class="detail__summary-total">
+                <span class="detail__summary-label">{{ sk.assetTypeDetail.totalLabel }}</span>
+                <MoneyAmount :amount="periodQuote.rentalFeeTotal" />
+              </span>
+            </div>
+            <p v-if="rangeStatus === 'checking'" class="detail__hint" aria-busy="true">
               {{ sk.assetTypeDetail.rangeChecking }}
             </p>
             <AppAlert
@@ -323,20 +410,32 @@ const hint = computed(() => {
               :disabled="rangeStatus !== 'ok'"
               @click="reserve"
             >
-              {{ sk.assetTypeDetail.reserveAction }}
+              {{ sk.assetTypeDetail.addAction }}
             </AppButton>
-            <p v-if="added" class="detail__added" role="status">
-              {{ sk.assetTypeDetail.added }}
-              <NuxtLink to="/checkout">{{ sk.assetTypeDetail.goToCheckout }}</NuxtLink>
-            </p>
-          </div>
-
-          <NuxtLink to="/podmienky" class="detail__terms">{{
-            sk.assetTypeDetail.termsLink
-          }}</NuxtLink>
-        </section>
+          </template>
+        </div>
       </div>
-    </template>
+
+      <section
+        v-if="assetType.specifications.length > 0 || assetType.includedContents"
+        class="detail__info"
+      >
+        <details v-if="assetType.specifications.length > 0" class="detail__more" open>
+          <summary>{{ sk.assetTypeDetail.specificationsHeading }}</summary>
+          <dl class="detail__specs">
+            <template v-for="spec in assetType.specifications" :key="spec.label">
+              <dt>{{ spec.label }}</dt>
+              <dd>{{ spec.value }}</dd>
+            </template>
+          </dl>
+        </details>
+        <details v-if="assetType.includedContents" class="detail__more">
+          <summary>{{ sk.assetTypeDetail.includedHeading }}</summary>
+          <p>{{ assetType.includedContents }}</p>
+        </details>
+        <NuxtLink to="/podmienky" class="detail__terms">{{ sk.assetTypeDetail.termsLink }}</NuxtLink>
+      </section>
+    </div>
   </main>
 </template>
 
@@ -345,7 +444,7 @@ const hint = computed(() => {
   width: 100%;
   max-width: 1200px;
   margin: 0 auto;
-  padding: var(--ht-space-5) var(--ht-space-4);
+  padding: var(--ht-space-4) var(--ht-space-4) 0;
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-4);
@@ -353,22 +452,295 @@ const hint = computed(() => {
 
 .detail__back,
 .detail__terms {
+  align-self: flex-start;
   color: var(--ht-brand);
   font-weight: 600;
 }
 
-.detail__columns {
+.detail__layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--ht-space-4);
+  gap: var(--ht-space-5);
 }
 
-/* Phone: the booking section's children join the page grid, so the action
- * bar below can stick to the bottom of the whole page instead of only inside
- * its own section (where it would appear once the Visitor had scrolled to it). */
-.detail__columns > .detail__reserve {
+/* Phone: the wrapper dissolves and order places the details before the bar,
+ * so the bar is the last thing on the page and stays fixed to the bottom. */
+.detail__side {
   display: contents;
 }
+
+.detail__intro {
+  order: 1;
+}
+
+.detail__card {
+  order: 2;
+}
+
+.detail__info {
+  order: 3;
+}
+
+.detail__action {
+  order: 4;
+}
+
+/* --- Product --- */
+
+.detail__intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-3);
+}
+
+.detail__image {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ht-space-4);
+  background: var(--ht-surface);
+  border-radius: var(--ht-radius-card);
+  box-shadow: var(--ht-shadow-card);
+}
+
+.detail__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.detail__image--empty {
+  aspect-ratio: 16 / 9;
+  background: var(--ht-surface-sunk);
+  box-shadow: none;
+  color: var(--ht-ink-muted);
+}
+
+.detail__title {
+  margin: var(--ht-space-2) 0 0;
+  font-size: var(--ht-text-5);
+  line-height: 1.2;
+}
+
+.detail__description {
+  margin: 0;
+  color: var(--ht-ink-muted);
+}
+
+.detail__price {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ht-space-3);
+}
+
+.detail__figure {
+  display: flex;
+  flex-direction: column;
+  padding: var(--ht-space-3);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
+  border: 1px solid var(--ht-line);
+}
+
+.detail__figure--rate {
+  color: var(--ht-brand-deep);
+}
+
+.detail__figure :deep(.money-amount--large) {
+  font-size: var(--ht-text-5);
+}
+
+.detail__price-label {
+  font-size: var(--ht-text-2);
+  color: var(--ht-ink-muted);
+}
+
+.detail__notice {
+  margin: 0;
+  padding: var(--ht-space-3);
+  border-left: var(--ht-space-1) solid var(--ht-danger);
+  border-radius: var(--ht-radius-plate);
+  background: var(--ht-surface);
+  color: var(--ht-danger);
+  font-weight: 600;
+}
+
+/* --- Reservation card --- */
+
+.detail__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-4);
+  padding: var(--ht-space-4);
+  background: var(--ht-surface);
+  border-radius: var(--ht-radius-card);
+  box-shadow: var(--ht-shadow-card);
+}
+
+.detail__card-heading {
+  margin: 0;
+  font-size: var(--ht-text-4);
+}
+
+.detail__card :deep(.app-field) {
+  margin-bottom: 0;
+}
+
+.detail__accessories {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+}
+
+.detail__accessories-heading {
+  margin-bottom: var(--ht-space-2);
+  padding: 0;
+  font-family: var(--ht-font-condensed);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--ht-text-1);
+  color: var(--ht-ink-muted);
+}
+
+.detail__accessory {
+  display: flex;
+  align-items: center;
+  gap: var(--ht-space-3);
+  min-height: var(--ht-hit-min);
+  padding: var(--ht-space-2) var(--ht-space-3);
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  cursor: pointer;
+  transition:
+    background-color var(--ht-motion),
+    border-color var(--ht-motion);
+}
+
+.detail__accessory input {
+  flex: none;
+  width: var(--ht-space-5);
+  height: var(--ht-space-5);
+  margin: 0;
+}
+
+.detail__accessory--chosen {
+  border-color: var(--ht-brand);
+  background: var(--ht-brand-tint);
+}
+
+.detail__accessory--off {
+  cursor: default;
+}
+
+.detail__accessory-thumb {
+  flex: none;
+  width: var(--ht-space-7);
+  height: var(--ht-space-7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ht-radius-plate);
+  background: var(--ht-surface-sunk);
+  overflow: hidden;
+}
+
+.detail__accessory-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: var(--ht-surface);
+}
+
+.detail__accessory-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.detail__accessory-name {
+  font-weight: 600;
+}
+
+.detail__accessory-meta,
+.detail__reason {
+  font-size: var(--ht-text-2);
+  color: var(--ht-ink-muted);
+}
+
+/* --- Details --- */
+
+.detail__info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+}
+
+.detail__more {
+  border-bottom: 1px solid var(--ht-line);
+}
+
+.detail__more summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--ht-hit-min);
+  font-weight: 600;
+  font-size: var(--ht-text-4);
+  cursor: pointer;
+  list-style: none;
+}
+
+.detail__more summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A drawn chevron: down when closed, up when open. */
+.detail__more summary::after {
+  content: '';
+  width: var(--ht-space-2);
+  height: var(--ht-space-2);
+  margin-right: var(--ht-space-2);
+  border: solid var(--ht-ink-muted);
+  border-width: 0 calc(var(--ht-space-1) / 2) calc(var(--ht-space-1) / 2) 0;
+  transform: rotate(45deg);
+  transition: transform var(--ht-motion);
+}
+
+.detail__more[open] summary::after {
+  transform: rotate(-135deg);
+}
+
+.detail__more > p,
+.detail__specs {
+  margin: 0 0 var(--ht-space-4);
+}
+
+.detail__specs {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--ht-space-2) var(--ht-space-4);
+}
+
+.detail__specs dt {
+  color: var(--ht-ink-muted);
+}
+
+.detail__specs dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.detail__terms {
+  margin-top: var(--ht-space-2);
+}
+
+/* --- Action bar --- */
 
 .detail__action {
   position: sticky;
@@ -380,140 +752,143 @@ const hint = computed(() => {
   margin: 0 calc(var(--ht-space-4) * -1);
   padding: var(--ht-space-3) max(var(--ht-space-4), var(--ht-safe-right))
     calc(var(--ht-space-3) + var(--ht-safe-bottom)) max(var(--ht-space-4), var(--ht-safe-left));
-  background: var(--ht-paper);
+  background: var(--ht-surface);
+  box-shadow: var(--ht-shadow-card);
   border-top: 1px solid var(--ht-line);
 }
 
-.detail__cta {
-  width: 100%;
+.detail__action p {
+  margin: 0;
 }
 
-.detail__period {
+.detail__hint {
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-2);
+}
+
+.detail__summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ht-space-3);
+}
+
+.detail__summary-period {
   font-weight: 600;
 }
 
+.detail__summary-total {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: var(--ht-text-4);
+}
+
+.detail__summary-label {
+  font-size: var(--ht-text-1);
+  color: var(--ht-ink-muted);
+}
+
+.detail__cta,
+.detail__cta-link {
+  width: 100%;
+}
+
+.detail__added {
+  display: flex;
+  align-items: center;
+  gap: var(--ht-space-2);
+  color: var(--ht-ok);
+  font-weight: 600;
+}
+
+/* A drawn check mark in a circle, no icon font. */
+.detail__added-mark {
+  position: relative;
+  flex: none;
+  width: var(--ht-space-5);
+  height: var(--ht-space-5);
+  border-radius: 50%;
+  background: var(--ht-ok);
+}
+
+.detail__added-mark::after {
+  content: '';
+  position: absolute;
+  left: 34%;
+  top: 22%;
+  width: 25%;
+  height: 45%;
+  border: solid var(--ht-on-brand);
+  border-width: 0 calc(var(--ht-space-1) / 2) calc(var(--ht-space-1) / 2) 0;
+  transform: rotate(45deg);
+}
+
 @media (min-width: 900px) {
-  .detail__columns {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--ht-space-6);
+  .detail {
+    padding-bottom: var(--ht-space-7);
   }
 
-  .detail__columns > .detail__reserve {
+  .detail__layout {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    column-gap: var(--ht-space-7);
+    align-items: start;
+  }
+
+  .detail__intro {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .detail__info {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .detail__side {
+    grid-column: 2;
+    grid-row: 1 / span 2;
     display: flex;
+    flex-direction: column;
+    gap: var(--ht-space-3);
+    position: sticky;
+    top: var(--ht-space-4);
+  }
+
+  .detail__title {
+    margin-top: 0;
+    font-size: var(--ht-text-6);
+  }
+
+  /* Wide screens: the name and the price open the page, level with the
+   * reservation card, and the photo follows. */
+  .detail__title {
+    order: 1;
+  }
+
+  .detail__description {
+    order: 2;
+  }
+
+  .detail__price {
+    order: 3;
+  }
+
+  .detail__notice {
+    order: 4;
+  }
+
+  .detail__image {
+    order: 5;
+    margin-top: var(--ht-space-2);
   }
 
   .detail__action {
     position: static;
     margin: 0;
-    padding: 0;
-    background: none;
+    padding: var(--ht-space-4);
     border-top: 0;
+    border-radius: var(--ht-radius-card);
   }
-}
-
-.detail__content,
-.detail__reserve {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ht-space-4);
-}
-
-.detail__image {
-  aspect-ratio: 1;
-  max-width: 480px;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--ht-surface);
-  border-radius: var(--ht-radius-card);
-}
-
-.detail__image img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.detail__placeholder {
-  color: var(--ht-ink-muted);
-}
-
-.detail__included {
-  color: var(--ht-brand);
-  font-weight: 600;
-}
-
-.detail__notice {
-  border: 2px solid var(--ht-danger);
-  border-radius: var(--ht-radius-card);
-  padding: var(--ht-space-2) var(--ht-space-3);
-  color: var(--ht-danger);
-  font-weight: 600;
-}
-
-.detail__specs {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--ht-space-1) var(--ht-space-4);
-  margin: 0;
-}
-
-.detail__specs dt {
-  color: var(--ht-ink-muted);
-}
-
-.detail__specs dd {
-  margin: 0;
-}
-
-.detail__hint,
-.detail__reason {
-  color: var(--ht-ink-muted);
-  font-size: var(--ht-text-2);
-}
-
-.detail__reason {
-  display: block;
-}
-
-.detail__accessories {
-  border: 1px solid var(--ht-line);
-  border-radius: var(--ht-radius-card);
-  padding: var(--ht-space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--ht-space-2);
-}
-
-.detail__accessory {
-  display: flex;
-  gap: var(--ht-space-2);
-  align-items: flex-start;
-  min-height: var(--ht-hit-min);
-}
-
-.detail__accessory input {
-  width: var(--ht-space-5);
-  height: var(--ht-space-5);
-}
-
-.detail__prices {
-  display: flex;
-  gap: var(--ht-space-6);
-}
-
-.detail__price-label {
-  display: block;
-  font-family: var(--ht-font-condensed);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: var(--ht-text-1);
-  color: var(--ht-ink-muted);
-}
-
-.detail__added {
-  color: var(--ht-ok);
-  font-weight: 600;
 }
 </style>

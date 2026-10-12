@@ -298,6 +298,7 @@ Twenty components. Filenames use domain vocabulary (`UI-D-02`); none is generic 
 | `C-21` | `AvailabilityCalendar` | month grid from the server's month payload; free / last / none as **derived** treatment (`D-47`); first-then-last day selection of a RentalPeriod; no date arithmetic in the component (`D-58`, `D-51`) |
 | `C-22` | `ClassificationFilter` | two groups, PowerSource and UseArea; toggle chips, OR within a group, AND across (`D-54`); state is visible as text, not colour alone |
 | `C-23` | `AssetTypeCard` | `S-01` grid cell: image (placeholder when absent, `D-56`), name, day rate via `C-14`; the whole card links to `S-02` |
+| `C-26` | `QuantityStepper` | a whole number with − / + buttons at the hit target and a typeable field, clamped to min and max; each button has its own accessible name |
 
 ---
 
@@ -319,13 +320,11 @@ Each screen: route · surface · governing identifiers · what it must show · s
 
 **`S-02` AssetType detail** — `/naradie/:assetTypeId` · `FR-01`, `FR-02`, `FR-03`, `D-38`, `D-55`–`D-58`, `W1`
 *Un-deferred by `D-58`.*
-- **Left column:** image, then includedContents as "V cene je …", then handlingNotice in a danger-bordered box, then description, then specifications as a two-column definition list.
-- **Right column:**
-  - `C-21` calendar.
-  - Accessory checkboxes, each with its own day rate and deposit. A checkbox is disabled with the reason when the Accessory is not free for the selected RentalPeriod.
-  - Quantity.
-  - Day rate and **deposit with equal weight** (`FR-02`).
-  - The **Rezervovať** action. It adds the AssetType, and any checked Accessory at the same quantity, as draft lines for the selected RentalPeriod.
+*Re-laid out 12 October 2026 (owner decision: the product first, the reservation as a card).*
+- **Product first:** image, name, description, then the day rate and the **deposit with equal weight** (`FR-02`) as two equal figures, then handlingNotice. On a wide screen the name and the prices open the left column and the image follows, level with the card.
+- **Reservation card** (right column on a wide screen): `C-21` calendar, whose picked range shows both ends in the brand fill and the days between in a pale brand tint; quantity as `C-26` (− / +); Accessories as selectable rows with their own day rate and deposit, disabled with the reason when not free for the RentalPeriod.
+- **Action bar** (fixed to the bottom on a phone, under the card on a wide screen): the period, its number of days and the **sum for the period** from the server quote (no date arithmetic on the page, `D-51`), then **Pridať do rezervácie**. After adding, the bar confirms it and offers **Pokračovať k platbe** and **Vybrať iný termín** instead of the same button, so one tap cannot add the period twice.
+- **Details:** specifications and the package contents as collapsible sections below the card.
 - **Terms:** a link only. Acceptance stays in `S-03` (`D-35`, `D-58`).
 - **States:** loading, not found or unpublished (`S-24`), calendar error, range not selectable, Accessory unavailable.
 

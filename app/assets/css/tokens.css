@@ -131,6 +131,12 @@
   --ht-signal: var(--ht-brand);
   --ht-on-signal: var(--ht-on-brand);
   --ht-signal-deep: var(--ht-brand-deep);
+
+  /* A pale brand wash for the days inside a picked RentalPeriod and for a
+   * chosen Accessory; --ht-ink on it measures ≈15:1. */
+  --ht-brand-tint: #e4eef9;
+  /* Lifts a card off --ht-paper where a hairline alone reads flat. */
+  --ht-shadow-card: 0 1px 2px rgb(20 24 27 / 6%), 0 6px 20px rgb(20 24 27 / 8%);
 }
 
 /* AssetTag label sheet (S-20, FR-26; issue #130). A4, 3 × 7 = 21 labels of
