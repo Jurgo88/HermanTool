@@ -18,7 +18,7 @@ import { formatCount, formatMoney, formatTime } from '~/utils/format'
 import { orderForDisplay, toCheckoutLines, toQuoteLines } from '~/utils/reservation-draft'
 import { getErrorCode } from '~/utils/error-code'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', hero: true })
 
 // D-35: the version of the text on /podmienky, recorded with the
 // acceptance. Still the owner's draft awaiting legal review (OQ #1), so
@@ -207,10 +207,15 @@ async function pay() {
 </script>
 
 <template>
-  <main class="checkout">
-    <h1 class="checkout__title">{{ sk.checkout.title }}</h1>
+  <main class="checkout-page">
+    <PublicHero narrow>
+      <h1>{{ sk.checkout.title }}</h1>
+      <p>{{ sk.checkout.lead }}</p>
+    </PublicHero>
 
-    <p v-if="!restored" aria-busy="true">{{ sk.checkout.restoring }}</p>
+    <div class="checkout">
+
+    <p v-if="!restored" class="checkout__empty" aria-busy="true">{{ sk.checkout.restoring }}</p>
 
     <div v-else-if="draftLines.length === 0" class="checkout__empty">
       <p>{{ sk.checkout.emptyDraft }}</p>
@@ -389,21 +394,25 @@ async function pay() {
         <p class="checkout__note">{{ sk.checkout.paymentNote }}</p>
       </div>
     </form>
+    </div>
   </main>
 </template>
 
 <style scoped>
+.checkout-page {
+  width: 100%;
+}
+
+/* Rises into the hero band. */
 .checkout {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: var(--ht-space-5) var(--ht-space-4) 0;
+  position: relative;
+  box-sizing: border-box;
+  max-width: 680px;
+  margin: calc(var(--ht-hero-overlap) * -1) auto 0;
+  padding: 0 var(--ht-space-4);
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-4);
-}
-
-.checkout__title {
-  margin: 0;
 }
 
 .checkout__form input[aria-invalid='true'] {
@@ -417,9 +426,9 @@ async function pay() {
   gap: var(--ht-space-3);
   padding: var(--ht-space-4);
   background: var(--ht-surface);
-  border: 1px solid var(--ht-line-strong);
-  border-left: var(--ht-space-1) solid var(--ht-brand);
-  border-radius: var(--ht-radius-card);
+  border: 2px solid var(--ht-brand-light);
+  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  box-shadow: var(--ht-shadow-card);
 }
 
 .checkout__pending p {
@@ -432,10 +441,11 @@ async function pay() {
   flex-direction: column;
   align-items: flex-start;
   gap: var(--ht-space-3);
+  margin: 0;
   padding: var(--ht-space-5);
   background: var(--ht-surface);
-  border: 1px solid var(--ht-line);
-  border-radius: var(--ht-radius-card);
+  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  box-shadow: var(--ht-shadow-card);
 }
 
 .checkout__empty p {
@@ -445,13 +455,18 @@ async function pay() {
 .checkout__form {
   display: flex;
   flex-direction: column;
-  gap: var(--ht-space-6);
+  gap: var(--ht-space-4);
 }
 
+/* Each part is its own card. */
 .checkout__section {
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-3);
+  padding: var(--ht-space-5) var(--ht-space-4);
+  background: var(--ht-surface);
+  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  box-shadow: var(--ht-shadow-card);
 }
 
 .checkout__heading {
@@ -469,9 +484,9 @@ async function pay() {
   width: var(--ht-space-6);
   height: var(--ht-space-6);
   border-radius: 50%;
-  background: var(--ht-brand);
+  background: var(--ht-button-primary-bg);
   color: var(--ht-on-brand);
-  font-family: var(--ht-font-mono);
+  font-weight: 700;
   font-size: var(--ht-text-2);
 }
 
@@ -479,9 +494,8 @@ async function pay() {
   list-style: none;
   margin: 0;
   padding: 0;
-  background: var(--ht-surface);
-  border: 1px solid var(--ht-line);
   border-radius: var(--ht-radius-card);
+  background: var(--ht-paper);
 }
 
 .checkout__line {
@@ -567,8 +581,7 @@ async function pay() {
   display: flex;
   flex-direction: column;
   margin: 0;
-  background: var(--ht-surface);
-  border: 1px solid var(--ht-line);
+  background: var(--ht-brand-tint);
   border-radius: var(--ht-radius-card);
 }
 
@@ -592,8 +605,8 @@ async function pay() {
 }
 
 .checkout__amount--cash {
-  border-top: 1px solid var(--ht-line);
-  background: var(--ht-surface-sunk);
+  border-top: 1px solid var(--ht-surface);
+  background: var(--ht-paper);
   border-radius: 0 0 var(--ht-radius-card) var(--ht-radius-card);
 }
 
@@ -626,18 +639,19 @@ async function pay() {
   color: var(--ht-danger);
 }
 
+/* A card floating at the bottom of a phone screen. */
 .checkout__action {
   position: sticky;
-  bottom: 0;
+  bottom: calc(var(--ht-space-3) + var(--ht-safe-bottom));
   z-index: 1;
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-2);
-  margin: 0 calc(var(--ht-space-4) * -1);
-  padding: var(--ht-space-3) max(var(--ht-space-4), var(--ht-safe-right))
-    calc(var(--ht-space-3) + var(--ht-safe-bottom)) max(var(--ht-space-4), var(--ht-safe-left));
-  background: var(--ht-paper);
-  border-top: 1px solid var(--ht-line);
+  margin-bottom: var(--ht-space-5);
+  padding: var(--ht-space-3) var(--ht-space-4);
+  background: var(--ht-surface);
+  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  box-shadow: var(--ht-shadow-raised);
 }
 
 .checkout__pay {
@@ -654,10 +668,8 @@ async function pay() {
 @media (min-width: 900px) {
   .checkout__action {
     position: static;
-    margin: 0 0 var(--ht-space-6);
-    padding: 0;
-    background: none;
-    border-top: 0;
+    margin-bottom: var(--ht-space-7);
+    box-shadow: var(--ht-shadow-card);
   }
 }
 </style>

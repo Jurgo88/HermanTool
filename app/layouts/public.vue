@@ -11,12 +11,16 @@ import { sk } from '~/i18n/sk'
 usePwaHead('public')
 
 const { lines } = useReservationDraft()
+
+// A page that opens with <PublicHero> joins the header to it (no curve).
+const route = useRoute()
+const joined = computed(() => route.meta.hero === true)
 const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.quantity, 0))
 </script>
 
 <template>
   <div class="public-surface" data-surface="public">
-    <header class="public-header">
+    <header class="public-header" :class="{ 'public-header--joined': joined }">
       <div class="public-header__inner">
         <NuxtLink to="/" class="public-header__brand" :aria-label="sk.publicHeader.homeLabel">
           <span class="public-header__wordmark">{{ sk.publicHeader.brandName }}</span>
@@ -59,14 +63,22 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
   color: var(--ht-on-brand);
 }
 
+.public-header--joined {
+  border-radius: 0;
+}
+
+.public-header--joined .public-header__inner {
+  padding-bottom: var(--ht-space-3);
+}
+
 .public-header__inner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: calc(var(--ht-space-5) + var(--ht-safe-top)) max(var(--ht-space-4), var(--ht-safe-right))
+  padding: calc(var(--ht-space-4) + var(--ht-safe-top)) max(var(--ht-space-4), var(--ht-safe-right))
     var(--ht-space-6) max(var(--ht-space-4), var(--ht-safe-left));
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--ht-space-4);
 }
@@ -80,8 +92,8 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
 
 .public-header__wordmark {
   font-family: var(--ht-font-condensed);
-  font-weight: 600;
-  font-size: var(--ht-text-6);
+  font-weight: 700;
+  font-size: var(--ht-text-5);
   line-height: 1.1;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -90,9 +102,10 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
 .public-header__tagline {
   font-family: var(--ht-font-condensed);
   font-weight: 600;
-  font-size: var(--ht-text-2);
+  font-size: var(--ht-text-1);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  opacity: 0.9;
 }
 
 .public-header__nav {
@@ -108,12 +121,9 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
   align-items: center;
   min-height: var(--ht-hit-min);
   padding: 0 var(--ht-space-4);
-  border-radius: var(--ht-radius-card);
-  font-family: var(--ht-font-condensed);
+  border-radius: var(--ht-radius-pill);
   font-weight: 600;
   font-size: var(--ht-text-2);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   text-decoration: none;
 }
 
@@ -122,12 +132,13 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
 .public-header__terms {
   background: var(--ht-brand-deep);
   color: var(--ht-on-brand);
-  border: 1px solid var(--ht-on-brand);
+  border: 1px solid var(--ht-on-brand-line);
 }
 
 .public-header__draft {
   background: var(--ht-surface);
   color: var(--ht-brand-deep);
+  box-shadow: var(--ht-shadow-raised);
 }
 
 .public-header a:focus-visible {

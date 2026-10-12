@@ -321,6 +321,7 @@ export const sk = {
   },
   publicCatalog: {
     title: 'Požičovňa náradia',
+    lead: 'Vyberte náradie a dni, zaplaťte online a vyzdvihnite si ho u nás. Zálohu nechávate v hotovosti pri prevzatí.',
     filterHeading: 'Vyhľadajte podľa filtra',
     powerSourceGroup: 'Pohon',
     useAreaGroup: 'Oblasť použitia',
@@ -335,16 +336,17 @@ export const sk = {
   },
   // S-02 (D-55, D-57, D-58).
   assetTypeDetail: {
-    backToCatalog: 'Späť do katalógu',
+    backToCatalog: '‹ Späť do katalógu',
     loading: 'Načítavam…',
     loadError: 'Náradie sa nepodarilo načítať.',
     includedHeading: 'Obsah balenia',
     specificationsHeading: 'Technické parametre',
-    dayRateLabel: 'za deň',
-    depositCashLabel: 'záloha, v hotovosti pri prevzatí',
     depositLabel: 'Záloha',
     depositInline: 'záloha {amount} v hotovosti pri prevzatí',
-    reserveHeading: 'Vyberte termín',
+    reserveHeading: 'Kedy ho potrebujete?',
+    rateChip: '{amount} / deň',
+    depositChip: 'Záloha {amount} v hotovosti',
+    paymentNote: 'Zaplatíte kartou, zálohu v hotovosti pri prevzatí.',
     pickStartHint: 'Vyberte v kalendári prvý deň prenájmu.',
     pickEndHint: 'Vyberte posledný deň prenájmu. Na jeden deň kliknite na ten istý deň znova.',
     quantityLabel: 'Počet kusov',
@@ -387,6 +389,7 @@ export const sk = {
   },
   checkout: {
     title: 'Dokončenie rezervácie',
+    lead: 'Skontrolujte náradie, zadajte svoje údaje a zaplaťte prenájom kartou.',
     restoring: 'Načítavam váš výber…',
     emptyDraft: 'Zatiaľ ste nepridali žiadne náradie.',
     backToCatalogAction: 'Vybrať náradie',

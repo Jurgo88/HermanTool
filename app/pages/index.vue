@@ -9,7 +9,7 @@ import { sk } from '~/i18n/sk'
 import { matchesSelection, type ClassificationSelection } from '~/utils/catalog-filter'
 import type { MonetaryAmountView } from '~/utils/format'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', hero: true })
 
 interface AssetTypeView {
   id: number
@@ -46,15 +46,20 @@ function clearSelection() {
 </script>
 
 <template>
-  <main class="catalog">
-    <h1 class="catalog__title">{{ sk.publicCatalog.title }}</h1>
+  <main class="catalog-page">
+    <PublicHero>
+      <h1>{{ sk.publicCatalog.title }}</h1>
+      <p class="catalog-page__lead">{{ sk.publicCatalog.lead }}</p>
+    </PublicHero>
 
-    <ClassificationFilter
-      v-if="classification"
-      v-model="selection"
-      :power-sources="classification.powerSources"
-      :use-areas="classification.useAreas"
-    />
+    <div class="catalog">
+    <div v-if="classification" class="catalog__filters">
+      <ClassificationFilter
+        v-model="selection"
+        :power-sources="classification.powerSources"
+        :use-areas="classification.useAreas"
+      />
+    </div>
 
     <p v-if="assetTypesStatus === 'pending'" aria-busy="true">{{ sk.publicCatalog.loading }}</p>
     <AppAlert v-else-if="assetTypesStatus === 'error'" :message="sk.publicCatalog.loadError" />
@@ -82,22 +87,38 @@ function clearSelection() {
     <AppButton v-if="assetTypesStatus === 'error'" variant="secondary" @click="refresh()">
       {{ sk.publicCatalog.retryAction }}
     </AppButton>
+    </div>
   </main>
 </template>
 
 <style scoped>
-.catalog {
+.catalog-page {
   width: 100%;
+}
+
+.catalog-page__lead {
+  max-width: 52ch;
+  font-size: var(--ht-text-3);
+}
+
+/* Rises into the hero band, like every page that opens with one. */
+.catalog {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
   max-width: 1200px;
-  margin: 0 auto;
-  padding: var(--ht-space-5) var(--ht-space-4);
+  margin: calc(var(--ht-hero-overlap) * -1) auto 0;
+  padding: 0 var(--ht-space-4) var(--ht-space-6);
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-5);
 }
 
-.catalog__title {
-  text-align: center;
+.catalog__filters {
+  padding: var(--ht-space-4);
+  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  background: var(--ht-surface);
+  box-shadow: var(--ht-shadow-card);
 }
 
 .catalog__grid > li {

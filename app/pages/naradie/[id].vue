@@ -11,7 +11,7 @@ import { sk } from '~/i18n/sk'
 import { formatCount, formatMoney, type MonetaryAmountView } from '~/utils/format'
 import type { CalendarMonth } from '~/components/AvailabilityCalendar.vue'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', hero: true })
 
 interface AccessoryView {
   id: number
@@ -187,6 +187,11 @@ async function loadPeriodQuote() {
 
 watch([rangeStatus, chosenAccessoryIds], loadPeriodQuote, { deep: true })
 
+// The first specifications become figures under the photo; the full list
+// stays below.
+const highlights = computed(() => assetType.value?.specifications.slice(0, 4) ?? [])
+const quantityId = useId()
+
 const periodDays = computed(() => periodQuote.value?.lines[0]?.days ?? null)
 
 // After adding, the bar offers the next step instead of the same button, so
@@ -237,204 +242,224 @@ const hint = computed(() => {
 
 <template>
   <main class="detail">
-    <NuxtLink to="/" class="detail__back">{{ sk.assetTypeDetail.backToCatalog }}</NuxtLink>
-
-    <AppAlert v-if="loadError" :message="sk.assetTypeDetail.loadError" />
-
-    <!-- Phone: one column — product, the reservation card, details, and a bar
-      fixed to the bottom with the sum and the button. Wide screens: the
-      product and details on the left, the card and the bar sticky on the
-      right. .detail__side is only a wrapper on a phone (display: contents),
-      so its children take part in the page order there. -->
-    <div v-else-if="assetType" class="detail__layout">
-      <section class="detail__intro">
-        <div class="detail__image" :class="{ 'detail__image--empty': !assetType.imageFile }">
-          <img
-            v-if="assetType.imageFile"
-            :src="`/catalog/${assetType.imageFile}`"
-            alt=""
-            width="800"
-            height="800"
-          />
-          <span v-else>{{ sk.publicCatalog.imagePlaceholder }}</span>
-        </div>
-
-        <h1 class="detail__title">{{ assetType.name }}</h1>
-        <p v-if="assetType.description" class="detail__description">{{ assetType.description }}</p>
-
+    <PublicHero>
+      <NuxtLink to="/" class="detail__back">{{ sk.assetTypeDetail.backToCatalog }}</NuxtLink>
+      <template v-if="assetType">
+        <h1>{{ assetType.name }}</h1>
+        <p v-if="assetType.description" class="detail__lead">{{ assetType.description }}</p>
         <!-- FR-02, S-02: the day rate and the cash deposit with equal weight. -->
-        <div class="detail__price">
-          <span class="detail__figure detail__figure--rate">
-            <MoneyAmount :amount="assetType.dayRate" size="large" />
-            <span class="detail__price-label">{{ sk.assetTypeDetail.dayRateLabel }}</span>
+        <div class="detail__chips">
+          <span class="detail__chip detail__chip--rate">
+            {{ sk.assetTypeDetail.rateChip.replace('{amount}', formatMoney(assetType.dayRate)) }}
           </span>
-          <span class="detail__figure">
-            <MoneyAmount :amount="assetType.depositAmount" size="large" />
-            <span class="detail__price-label">{{ sk.assetTypeDetail.depositCashLabel }}</span>
+          <span class="detail__chip">
+            {{ sk.assetTypeDetail.depositChip.replace('{amount}', formatMoney(assetType.depositAmount)) }}
           </span>
         </div>
+      </template>
+    </PublicHero>
 
-        <p v-if="assetType.handlingNotice" class="detail__notice" role="note">
-          {{ assetType.handlingNotice }}
-        </p>
-      </section>
+    <div class="detail__body">
+      <AppAlert v-if="loadError" :message="sk.assetTypeDetail.loadError" />
 
-      <div class="detail__side">
-        <section class="detail__card" aria-labelledby="detail-reserve-heading">
-          <h2 id="detail-reserve-heading" class="detail__card-heading">
-            {{ sk.assetTypeDetail.reserveHeading }}
-          </h2>
-          <AvailabilityCalendar
-            :month="calendar"
-            :status="calendarStatus"
-            :start-day="startDay"
-            :end-day="endDay"
-            @pick="pick"
-            @navigate="loadMonth"
-          />
+      <!-- Phone: one column — photo, the reservation card, details, and a bar
+        floating at the bottom with the sum and the button. Wide screens: the
+        photo and details on the left, the card and the bar on the right, all
+        rising into the hero band. .detail__side is only a wrapper on a phone
+        (display: contents), so its children take part in the page order. -->
+      <div v-else-if="assetType" class="detail__layout">
+        <section class="detail__intro">
+          <div class="detail__image" :class="{ 'detail__image--empty': !assetType.imageFile }">
+            <img
+              v-if="assetType.imageFile"
+              :src="`/catalog/${assetType.imageFile}`"
+              alt=""
+              width="800"
+              height="800"
+            />
+            <span v-else>{{ sk.publicCatalog.imagePlaceholder }}</span>
+          </div>
 
-          <AppField :label="sk.assetTypeDetail.quantityLabel">
-            <template #default="slotProps">
+          <ul v-if="highlights.length > 0" class="detail__highlights">
+            <li v-for="spec in highlights" :key="spec.label">
+              <strong>{{ spec.value }}</strong>
+              <span>{{ spec.label }}</span>
+            </li>
+          </ul>
+
+          <p v-if="assetType.handlingNotice" class="detail__notice" role="note">
+            {{ assetType.handlingNotice }}
+          </p>
+        </section>
+
+        <div class="detail__side">
+          <section class="detail__card" aria-labelledby="detail-reserve-heading">
+            <h2 id="detail-reserve-heading" class="detail__card-heading">
+              {{ sk.assetTypeDetail.reserveHeading }}
+            </h2>
+            <AvailabilityCalendar
+              :month="calendar"
+              :status="calendarStatus"
+              :start-day="startDay"
+              :end-day="endDay"
+              @pick="pick"
+              @navigate="loadMonth"
+            />
+
+            <div class="detail__quantity">
+              <label :for="quantityId" class="detail__quantity-label">
+                {{ sk.assetTypeDetail.quantityLabel }}
+              </label>
               <QuantityStepper
-                :id="slotProps.id"
+                :id="quantityId"
                 v-model="quantity"
-                :aria-describedby="slotProps.ariaDescribedby"
                 :decrease-label="sk.assetTypeDetail.quantityDecrease"
                 :increase-label="sk.assetTypeDetail.quantityIncrease"
               />
-            </template>
-          </AppField>
-
-          <fieldset v-if="assetType.accessories.length > 0" class="detail__accessories">
-            <legend class="detail__accessories-heading">
-              {{ sk.assetTypeDetail.accessoriesHeading }}
-            </legend>
-            <label
-              v-for="accessory in assetType.accessories"
-              :key="accessory.id"
-              class="detail__accessory"
-              :class="{
-                'detail__accessory--chosen': chosenAccessoryIds.includes(accessory.id),
-                'detail__accessory--off': rangeStatus !== 'ok' || !accessoryFits[accessory.id],
-              }"
-            >
-              <input
-                v-model="chosenAccessoryIds"
-                type="checkbox"
-                :value="accessory.id"
-                :disabled="rangeStatus !== 'ok' || !accessoryFits[accessory.id]"
-              />
-              <span v-if="accessory.imageFile" class="detail__accessory-thumb" aria-hidden="true">
-                <img
-                  :src="`/catalog/${accessory.imageFile}`"
-                  alt=""
-                  width="96"
-                  height="96"
-                />
-              </span>
-              <span class="detail__accessory-text">
-                <span class="detail__accessory-name">{{ accessory.name }}</span>
-                <span class="detail__accessory-meta">
-                  {{
-                    sk.assetTypeDetail.accessoryPrice.replace('{amount}', formatMoney(accessory.dayRate))
-                  }}
-                  ·
-                  {{
-                    sk.assetTypeDetail.depositInline.replace(
-                      '{amount}',
-                      formatMoney(accessory.depositAmount),
-                    )
-                  }}
-                </span>
-                <small v-if="rangeStatus !== 'ok'" class="detail__reason">
-                  {{ sk.assetTypeDetail.accessoryPickPeriodFirst }}
-                </small>
-                <small v-else-if="!accessoryFits[accessory.id]" class="detail__reason">
-                  {{ sk.assetTypeDetail.accessoryUnavailable }}
-                </small>
-              </span>
-            </label>
-          </fieldset>
-        </section>
-
-        <!-- On a phone this bar stays at the bottom of the screen; it names the
-          period and its sum, says what is still missing, and after adding
-          offers the next step instead of the same button. -->
-        <div class="detail__action" :class="{ 'detail__action--added': added }">
-          <template v-if="added">
-            <p class="detail__added" role="status">
-              <span class="detail__added-mark" aria-hidden="true" />
-              {{ sk.assetTypeDetail.addedTitle }}
-            </p>
-            <NuxtLink to="/checkout" class="detail__cta-link">
-              <AppButton class="detail__cta" variant="primary">
-                {{ sk.assetTypeDetail.continueAction }}
-              </AppButton>
-            </NuxtLink>
-            <AppButton variant="quiet" @click="pickAnother">
-              {{ sk.assetTypeDetail.pickAnotherAction }}
-            </AppButton>
-          </template>
-
-          <template v-else>
-            <p v-if="hint" class="detail__hint">{{ hint }}</p>
-            <div v-else-if="startDay && endDay" class="detail__summary">
-              <span class="detail__summary-period">
-                <DayRange :start-day="startDay" :end-day="endDay" />
-                <template v-if="periodDays !== null">
-                  · {{ formatCount(periodDays, sk.assetTypeDetail.dayCount) }}
-                </template>
-              </span>
-              <span v-if="periodQuote" class="detail__summary-total">
-                <span class="detail__summary-label">{{ sk.assetTypeDetail.totalLabel }}</span>
-                <MoneyAmount :amount="periodQuote.rentalFeeTotal" />
-              </span>
             </div>
-            <p v-if="rangeStatus === 'checking'" class="detail__hint" aria-busy="true">
-              {{ sk.assetTypeDetail.rangeChecking }}
-            </p>
-            <AppAlert
-              v-else-if="rangeStatus === 'unavailable'"
-              variant="warn"
-              :message="sk.assetTypeDetail.rangeUnavailable"
-            />
-            <AppAlert
-              v-else-if="rangeStatus === 'error'"
-              :message="sk.assetTypeDetail.rangeError"
-            />
 
-            <AppButton
-              class="detail__cta"
-              variant="primary"
-              :pending="rangeStatus === 'checking'"
-              :disabled="rangeStatus !== 'ok'"
-              @click="reserve"
-            >
-              {{ sk.assetTypeDetail.addAction }}
-            </AppButton>
-          </template>
-        </div>
-      </div>
+            <fieldset v-if="assetType.accessories.length > 0" class="detail__accessories">
+              <legend class="detail__accessories-heading">
+                {{ sk.assetTypeDetail.accessoriesHeading }}
+              </legend>
+              <label
+                v-for="accessory in assetType.accessories"
+                :key="accessory.id"
+                class="detail__accessory"
+                :class="{
+                  'detail__accessory--chosen': chosenAccessoryIds.includes(accessory.id),
+                  'detail__accessory--off': rangeStatus !== 'ok' || !accessoryFits[accessory.id],
+                }"
+              >
+                <input
+                  v-model="chosenAccessoryIds"
+                  type="checkbox"
+                  :value="accessory.id"
+                  :disabled="rangeStatus !== 'ok' || !accessoryFits[accessory.id]"
+                />
+                <span
+                  v-if="accessory.imageFile"
+                  class="detail__accessory-thumb"
+                  aria-hidden="true"
+                >
+                  <img :src="`/catalog/${accessory.imageFile}`" alt="" width="96" height="96" />
+                </span>
+                <span class="detail__accessory-text">
+                  <span class="detail__accessory-name">{{ accessory.name }}</span>
+                  <span class="detail__accessory-meta">
+                    {{
+                      sk.assetTypeDetail.accessoryPrice.replace(
+                        '{amount}',
+                        formatMoney(accessory.dayRate),
+                      )
+                    }}
+                    ·
+                    {{
+                      sk.assetTypeDetail.depositInline.replace(
+                        '{amount}',
+                        formatMoney(accessory.depositAmount),
+                      )
+                    }}
+                  </span>
+                  <small v-if="rangeStatus !== 'ok'" class="detail__reason">
+                    {{ sk.assetTypeDetail.accessoryPickPeriodFirst }}
+                  </small>
+                  <small v-else-if="!accessoryFits[accessory.id]" class="detail__reason">
+                    {{ sk.assetTypeDetail.accessoryUnavailable }}
+                  </small>
+                </span>
+              </label>
+            </fieldset>
+          </section>
 
-      <section
-        v-if="assetType.specifications.length > 0 || assetType.includedContents"
-        class="detail__info"
-      >
-        <details v-if="assetType.specifications.length > 0" class="detail__more" open>
-          <summary>{{ sk.assetTypeDetail.specificationsHeading }}</summary>
-          <dl class="detail__specs">
-            <template v-for="spec in assetType.specifications" :key="spec.label">
-              <dt>{{ spec.label }}</dt>
-              <dd>{{ spec.value }}</dd>
+          <!-- On a phone this bar floats at the bottom of the screen; it names
+            the period and its sum, says what is still missing, and after adding
+            offers the next step instead of the same button. -->
+          <div class="detail__action" :class="{ 'detail__action--added': added }">
+            <template v-if="added">
+              <p class="detail__added" role="status">
+                <span class="detail__added-mark" aria-hidden="true" />
+                {{ sk.assetTypeDetail.addedTitle }}
+              </p>
+              <div class="detail__added-actions">
+                <AppButton variant="quiet" @click="pickAnother">
+                  {{ sk.assetTypeDetail.pickAnotherAction }}
+                </AppButton>
+                <NuxtLink to="/checkout" class="detail__cta-link">
+                  <AppButton class="detail__cta" variant="primary">
+                    {{ sk.assetTypeDetail.continueAction }}
+                  </AppButton>
+                </NuxtLink>
+              </div>
             </template>
-          </dl>
-        </details>
-        <details v-if="assetType.includedContents" class="detail__more">
-          <summary>{{ sk.assetTypeDetail.includedHeading }}</summary>
-          <p>{{ assetType.includedContents }}</p>
-        </details>
-        <NuxtLink to="/podmienky" class="detail__terms">{{ sk.assetTypeDetail.termsLink }}</NuxtLink>
-      </section>
+
+            <template v-else>
+              <div class="detail__action-row">
+                <div class="detail__summary">
+                  <p v-if="hint" class="detail__hint">{{ hint }}</p>
+                  <template v-else-if="startDay && endDay">
+                    <span class="detail__summary-period">
+                      <DayRange :start-day="startDay" :end-day="endDay" />
+                      <template v-if="periodDays !== null">
+                        · {{ formatCount(periodDays, sk.assetTypeDetail.dayCount) }}
+                      </template>
+                    </span>
+                    <MoneyAmount
+                      v-if="periodQuote"
+                      class="detail__summary-total"
+                      :amount="periodQuote.rentalFeeTotal"
+                    />
+                  </template>
+                </div>
+                <AppButton
+                  class="detail__cta"
+                  variant="primary"
+                  :pending="rangeStatus === 'checking'"
+                  :disabled="rangeStatus !== 'ok'"
+                  @click="reserve"
+                >
+                  {{ sk.assetTypeDetail.addAction }}
+                </AppButton>
+              </div>
+              <p v-if="rangeStatus === 'checking'" class="detail__hint" aria-busy="true">
+                {{ sk.assetTypeDetail.rangeChecking }}
+              </p>
+              <AppAlert
+                v-else-if="rangeStatus === 'unavailable'"
+                variant="warn"
+                :message="sk.assetTypeDetail.rangeUnavailable"
+              />
+              <AppAlert
+                v-else-if="rangeStatus === 'error'"
+                :message="sk.assetTypeDetail.rangeError"
+              />
+              <p v-else class="detail__note">{{ sk.assetTypeDetail.paymentNote }}</p>
+            </template>
+          </div>
+        </div>
+
+        <section
+          v-if="assetType.specifications.length > 0 || assetType.includedContents"
+          class="detail__info"
+        >
+          <details v-if="assetType.specifications.length > 0" class="detail__more" open>
+            <summary>{{ sk.assetTypeDetail.specificationsHeading }}</summary>
+            <dl class="detail__specs">
+              <template v-for="spec in assetType.specifications" :key="spec.label">
+                <dt>{{ spec.label }}</dt>
+                <dd>{{ spec.value }}</dd>
+              </template>
+            </dl>
+          </details>
+          <details v-if="assetType.includedContents" class="detail__more">
+            <summary>{{ sk.assetTypeDetail.includedHeading }}</summary>
+            <p>{{ assetType.includedContents }}</p>
+          </details>
+          <NuxtLink to="/podmienky" class="detail__terms">{{
+            sk.assetTypeDetail.termsLink
+          }}</NuxtLink>
+        </section>
+      </div>
     </div>
   </main>
 </template>
@@ -442,29 +467,57 @@ const hint = computed(() => {
 <style scoped>
 .detail {
   width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: var(--ht-space-4) var(--ht-space-4) 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--ht-space-4);
 }
 
-.detail__back,
-.detail__terms {
+.detail__back {
   align-self: flex-start;
+  font-size: var(--ht-text-2);
+  opacity: 0.9;
+}
+
+.detail__lead {
+  max-width: 60ch;
+  font-size: var(--ht-text-3);
+}
+
+.detail__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ht-space-2);
+  margin-top: var(--ht-space-1);
+}
+
+.detail__chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ht-space-6);
+  padding: 0 var(--ht-space-3);
+  border-radius: var(--ht-radius-pill);
+  background: var(--ht-surface);
+  color: var(--ht-ink);
+  font-weight: 700;
+  font-size: var(--ht-text-3);
+}
+
+.detail__chip--rate {
   color: var(--ht-brand);
-  font-weight: 600;
+}
+
+.detail__body {
+  max-width: 1200px;
+  margin: calc(var(--ht-hero-overlap) * -1) auto 0;
+  padding: 0 var(--ht-space-4) var(--ht-space-5);
+  position: relative;
 }
 
 .detail__layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--ht-space-5);
+  gap: var(--ht-space-4);
 }
 
 /* Phone: the wrapper dissolves and order places the details before the bar,
- * so the bar is the last thing on the page and stays fixed to the bottom. */
+ * so the bar is the last thing on the page and floats at the bottom. */
 .detail__side {
   display: contents;
 }
@@ -485,7 +538,7 @@ const hint = computed(() => {
   order: 4;
 }
 
-/* --- Product --- */
+/* --- Photo and highlights --- */
 
 .detail__intro {
   display: flex;
@@ -496,12 +549,13 @@ const hint = computed(() => {
 .detail__image {
   aspect-ratio: 4 / 3;
   width: 100%;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--ht-space-4);
+  padding: var(--ht-space-5);
   background: var(--ht-surface);
-  border-radius: var(--ht-radius-card);
+  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
   box-shadow: var(--ht-shadow-card);
 }
 
@@ -513,55 +567,43 @@ const hint = computed(() => {
 
 .detail__image--empty {
   aspect-ratio: 16 / 9;
-  background: var(--ht-surface-sunk);
-  box-shadow: none;
   color: var(--ht-ink-muted);
 }
 
-.detail__title {
-  margin: var(--ht-space-2) 0 0;
-  font-size: var(--ht-text-5);
+.detail__highlights {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ht-space-2);
+}
+
+.detail__highlights li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-1);
+  padding: var(--ht-space-3) var(--ht-space-4);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
+}
+
+.detail__highlights strong {
+  color: var(--ht-brand);
+  font-size: var(--ht-text-4);
   line-height: 1.2;
 }
 
-.detail__description {
-  margin: 0;
-  color: var(--ht-ink-muted);
-}
-
-.detail__price {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ht-space-3);
-}
-
-.detail__figure {
-  display: flex;
-  flex-direction: column;
-  padding: var(--ht-space-3);
-  border-radius: var(--ht-radius-card);
-  background: var(--ht-surface);
-  border: 1px solid var(--ht-line);
-}
-
-.detail__figure--rate {
-  color: var(--ht-brand-deep);
-}
-
-.detail__figure :deep(.money-amount--large) {
-  font-size: var(--ht-text-5);
-}
-
-.detail__price-label {
+.detail__highlights span {
   font-size: var(--ht-text-2);
   color: var(--ht-ink-muted);
 }
 
 .detail__notice {
   margin: 0;
-  padding: var(--ht-space-3);
-  border-left: var(--ht-space-1) solid var(--ht-danger);
-  border-radius: var(--ht-radius-plate);
+  padding: var(--ht-space-3) var(--ht-space-4);
+  border-radius: var(--ht-radius-card);
+  border: 2px solid var(--ht-danger);
   background: var(--ht-surface);
   color: var(--ht-danger);
   font-weight: 600;
@@ -573,9 +615,9 @@ const hint = computed(() => {
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-4);
-  padding: var(--ht-space-4);
+  padding: var(--ht-space-5) var(--ht-space-4);
   background: var(--ht-surface);
-  border-radius: var(--ht-radius-card);
+  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
   box-shadow: var(--ht-shadow-card);
 }
 
@@ -584,8 +626,18 @@ const hint = computed(() => {
   font-size: var(--ht-text-4);
 }
 
-.detail__card :deep(.app-field) {
-  margin-bottom: 0;
+.detail__quantity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ht-space-3);
+  padding: var(--ht-space-2) var(--ht-space-2) var(--ht-space-2) var(--ht-space-4);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-paper);
+}
+
+.detail__quantity-label {
+  font-weight: 600;
 }
 
 .detail__accessories {
@@ -600,12 +652,7 @@ const hint = computed(() => {
 .detail__accessories-heading {
   margin-bottom: var(--ht-space-2);
   padding: 0;
-  font-family: var(--ht-font-condensed);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: var(--ht-text-1);
-  color: var(--ht-ink-muted);
 }
 
 .detail__accessory {
@@ -613,8 +660,8 @@ const hint = computed(() => {
   align-items: center;
   gap: var(--ht-space-3);
   min-height: var(--ht-hit-min);
-  padding: var(--ht-space-2) var(--ht-space-3);
-  border: 1px solid var(--ht-line);
+  padding: var(--ht-space-3);
+  border: 2px solid var(--ht-line);
   border-radius: var(--ht-radius-card);
   cursor: pointer;
   transition:
@@ -627,10 +674,11 @@ const hint = computed(() => {
   width: var(--ht-space-5);
   height: var(--ht-space-5);
   margin: 0;
+  accent-color: var(--ht-brand);
 }
 
 .detail__accessory--chosen {
-  border-color: var(--ht-brand);
+  border-color: var(--ht-brand-light);
   background: var(--ht-brand-tint);
 }
 
@@ -642,11 +690,8 @@ const hint = computed(() => {
   flex: none;
   width: var(--ht-space-7);
   height: var(--ht-space-7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border-radius: var(--ht-radius-plate);
-  background: var(--ht-surface-sunk);
+  background: var(--ht-surface);
   overflow: hidden;
 }
 
@@ -654,7 +699,6 @@ const hint = computed(() => {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: var(--ht-surface);
 }
 
 .detail__accessory-text {
@@ -679,17 +723,20 @@ const hint = computed(() => {
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-2);
+  padding: var(--ht-space-2) var(--ht-space-4) var(--ht-space-4);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
 }
 
-.detail__more {
-  border-bottom: 1px solid var(--ht-line);
+.detail__more + .detail__more {
+  border-top: 1px solid var(--ht-line);
 }
 
 .detail__more summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: var(--ht-hit-min);
+  min-height: calc(var(--ht-hit-min) + var(--ht-space-2));
   font-weight: 600;
   font-size: var(--ht-text-4);
   cursor: pointer;
@@ -737,61 +784,65 @@ const hint = computed(() => {
 }
 
 .detail__terms {
-  margin-top: var(--ht-space-2);
+  align-self: flex-start;
+  color: var(--ht-brand);
+  font-weight: 600;
 }
 
-/* --- Action bar --- */
+/* --- Action bar: a floating card --- */
 
 .detail__action {
   position: sticky;
-  bottom: 0;
+  bottom: calc(var(--ht-space-3) + var(--ht-safe-bottom));
   z-index: 1;
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-2);
-  margin: 0 calc(var(--ht-space-4) * -1);
-  padding: var(--ht-space-3) max(var(--ht-space-4), var(--ht-safe-right))
-    calc(var(--ht-space-3) + var(--ht-safe-bottom)) max(var(--ht-space-4), var(--ht-safe-left));
+  padding: var(--ht-space-3) var(--ht-space-4);
   background: var(--ht-surface);
-  box-shadow: var(--ht-shadow-card);
-  border-top: 1px solid var(--ht-line);
+  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  box-shadow: var(--ht-shadow-raised);
 }
 
 .detail__action p {
   margin: 0;
 }
 
-.detail__hint {
+.detail__action-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ht-space-3);
+}
+
+.detail__summary {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail__summary-period {
+  font-size: var(--ht-text-2);
+  color: var(--ht-ink-muted);
+}
+
+.detail__summary-total {
+  color: var(--ht-brand-deep);
+  font-size: var(--ht-text-5);
+  line-height: 1.1;
+}
+
+.detail__hint,
+.detail__note {
   color: var(--ht-ink-muted);
   font-size: var(--ht-text-2);
 }
 
-.detail__summary {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--ht-space-3);
-}
-
-.detail__summary-period {
-  font-weight: 600;
-}
-
-.detail__summary-total {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  font-size: var(--ht-text-4);
-}
-
-.detail__summary-label {
-  font-size: var(--ht-text-1);
-  color: var(--ht-ink-muted);
-}
-
-.detail__cta,
-.detail__cta-link {
-  width: 100%;
+.detail__cta {
+  flex: none;
+  height: calc(var(--ht-hit-min) + var(--ht-space-2));
+  padding: 0 var(--ht-space-5);
+  font-size: var(--ht-text-3);
 }
 
 .detail__added {
@@ -800,6 +851,21 @@ const hint = computed(() => {
   gap: var(--ht-space-2);
   color: var(--ht-ok);
   font-weight: 600;
+}
+
+.detail__added-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ht-space-2);
+}
+
+.detail__added-actions .detail__cta-link {
+  flex: 1;
+}
+
+.detail__added-actions .detail__cta {
+  width: 100%;
 }
 
 /* A drawn check mark in a circle, no icon font. */
@@ -825,13 +891,14 @@ const hint = computed(() => {
 }
 
 @media (min-width: 900px) {
-  .detail {
+  .detail__body {
     padding-bottom: var(--ht-space-7);
   }
 
   .detail__layout {
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-    column-gap: var(--ht-space-7);
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: var(--ht-space-6);
+    row-gap: var(--ht-space-5);
     align-items: start;
   }
 
@@ -855,40 +922,33 @@ const hint = computed(() => {
     top: var(--ht-space-4);
   }
 
-  .detail__title {
-    margin-top: 0;
-    font-size: var(--ht-text-6);
+  .detail__highlights {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  /* Wide screens: the name and the price open the page, level with the
-   * reservation card, and the photo follows. */
-  .detail__title {
-    order: 1;
-  }
-
-  .detail__description {
-    order: 2;
-  }
-
-  .detail__price {
-    order: 3;
-  }
-
-  .detail__notice {
-    order: 4;
-  }
-
-  .detail__image {
-    order: 5;
-    margin-top: var(--ht-space-2);
+  .detail__card {
+    padding: var(--ht-space-5);
   }
 
   .detail__action {
     position: static;
-    margin: 0;
-    padding: var(--ht-space-4);
-    border-top: 0;
-    border-radius: var(--ht-radius-card);
+    padding: var(--ht-space-4) var(--ht-space-5);
+    box-shadow: var(--ht-shadow-card);
+  }
+
+  .detail__action-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .detail__summary {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .detail__cta {
+    width: 100%;
   }
 }
 </style>

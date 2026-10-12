@@ -10,7 +10,7 @@ import { sk } from '~/i18n/sk'
 import type { DraftReservationLine } from '~/composables/useReservationDraft'
 import { orderForDisplay } from '~/utils/reservation-draft'
 
-definePageMeta({ layout: 'public' })
+definePageMeta({ layout: 'public', hero: true })
 
 // #190: the payment went through, so the draft and the unpaid-group marker
 // kept for resuming are done. After the stored draft is read, or it would
@@ -31,10 +31,16 @@ const summary = computed(() => orderForDisplay(paidLines.value))
 </script>
 
 <template>
-  <main class="result">
-    <span class="result__mark" aria-hidden="true" />
-    <h1 class="result__title">{{ sk.checkoutResult.successTitle }}</h1>
-    <p class="result__lead">{{ sk.checkoutResult.successBody }}</p>
+  <main class="result-page">
+    <PublicHero>
+      <div class="result__hero">
+        <span class="result__mark" aria-hidden="true" />
+        <h1>{{ sk.checkoutResult.successTitle }}</h1>
+        <p>{{ sk.checkoutResult.successBody }}</p>
+      </div>
+    </PublicHero>
+
+    <div class="result">
 
     <section v-if="summary.length > 0" class="result__card" aria-labelledby="result-summary">
       <h2 id="result-summary" class="result__heading">{{ sk.checkoutResult.summaryHeading }}</h2>
@@ -63,19 +69,36 @@ const summary = computed(() => orderForDisplay(paidLines.value))
     <NuxtLink to="/" class="result__action">
       <AppButton variant="primary">{{ sk.checkoutResult.backToCatalogAction }}</AppButton>
     </NuxtLink>
+    </div>
   </main>
 </template>
 
 <style scoped>
-.result {
+.result-page {
+  width: 100%;
+}
+
+.result__hero {
   max-width: 520px;
   margin: 0 auto;
-  padding: var(--ht-space-6) var(--ht-space-4) var(--ht-space-7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ht-space-3);
+  text-align: center;
+}
+
+/* Rises into the hero band. */
+.result {
+  position: relative;
+  box-sizing: border-box;
+  max-width: 520px;
+  margin: calc(var(--ht-hero-overlap) * -1) auto 0;
+  padding: 0 var(--ht-space-4) var(--ht-space-7);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--ht-space-4);
-  text-align: center;
 }
 
 /* A drawn check mark in a circle, no icon font. */
@@ -84,8 +107,8 @@ const summary = computed(() => orderForDisplay(paidLines.value))
   width: var(--ht-space-7);
   height: var(--ht-space-7);
   border-radius: 50%;
-  background: var(--ht-ok);
-  box-shadow: 0 0 0 var(--ht-space-2) var(--ht-surface);
+  background: var(--ht-surface);
+  box-shadow: 0 0 0 var(--ht-space-2) var(--ht-on-brand-glass);
 }
 
 .result__mark::after {
@@ -95,25 +118,17 @@ const summary = computed(() => orderForDisplay(paidLines.value))
   top: 22%;
   width: 24%;
   height: 44%;
-  border: solid var(--ht-on-brand);
+  border: solid var(--ht-ok);
   border-width: 0 var(--ht-space-1) var(--ht-space-1) 0;
   transform: rotate(45deg);
 }
 
-.result__title,
-.result__lead {
-  margin: 0;
-}
-
-.result__lead {
-  color: var(--ht-ink-muted);
-}
-
 .result__card {
   width: 100%;
-  padding: var(--ht-space-4);
+  box-sizing: border-box;
+  padding: var(--ht-space-5) var(--ht-space-4);
   background: var(--ht-surface);
-  border-radius: var(--ht-radius-card);
+  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
   box-shadow: var(--ht-shadow-card);
   text-align: left;
 }
@@ -183,9 +198,8 @@ const summary = computed(() => orderForDisplay(paidLines.value))
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: var(--ht-brand);
+  background: var(--ht-button-primary-bg);
   color: var(--ht-on-brand);
-  font-family: var(--ht-font-mono);
   font-weight: 600;
 }
 

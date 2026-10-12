@@ -13,8 +13,8 @@ withDefaults(defineProps<{ amount: MonetaryAmountView; size?: 'default' | 'large
 
 <style scoped>
 .money-amount {
-  font-family: var(--ht-font-mono);
-  font-weight: 600;
+  font-family: var(--ht-font-money);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
