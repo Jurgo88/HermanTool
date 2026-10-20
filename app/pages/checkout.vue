@@ -192,6 +192,10 @@ async function pay() {
         },
       })
       reservationGroupId.value = result.reservationGroupId
+      // #190: remembered from the moment the days are held, not only once
+      // the payment page opens — a payment that fails to start must not
+      // leave a hold this browser forgets and then collides with.
+      pendingGroupId.value = result.reservationGroupId
     }
     await $fetch(`/api/reservations/${reservationGroupId.value}/accept-terms`, {
       method: 'POST',
@@ -204,7 +208,6 @@ async function pay() {
     // #190: the draft stays until the payment succeeds (success page), so
     // leaving Stripe's page can be undone. The button stays pending until
     // the browser leaves.
-    pendingGroupId.value = reservationGroupId.value
     window.location.href = redirectUrl
   } catch (err: unknown) {
     error.value = messageFor(err)
