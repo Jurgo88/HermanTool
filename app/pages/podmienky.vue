@@ -5,7 +5,7 @@
 // (S-03) and the site footer.
 import { sk } from '~/i18n/sk'
 
-definePageMeta({ layout: 'public', hero: true })
+definePageMeta({ layout: 'public' })
 
 const terms = sk.draft.terms
 const sectionId = (index: number) => `clanok-${index + 1}`
@@ -17,12 +17,12 @@ function print() {
 
 <template>
   <div class="legal-shell">
-    <PublicHero narrow>
-      <h1>{{ sk.legalTerms.title }}</h1>
-      <p>
+    <header class="legal-head">
+      <h1 class="legal-head__title">{{ sk.legalTerms.title }}</h1>
+      <p class="legal-head__meta">
         {{ terms.dateLabel }} · {{ sk.legalTerms.versionLabel.replace('{version}', terms.version) }}
       </p>
-    </PublicHero>
+    </header>
   <main class="legal-page">
 
     <DraftNotice>
@@ -66,20 +66,37 @@ function print() {
   width: 100%;
 }
 
-/* One reading card, risen into the hero band. */
-.legal-page {
-  position: relative;
+.legal-head {
   box-sizing: border-box;
   width: calc(100% - var(--ht-space-4) * 2);
   max-width: 680px;
-  margin: calc(var(--ht-hero-overlap) * -1) auto var(--ht-space-7);
+  margin: 0 auto;
+  padding: var(--ht-space-5) 0 var(--ht-space-4);
+}
+
+.legal-head__title {
+  margin: 0;
+}
+
+.legal-head__meta {
+  margin: var(--ht-space-1) 0 0;
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-2);
+}
+
+/* One reading card. */
+.legal-page {
+  box-sizing: border-box;
+  width: calc(100% - var(--ht-space-4) * 2);
+  max-width: 680px;
+  margin: 0 auto var(--ht-space-7);
   padding: var(--ht-space-5) var(--ht-space-4);
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-5);
   line-height: 1.6;
   background: var(--ht-surface);
-  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  border-radius: var(--ht-radius-card);
   box-shadow: var(--ht-shadow-card);
 }
 

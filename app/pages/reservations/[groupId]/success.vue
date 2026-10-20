@@ -8,7 +8,6 @@
 // a confirmed status; it only acknowledges the payment step completed.
 import { sk } from '~/i18n/sk'
 import type { DraftReservationLine } from '~/composables/useReservationDraft'
-import { orderForDisplay } from '~/utils/reservation-draft'
 
 definePageMeta({ layout: 'public', hero: true })
 
@@ -27,7 +26,6 @@ watch(
   },
   { immediate: true },
 )
-const summary = computed(() => orderForDisplay(paidLines.value))
 </script>
 
 <template>
@@ -42,21 +40,9 @@ const summary = computed(() => orderForDisplay(paidLines.value))
 
     <div class="result">
 
-    <section v-if="summary.length > 0" class="result__card" aria-labelledby="result-summary">
+    <section v-if="paidLines.length > 0" class="result__card" aria-labelledby="result-summary">
       <h2 id="result-summary" class="result__heading">{{ sk.checkoutResult.summaryHeading }}</h2>
-      <ul class="result__lines">
-        <li
-          v-for="{ line, isAccessory } in summary"
-          :key="`${line.assetTypeId}-${line.period.startDay}-${line.period.endDay}`"
-          :class="{ 'result__line--accessory': isAccessory }"
-        >
-          <span class="result__line-name">{{ line.assetTypeName }}</span>
-          <span class="result__line-meta">
-            <DayRange :start-day="line.period.startDay" :end-day="line.period.endDay" />
-            · {{ sk.checkout.unitCount.replace('{count}', String(line.quantity)) }}
-          </span>
-        </li>
-      </ul>
+      <DraftSummaryList :lines="paidLines" />
     </section>
 
     <section class="result__card" aria-labelledby="result-next">
@@ -128,7 +114,7 @@ const summary = computed(() => orderForDisplay(paidLines.value))
   box-sizing: border-box;
   padding: var(--ht-space-5) var(--ht-space-4);
   background: var(--ht-surface);
-  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  border-radius: var(--ht-radius-card);
   box-shadow: var(--ht-shadow-card);
   text-align: left;
 }
@@ -136,37 +122,6 @@ const summary = computed(() => orderForDisplay(paidLines.value))
 .result__heading {
   margin: 0 0 var(--ht-space-3);
   font-size: var(--ht-text-4);
-}
-
-.result__lines {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.result__lines li {
-  display: flex;
-  flex-direction: column;
-  padding: var(--ht-space-2) 0;
-}
-
-.result__lines li + li {
-  border-top: 1px solid var(--ht-line);
-}
-
-.result__lines .result__line--accessory {
-  padding-left: var(--ht-space-4);
-}
-
-.result__line-name {
-  font-weight: 600;
-}
-
-.result__line-meta {
-  font-size: var(--ht-text-2);
-  color: var(--ht-ink-muted);
 }
 
 /* Numbered steps joined by a line, so the order reads at a glance. */

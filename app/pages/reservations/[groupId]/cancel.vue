@@ -105,6 +105,7 @@ const lead = computed(() => {
         <p v-if="loadState === 'loading'" aria-busy="true">{{ sk.checkoutResult.statusLoading }}</p>
 
         <template v-else-if="status?.state === 'payable'">
+          <DraftSummaryList v-if="hasDraft" class="result__wide" :lines="lines" />
           <AppAlert :message="error" />
           <AppButton
             class="result__wide"
@@ -172,7 +173,7 @@ const lead = computed(() => {
   gap: var(--ht-space-3);
   padding: var(--ht-space-5) var(--ht-space-4);
   background: var(--ht-surface);
-  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  border-radius: var(--ht-radius-card);
   box-shadow: var(--ht-shadow-card);
   text-align: center;
 }
