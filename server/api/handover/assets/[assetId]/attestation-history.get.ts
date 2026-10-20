@@ -1,6 +1,7 @@
 import { AssetNotFoundError } from '../../../../contexts/asset-registry'
 import { getAssetAttestationHistory } from '../../../../contexts/handover-possession'
 import { translateAssetRegistryError } from '../../../../utils/asset-registry-deps'
+import { createCatalogDeps } from '../../../../utils/catalog-deps'
 import { createHandoverPossessionDeps, getAssetIdParam } from '../../../../utils/handover-possession-deps'
 import { createOperatorsDeps } from '../../../../utils/operators-deps'
 import { requireOperator } from '../../../../utils/operator-session'
@@ -19,6 +20,7 @@ export default defineEventHandler(async (event) => {
   const assetId = getAssetIdParam(event)
   const { repo, assetRegistryRepo, close } = createHandoverPossessionDeps(event)
   const operators = createOperatorsDeps(event)
+  const catalog = createCatalogDeps(event)
 
   try {
     const [asset, tag, history, operatorList] = await Promise.all([
@@ -29,11 +31,13 @@ export default defineEventHandler(async (event) => {
     ])
     if (!asset) throw new AssetNotFoundError(assetId)
 
+    // S-13 names the tool, not only its tag.
+    const assetType = await catalog.repo.getAssetType(operator.tenantId, asset.assetTypeId)
     const operatorNames = Object.fromEntries(operatorList.map((o) => [o.id, o.displayName]))
-    return { asset, tagCode: tag?.tagCode ?? null, history, operatorNames }
+    return { asset, assetTypeName: assetType?.name ?? null, tagCode: tag?.tagCode ?? null, history, operatorNames }
   } catch (err) {
     translateAssetRegistryError(err)
   } finally {
-    await Promise.all([close(), operators.close()])
+    await Promise.all([close(), operators.close(), catalog.close()])
   }
 })

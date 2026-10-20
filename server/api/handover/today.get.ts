@@ -32,7 +32,9 @@ export default defineEventHandler(async (event) => {
       listTodaysReturns(deps, { tenantId: operator.tenantId, today }),
     ])
 
-    return { pickups, returns }
+    // `today` is the Tenant's day the lists were built for; the counter
+    // shows it rather than reading the device clock (D-51).
+    return { today, pickups, returns }
   } finally {
     await Promise.all([availability.close(), catalog.close(), customerIdentity.close(), handover.close()])
   }
