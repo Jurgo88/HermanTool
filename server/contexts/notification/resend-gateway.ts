@@ -21,10 +21,19 @@ export interface NotificationGateway {
 }
 
 export function createResendNotificationGateway(params: { apiKey: string; fromAddress: string }): NotificationGateway {
-  const resend = new Resend(params.apiKey)
+  // The SDK throws at construction when the key is empty; built lazily so
+  // an unconfigured key fails one send, not the Stripe webhook that builds
+  // this gateway before it confirms the payment.
+  let client: Resend | undefined
 
   return {
     async sendEmail({ to, subject, text }) {
+      let resend: Resend
+      try {
+        resend = client ??= new Resend(params.apiKey)
+      } catch (err) {
+        throw new NotificationSendFailedError(err instanceof Error ? err.message : String(err))
+      }
       const result = await resend.emails.send({ from: params.fromAddress, to, subject, text })
       if (result.error) throw new NotificationSendFailedError(result.error.message)
       // Resend's SDK types `data` as nullable alongside `error` even on
