@@ -9,7 +9,7 @@ import { sk } from '~/i18n/sk'
 import { matchesSelection, type ClassificationSelection } from '~/utils/catalog-filter'
 import type { MonetaryAmountView } from '~/utils/format'
 
-definePageMeta({ layout: 'public', hero: true })
+definePageMeta({ layout: 'public' })
 
 interface AssetTypeView {
   id: number
@@ -47,12 +47,12 @@ function clearSelection() {
 
 <template>
   <main class="catalog-page">
-    <PublicHero>
-      <h1>{{ sk.publicCatalog.title }}</h1>
-      <p class="catalog-page__lead">{{ sk.publicCatalog.lead }}</p>
-    </PublicHero>
-
     <div class="catalog">
+    <header class="catalog__intro">
+      <h1 class="catalog__title">{{ sk.publicCatalog.title }}</h1>
+      <p class="catalog__lead">{{ sk.publicCatalog.lead }}</p>
+    </header>
+
     <div v-if="classification" class="catalog__filters">
       <ClassificationFilter
         v-model="selection"
@@ -96,27 +96,39 @@ function clearSelection() {
   width: 100%;
 }
 
-.catalog-page__lead {
-  max-width: 52ch;
-  font-size: var(--ht-text-3);
-}
-
-/* Rises into the hero band, like every page that opens with one. */
 .catalog {
-  position: relative;
   width: 100%;
   box-sizing: border-box;
   max-width: 1200px;
-  margin: calc(var(--ht-hero-overlap) * -1) auto 0;
-  padding: 0 var(--ht-space-4) var(--ht-space-6);
+  margin: 0 auto;
+  padding: var(--ht-space-5) var(--ht-space-4) var(--ht-space-6);
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-5);
 }
 
+.catalog__intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ht-space-2);
+  text-align: center;
+}
+
+.catalog__title {
+  margin: 0;
+}
+
+.catalog__lead {
+  margin: 0;
+  max-width: 56ch;
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-3);
+}
+
 .catalog__filters {
   padding: var(--ht-space-4);
-  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  border-radius: var(--ht-radius-plate);
   background: var(--ht-surface);
   box-shadow: var(--ht-shadow-card);
 }

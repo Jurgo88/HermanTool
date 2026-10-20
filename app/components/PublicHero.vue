@@ -18,7 +18,7 @@ defineProps<{ narrow?: boolean }>()
 
 <style scoped>
 .public-hero {
-  background: var(--ht-header-gradient);
+  background: var(--ht-band-gradient);
   color: var(--ht-on-brand);
   border-radius: 0 0 var(--ht-radius-hero) var(--ht-radius-hero);
 }

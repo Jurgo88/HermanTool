@@ -53,6 +53,8 @@
   --ht-hit-counter: 56px; /* counter primary controls */
   --ht-motion: 120ms;
   --ht-radius-pill: 999px;
+  /* Buttons, chips and catalog tiles. */
+  --ht-radius-tile: var(--ht-radius-card);
   /* The large rounding of a hero band's foot (public); a card elsewhere. */
   --ht-radius-hero: var(--ht-radius-card);
   --ht-shadow-card: none;
@@ -135,16 +137,23 @@
   --ht-brand: #1f5fa8;
   --ht-brand-light: #62b2e2;
   --ht-on-brand: #ffffff;
-  /* Light only past 70%, so header text on the left stays on ≥4.5:1.
-   * Horizontal, so the header and a page's hero band below it join without
-   * a seam (a slanted gradient depends on each box's height). */
+  /* Light only past 70%, so header text on the left stays on ≥4.5:1. */
   --ht-header-gradient: linear-gradient(
-    90deg,
+    100deg,
     var(--ht-brand-deep) 0%,
     var(--ht-brand) 70%,
     var(--ht-brand-light) 100%
   );
   --ht-header-curve: 0 0 60% 0 / 0 0 48px 0;
+  /* The same blues, horizontal: where the header joins a page's hero band
+   * (C-27) the two boxes differ in height, and only a horizontal gradient
+   * meets itself without a seam. */
+  --ht-band-gradient: linear-gradient(
+    90deg,
+    var(--ht-brand-deep) 0%,
+    var(--ht-brand) 70%,
+    var(--ht-brand-light) 100%
+  );
 
   --ht-signal: var(--ht-brand);
   --ht-on-signal: var(--ht-on-brand);
@@ -160,6 +169,8 @@
   --ht-paper: #f6f8fb;
   --ht-radius-plate: 12px;
   --ht-radius-card: 20px;
+  /* The designer's own rounding for buttons, filter chips and catalog tiles. */
+  --ht-radius-tile: 8px;
   --ht-radius-hero: 32px;
   --ht-shadow-card: 0 1px 2px rgb(31 95 168 / 6%), 0 16px 40px rgb(31 95 168 / 12%);
   --ht-shadow-raised: 0 12px 32px rgb(20 24 27 / 18%);
@@ -168,7 +179,7 @@
   --ht-button-case: none;
   --ht-button-tracking: normal;
   --ht-button-weight: 700;
-  --ht-button-radius: 16px;
+  --ht-button-radius: var(--ht-radius-tile);
   --ht-button-primary-bg: linear-gradient(100deg, var(--ht-brand-deep), var(--ht-brand));
   --ht-button-primary-shadow: 0 10px 24px rgb(43 47 143 / 30%);
   /* A hairline or a glass fill on the brand gradient (never under text

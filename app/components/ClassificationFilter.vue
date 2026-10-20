@@ -105,8 +105,9 @@ function clear() {
 }
 
 .classification-filter__heading {
-  margin: 0;
-  font-size: var(--ht-text-4);
+  font-size: var(--ht-text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   text-align: center;
 }
 
@@ -165,19 +166,21 @@ function clear() {
   scroll-snap-align: start;
   min-height: var(--ht-hit-min);
   padding: 0 var(--ht-space-4);
-  border: 1px solid var(--ht-line);
-  border-radius: var(--ht-radius-pill);
+  border: 2px solid var(--ht-brand);
+  border-radius: var(--ht-radius-tile);
   background: var(--ht-surface);
   color: var(--ht-brand-deep);
+  font-family: var(--ht-font-condensed);
   font-weight: 600;
   font-size: var(--ht-text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   cursor: pointer;
   transition: background var(--ht-motion) ease-out;
 }
 
 .classification-filter__chip[aria-pressed='true'] {
   background: var(--ht-brand);
-  border-color: var(--ht-brand);
   color: var(--ht-on-brand);
 }
 

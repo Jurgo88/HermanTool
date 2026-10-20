@@ -64,6 +64,7 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
 }
 
 .public-header--joined {
+  background: var(--ht-band-gradient);
   border-radius: 0;
 }
 
@@ -74,11 +75,11 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
 .public-header__inner {
   max-width: 1200px;
   margin: 0 auto;
-  padding: calc(var(--ht-space-4) + var(--ht-safe-top)) max(var(--ht-space-4), var(--ht-safe-right))
+  padding: calc(var(--ht-space-5) + var(--ht-safe-top)) max(var(--ht-space-4), var(--ht-safe-right))
     var(--ht-space-6) max(var(--ht-space-4), var(--ht-safe-left));
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--ht-space-4);
 }
@@ -92,8 +93,8 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
 
 .public-header__wordmark {
   font-family: var(--ht-font-condensed);
-  font-weight: 700;
-  font-size: var(--ht-text-5);
+  font-weight: 600;
+  font-size: var(--ht-text-6);
   line-height: 1.1;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -102,10 +103,9 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
 .public-header__tagline {
   font-family: var(--ht-font-condensed);
   font-weight: 600;
-  font-size: var(--ht-text-1);
+  font-size: var(--ht-text-2);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.9;
+  letter-spacing: 0.06em;
 }
 
 .public-header__nav {
@@ -121,9 +121,12 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
   align-items: center;
   min-height: var(--ht-hit-min);
   padding: 0 var(--ht-space-4);
-  border-radius: var(--ht-radius-pill);
+  border-radius: var(--ht-radius-tile);
+  font-family: var(--ht-font-condensed);
   font-weight: 600;
   font-size: var(--ht-text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   text-decoration: none;
 }
 
@@ -132,13 +135,12 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
 .public-header__terms {
   background: var(--ht-brand-deep);
   color: var(--ht-on-brand);
-  border: 1px solid var(--ht-on-brand-line);
+  border: 1px solid var(--ht-on-brand);
 }
 
 .public-header__draft {
   background: var(--ht-surface);
   color: var(--ht-brand-deep);
-  box-shadow: var(--ht-shadow-raised);
 }
 
 .public-header a:focus-visible {

@@ -45,7 +45,7 @@ defineProps<{
   padding: var(--ht-space-3);
   background: var(--ht-surface);
   border: 1px solid transparent;
-  border-radius: var(--ht-radius-card);
+  border-radius: var(--ht-radius-tile);
   box-shadow: var(--ht-shadow-card);
   color: var(--ht-ink);
   text-decoration: none;
@@ -72,7 +72,7 @@ defineProps<{
   align-items: center;
   justify-content: center;
   padding: var(--ht-space-2);
-  border-radius: var(--ht-radius-plate);
+  border-radius: var(--ht-radius-tile);
   background: var(--ht-surface);
 }
 
@@ -99,7 +99,7 @@ defineProps<{
 .asset-type-card__rate {
   align-self: flex-start;
   padding: var(--ht-space-1) var(--ht-space-3);
-  border-radius: var(--ht-radius-pill);
+  border-radius: var(--ht-radius-tile);
   background: var(--ht-brand-tint);
   color: var(--ht-brand-deep);
   font-size: var(--ht-text-2);
