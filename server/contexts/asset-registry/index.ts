@@ -17,6 +17,7 @@ export {
   TagAlreadyBoundError,
   AssetNotTaggedError,
   AssetRetiredError,
+  AssetAlreadyActivatedError,
 } from './types'
 
 export type { AssetRegistryRepository } from './repository'
@@ -28,6 +29,7 @@ export {
   markAssetRentable,
   markAssetUnavailable,
   retireAsset,
+  cancelAssetRegistration,
 } from './asset-lifecycle'
 
 // F10, FR-25, FR-26, W9; issue #9: QR tag code generation and the

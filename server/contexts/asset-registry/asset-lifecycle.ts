@@ -14,6 +14,7 @@ import type { TenantId } from '../_shared'
 import type { AssetRegistryRepository } from './repository'
 import {
   AssetNotFoundError,
+  AssetAlreadyActivatedError,
   AssetNotTaggedError,
   AssetRetiredError,
   AssetTypeNotFoundError,
@@ -141,6 +142,41 @@ export async function markAssetUnavailable(
       operatorId,
     })
 
+    return updated
+  })
+}
+
+// FR-25/FR-26: a unit registered by mistake is withdrawn, not deleted: it
+// is Retired with the reason recorded, keeps its tag code, and drops out
+// of every list. Only while it has never left registration (W9 step 3 not
+// reached): a unit that has been in service has a history to keep visible.
+export const REGISTRATION_CANCELLED_REASON = 'Registration cancelled before first activation.'
+
+export async function cancelAssetRegistration(
+  repo: AssetRegistryRepository,
+  params: { tenantId: TenantId; assetId: number; operatorId: string },
+): Promise<Asset> {
+  const { tenantId, assetId, operatorId } = params
+
+  return repo.transaction(async (trx) => {
+    const asset = await requireAsset(trx, tenantId, assetId)
+    if (asset.status === 'retired') throw new AssetRetiredError(assetId)
+    if (asset.status !== 'unavailable' || (await trx.hasStatusHistoryBeyondRegistration(tenantId, assetId))) {
+      throw new AssetAlreadyActivatedError(assetId)
+    }
+
+    const updated = await trx.updateAssetStatus(tenantId, assetId, {
+      status: 'retired',
+      operatorId,
+      reason: REGISTRATION_CANCELLED_REASON,
+    })
+    await trx.insertStatusEvent(tenantId, {
+      assetId,
+      fromStatus: asset.status,
+      toStatus: 'retired',
+      reason: REGISTRATION_CANCELLED_REASON,
+      operatorId,
+    })
     return updated
   })
 }

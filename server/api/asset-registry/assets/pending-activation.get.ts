@@ -13,11 +13,12 @@ export default defineEventHandler(async (event) => {
 
   try {
     const pending = await repo.listPendingActivation(operator.tenantId)
-    return pending.map(({ asset, tag }) => ({
+    return pending.map(({ asset, tag, neverActivated }) => ({
       assetId: asset.id,
       assetTypeId: asset.assetTypeId,
       tagCode: tag.tagCode,
       registeredAt: asset.registeredAt,
+      neverActivated,
     }))
   } finally {
     await close()

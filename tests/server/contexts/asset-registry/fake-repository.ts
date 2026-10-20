@@ -103,9 +103,30 @@ export function createFakeAssetRegistryRepository(): FakeAssetRegistryRepository
             const tag = target.tags.find(
               (t) => t.tenantId === tenantId && t.assetId === asset.id && t.unboundAt === null,
             )
+            const neverActivated = !target.statusEvents.some(
+              (e) => e.tenantId === tenantId && e.assetId === asset.id && e.fromStatus !== null,
+            )
+            return tag ? { asset: { ...asset }, tag: { ...tag }, neverActivated } : null
+          })
+          .filter((entry): entry is { asset: Asset; tag: AssetTag; neverActivated: boolean } => entry !== null)
+      },
+
+      async listTaggedAssets(tenantId) {
+        return target.assets
+          .filter((a) => a.tenantId === tenantId && a.status !== 'retired')
+          .map((asset) => {
+            const tag = target.tags.find(
+              (t) => t.tenantId === tenantId && t.assetId === asset.id && t.unboundAt === null,
+            )
             return tag ? { asset: { ...asset }, tag: { ...tag } } : null
           })
           .filter((entry): entry is { asset: Asset; tag: AssetTag } => entry !== null)
+      },
+
+      async hasStatusHistoryBeyondRegistration(tenantId, assetId) {
+        return target.statusEvents.some(
+          (e) => e.tenantId === tenantId && e.assetId === assetId && e.fromStatus !== null,
+        )
       },
 
       async insertAsset(tenantId, { assetTypeId, status, operatorId }) {
