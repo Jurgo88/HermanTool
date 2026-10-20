@@ -55,7 +55,19 @@ export interface AssetRegistryRepository {
   // ./asset-lifecycle.ts's own comment). This is what surfaces the
   // Assets that are tagged and ready but still waiting for that step, so
   // an Operator has somewhere to find and complete it.
-  listPendingActivation(tenantId: TenantId): Promise<{ asset: Asset; tag: AssetTag }[]>
+  // `neverActivated`: no status change since registration, so the
+  // registration may still be cancelled (cancelAssetRegistration).
+  listPendingActivation(
+    tenantId: TenantId,
+  ): Promise<{ asset: Asset; tag: AssetTag; neverActivated: boolean }[]>
+
+  // FR-26: every unit that is not Retired, with its active AssetTag, so a
+  // damaged or lost sticker can be printed again with the same code.
+  listTaggedAssets(tenantId: TenantId): Promise<{ asset: Asset; tag: AssetTag }[]>
+
+  // True once the Asset has any status change after its registration
+  // (the registration event is the only one with no fromStatus).
+  hasStatusHistoryBeyondRegistration(tenantId: TenantId, assetId: number): Promise<boolean>
 
   insertAsset(
     tenantId: TenantId,
@@ -174,6 +186,33 @@ function mapAssetTag(row: AssetTagRow): AssetTag {
   }
 }
 
+type TaggedAssetRow = AssetRow & {
+  tag_id: number
+  tag_tenant_id: string
+  tag_asset_id: number
+  tag_code: string
+  tag_bound_at: Date
+  tag_bound_by_operator_id: string
+  tag_unbound_at: Date | null
+  tag_unbound_by_operator_id: string | null
+}
+
+function toTaggedAsset(row: TaggedAssetRow): { asset: Asset; tag: AssetTag } {
+  return {
+        asset: mapAsset(row),
+        tag: mapAssetTag({
+          id: row.tag_id,
+          tenant_id: row.tag_tenant_id,
+          asset_id: row.tag_asset_id,
+          tag_code: row.tag_code,
+          bound_at: row.tag_bound_at,
+          bound_by_operator_id: row.tag_bound_by_operator_id,
+          unbound_at: row.tag_unbound_at,
+          unbound_by_operator_id: row.tag_unbound_by_operator_id,
+        }),
+      }
+}
+
 export function createPostgresAssetRegistryRepository(
   sql: postgres.Sql | postgres.TransactionSql,
 ): AssetRegistryRepository {
@@ -210,17 +249,33 @@ export function createPostgresAssetRegistryRepository(
     },
 
     async listPendingActivation(tenantId) {
-      type Row = AssetRow & {
-        tag_id: number
-        tag_tenant_id: string
-        tag_asset_id: number
-        tag_code: string
-        tag_bound_at: Date
-        tag_bound_by_operator_id: string
-        tag_unbound_at: Date | null
-        tag_unbound_by_operator_id: string | null
-      }
-      const rows = await sql<Row[]>`
+      const rows = await sql<(TaggedAssetRow & { never_activated: boolean })[]>`
+        select
+          assets.*,
+          asset_tags.id as tag_id,
+          asset_tags.tenant_id as tag_tenant_id,
+          asset_tags.asset_id as tag_asset_id,
+          asset_tags.tag_code as tag_code,
+          asset_tags.bound_at as tag_bound_at,
+          asset_tags.bound_by_operator_id as tag_bound_by_operator_id,
+          asset_tags.unbound_at as tag_unbound_at,
+          asset_tags.unbound_by_operator_id as tag_unbound_by_operator_id,
+          not exists (
+            select 1 from asset_status_events e
+            where e.tenant_id = assets.tenant_id and e.asset_id = assets.id and e.from_status is not null
+          ) as never_activated
+        from assets
+        join asset_tags on asset_tags.tenant_id = assets.tenant_id
+          and asset_tags.asset_id = assets.id
+          and asset_tags.unbound_at is null
+        where assets.tenant_id = ${tenantId} and assets.status = 'unavailable'
+        order by assets.registered_at
+      `
+      return rows.map((row) => ({ ...toTaggedAsset(row), neverActivated: row.never_activated }))
+    },
+
+    async listTaggedAssets(tenantId) {
+      const rows = await sql<TaggedAssetRow[]>`
         select
           assets.*,
           asset_tags.id as tag_id,
@@ -235,22 +290,18 @@ export function createPostgresAssetRegistryRepository(
         join asset_tags on asset_tags.tenant_id = assets.tenant_id
           and asset_tags.asset_id = assets.id
           and asset_tags.unbound_at is null
-        where assets.tenant_id = ${tenantId} and assets.status = 'unavailable'
-        order by assets.registered_at
+        where assets.tenant_id = ${tenantId} and assets.status <> 'retired'
+        order by asset_tags.tag_code
       `
-      return rows.map((row) => ({
-        asset: mapAsset(row),
-        tag: mapAssetTag({
-          id: row.tag_id,
-          tenant_id: row.tag_tenant_id,
-          asset_id: row.tag_asset_id,
-          tag_code: row.tag_code,
-          bound_at: row.tag_bound_at,
-          bound_by_operator_id: row.tag_bound_by_operator_id,
-          unbound_at: row.tag_unbound_at,
-          unbound_by_operator_id: row.tag_unbound_by_operator_id,
-        }),
-      }))
+      return rows.map(toTaggedAsset)
+    },
+
+    async hasStatusHistoryBeyondRegistration(tenantId, assetId) {
+      const rows = await sql<{ count: string }[]>`
+        select count(*)::text as count from asset_status_events
+        where tenant_id = ${tenantId} and asset_id = ${assetId} and from_status is not null
+      `
+      return Number(rows[0]!.count) > 0
     },
 
     async insertAsset(tenantId, { assetTypeId, status, operatorId }) {

@@ -5,10 +5,17 @@
   entry, and logout. Own its own "who am I" fetch rather than take
   displayName as a prop — every page under the admin layout is already
   guaranteed authenticated, so this component owning the concern keeps
-  the layout itself trivial. -->
+  the layout itself trivial.
+
+  `surface="counter"` is the same bar on the counter home (S-08): no admin
+  links, so the counter stays single-task, but who is signed in, the way
+  back to admin, and logout. Every Operator sees it (FR-36, D-16). -->
 <script setup lang="ts">
 import { sk } from '~/i18n/sk'
 import { loginLocation } from '~/utils/operator-redirect'
+
+const props = withDefaults(defineProps<{ surface?: 'admin' | 'counter' }>(), { surface: 'admin' })
+const onCounter = computed(() => props.surface === 'counter')
 
 const nuxtApp = useNuxtApp()
 const requestFetch = useRequestFetch()
@@ -41,19 +48,50 @@ await load()
 </script>
 
 <template>
-  <header class="operator-bar">
-    <nav class="operator-bar__nav">
-      <NuxtLink to="/admin/catalog">{{ sk.operatorBar.catalogLink }}</NuxtLink>
-      <NuxtLink to="/admin/asset-registry">{{ sk.operatorBar.assetRegistryLink }}</NuxtLink>
-      <NuxtLink to="/admin/status">{{ sk.operatorBar.statusLink }}</NuxtLink>
-      <NuxtLink to="/admin/pin">{{ sk.operatorBar.pinLink }}</NuxtLink>
-      <NuxtLink to="/admin/counter" class="operator-bar__counter-link">{{ sk.operatorBar.counterLink }}</NuxtLink>
-    </nav>
-    <div class="operator-bar__identity">
-      <span v-if="displayName">{{ sk.operatorBar.signedInAs.replace('{name}', displayName) }}</span>
-      <AppButton variant="quiet" :pending="loggingOut" @click="logout">
-        {{ loggingOut ? sk.operatorBar.loggingOut : sk.operatorBar.logoutAction }}
-      </AppButton>
+  <header class="operator-bar" :class="{ 'operator-bar--counter': onCounter }">
+    <div class="operator-bar__top">
+      <NuxtLink :to="onCounter ? '/admin/counter' : '/admin/catalog'" class="operator-bar__brand">
+        <span class="operator-bar__wordmark">{{ sk.operatorBar.brandName }}</span>
+        <span class="operator-bar__suffix">{{
+          onCounter ? sk.operatorBar.counterSuffix : sk.operatorBar.brandSuffix
+        }}</span>
+      </NuxtLink>
+
+      <!-- On a wide screen the links sit in this row; on a phone they move to
+        a row of their own below, which scrolls sideways. -->
+      <nav v-if="!onCounter" class="operator-bar__nav" :aria-label="sk.operatorBar.navLabel">
+        <NuxtLink to="/admin/catalog" class="operator-bar__link" active-class="operator-bar__link--active">
+          {{ sk.operatorBar.catalogLink }}
+        </NuxtLink>
+        <NuxtLink
+          to="/admin/asset-registry"
+          class="operator-bar__link"
+          active-class="operator-bar__link--active"
+        >
+          {{ sk.operatorBar.assetRegistryLink }}
+        </NuxtLink>
+        <NuxtLink to="/admin/status" class="operator-bar__link" active-class="operator-bar__link--active">
+          {{ sk.operatorBar.statusLink }}
+        </NuxtLink>
+        <NuxtLink to="/admin/pin" class="operator-bar__link" active-class="operator-bar__link--active">
+          {{ sk.operatorBar.pinLink }}
+        </NuxtLink>
+      </nav>
+
+      <div class="operator-bar__identity">
+        <span v-if="displayName" class="operator-bar__who">
+          {{ sk.operatorBar.signedInAs.replace('{name}', displayName) }}
+        </span>
+        <NuxtLink v-if="onCounter" to="/admin/catalog" class="operator-bar__switch">
+          {{ sk.operatorBar.adminLink }}
+        </NuxtLink>
+        <NuxtLink v-else to="/admin/counter" class="operator-bar__switch">
+          {{ sk.operatorBar.counterLink }}
+        </NuxtLink>
+        <button type="button" class="operator-bar__logout" :disabled="loggingOut" @click="logout">
+          {{ loggingOut ? sk.operatorBar.loggingOut : sk.operatorBar.logoutAction }}
+        </button>
+      </div>
     </div>
   </header>
 </template>
@@ -65,34 +103,215 @@ await load()
   }
 }
 
+/* The Operator's own chrome: the counter's dark ground and yellow signal,
+ * so the admin and the counter read as one application. */
 .operator-bar {
-  display: flex;
-  flex-wrap: wrap;
+  background: var(--ht-ink);
+  color: var(--ht-paper);
+  padding-top: var(--ht-safe-top);
+}
+
+.operator-bar__top {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'brand nav identity';
   align-items: center;
-  justify-content: space-between;
-  gap: var(--ht-space-3);
-  padding: var(--ht-space-3) var(--ht-space-4);
-  background: var(--ht-surface);
-  border-bottom: 1px solid var(--ht-line);
+  gap: var(--ht-space-4);
+  padding: 0 max(var(--ht-space-4), var(--ht-safe-right)) 0 max(var(--ht-space-4), var(--ht-safe-left));
+  min-height: calc(var(--ht-hit-min) + var(--ht-space-4));
+}
+
+.operator-bar__brand {
+  grid-area: brand;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--ht-space-2);
+  color: inherit;
+  text-decoration: none;
+}
+
+.operator-bar__wordmark {
+  font-family: var(--ht-font-condensed);
+  font-weight: 700;
+  font-size: var(--ht-text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.operator-bar__suffix {
+  font-family: var(--ht-font-condensed);
+  font-weight: 600;
+  font-size: var(--ht-text-1);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ht-signal);
 }
 
 .operator-bar__nav {
+  grid-area: nav;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--ht-space-4);
-  font-size: var(--ht-text-2);
+  gap: var(--ht-space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.operator-bar__counter-link {
+.operator-bar__nav::-webkit-scrollbar {
+  display: none;
+}
+
+.operator-bar__link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ht-hit-min);
+  padding: 0 var(--ht-space-3);
+  border-bottom: 3px solid transparent;
+  color: var(--ht-line-strong);
   font-weight: 600;
-  color: var(--ht-signal-deep);
+  font-size: var(--ht-text-2);
+  text-decoration: none;
+  transition:
+    color var(--ht-motion),
+    border-color var(--ht-motion);
+}
+
+.operator-bar__link:hover {
+  color: var(--ht-paper);
+}
+
+.operator-bar__link--active {
+  color: var(--ht-paper);
+  border-bottom-color: var(--ht-signal);
 }
 
 .operator-bar__identity {
+  grid-area: identity;
   display: flex;
   align-items: center;
   gap: var(--ht-space-3);
   font-size: var(--ht-text-2);
+}
+
+.operator-bar__who {
+  color: var(--ht-line-strong);
+}
+
+.operator-bar__switch {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ht-hit-min);
+  padding: 0 var(--ht-space-3);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-signal);
+  color: var(--ht-on-signal);
+  font-family: var(--ht-font-condensed);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.operator-bar__logout {
+  min-height: var(--ht-hit-min);
+  padding: 0 var(--ht-space-2);
+  border: 0;
+  background: transparent;
+  color: var(--ht-line-strong);
+  font: inherit;
+  cursor: pointer;
+}
+
+.operator-bar__logout:hover {
+  color: var(--ht-paper);
+}
+
+.operator-bar a:focus-visible,
+.operator-bar button:focus-visible {
+  outline: 3px solid var(--ht-signal);
+  outline-offset: 2px;
+}
+
+/* Phone: brand and the counter in the first row, the links in a second,
+ * scrollable row; the name gives way to them. */
+@media (max-width: 419px) {
+  .operator-bar__suffix {
+    display: none;
+  }
+}
+
+@media (max-width: 899px) {
+  .operator-bar__top {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand identity'
+      'nav nav';
+    row-gap: 0;
+    padding-top: var(--ht-space-2);
+  }
+
+  .operator-bar__who {
+    display: none;
+  }
+
+  .operator-bar__switch {
+    padding: 0 var(--ht-space-2);
+    font-size: var(--ht-text-2);
+  }
+
+  .operator-bar__nav {
+    margin: 0 calc(var(--ht-space-4) * -1);
+    padding: 0 var(--ht-space-2);
+  }
+}
+
+/* S-08: the counter's tokens are already dark, so the bar takes the
+ * StepHeader's ground instead of inverting ink and paper. Brand and the way
+ * to admin in the first row; who is signed in and logout in the second, on
+ * every width, because on a shared phone the name is the point (FR-34). */
+.operator-bar--counter {
+  background: var(--ht-surface-sunk);
+  color: var(--ht-ink);
+  border-bottom: 1px solid var(--ht-line);
+}
+
+.operator-bar--counter .operator-bar__top {
+  max-width: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'brand switch'
+    'who logout';
+  row-gap: 0;
+  padding-top: var(--ht-space-2);
+}
+
+.operator-bar--counter .operator-bar__identity {
+  display: contents;
+}
+
+.operator-bar--counter .operator-bar__suffix {
+  display: inline;
+}
+
+.operator-bar--counter .operator-bar__who {
+  grid-area: who;
+  display: block;
   color: var(--ht-ink-muted);
+}
+
+.operator-bar--counter .operator-bar__switch {
+  grid-area: switch;
+}
+
+.operator-bar--counter .operator-bar__logout {
+  grid-area: logout;
+  justify-self: end;
+  color: var(--ht-ink-muted);
+}
+
+.operator-bar--counter .operator-bar__logout:hover {
+  color: var(--ht-ink);
 }
 </style>

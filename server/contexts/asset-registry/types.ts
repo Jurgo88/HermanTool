@@ -74,6 +74,14 @@ export class AssetNotTaggedError extends AssetRegistryError {
   }
 }
 
+// Cancelling a registration is only for a unit that never left it: one
+// that was ever made Rentable has a history a cancellation would hide.
+export class AssetAlreadyActivatedError extends AssetRegistryError {
+  constructor(assetId: number) {
+    super(`Asset ${assetId} has been in service; its registration cannot be cancelled.`)
+  }
+}
+
 export class AssetRetiredError extends AssetRegistryError {
   constructor(assetId: number) {
     super(`Asset ${assetId} is Retired and cannot change status again.`)

@@ -13,6 +13,7 @@
 // page's headline, not a row in a table with the rest.
 import { sk } from '~/i18n/sk'
 import { formatDateTime } from '~/utils/format'
+import { failureHint, jobHealth } from '~/utils/job-status'
 
 definePageMeta({ layout: 'admin' })
 
@@ -48,6 +49,12 @@ const error = ref<string | null>(null)
 
 const erasureStatus = computed(() => statuses.value.find((s) => s.jobName === 'evidence_erasure') ?? null)
 const otherStatuses = computed(() => statuses.value.filter((s) => s.jobName !== 'evidence_erasure'))
+// Failing jobs plus a backup that has never run (it cannot start at all).
+const problemCount = computed(
+  () =>
+    statuses.value.filter((s) => jobHealth(s) === 'failing' || failureHint(s) === 'backupNotConfigured')
+      .length,
+)
 
 // The erasure job runs daily at 03:00 UTC
 // (.github/workflows/erase-expired-identity-evidence.yml) — "stale"
@@ -84,10 +91,29 @@ await load()
 
 <template>
   <main class="admin-status">
-    <h1>{{ sk.adminStatus.title }}</h1>
+    <h1 class="admin-status__title">{{ sk.adminStatus.title }}</h1>
     <AppAlert :message="error" />
 
-    <section v-if="erasureStatus" class="admin-status__headline" :class="{ 'admin-status__headline--stale': erasureStale }">
+    <!-- The one line an Operator needs first: is anything broken. -->
+    <p
+      v-if="statuses.length > 0"
+      class="admin-status__summary"
+      :class="problemCount > 0 ? 'admin-status__summary--problem' : 'admin-status__summary--ok'"
+      role="status"
+    >
+      <span class="admin-status__summary-mark" aria-hidden="true" />
+      {{
+        problemCount > 0
+          ? sk.adminStatus.summaryProblem.replace('{count}', String(problemCount))
+          : sk.adminStatus.summaryOk
+      }}
+    </p>
+
+    <section
+      v-if="erasureStatus"
+      class="admin-status__headline"
+      :class="{ 'admin-status__headline--stale': erasureStale }"
+    >
       <h2>{{ sk.adminStatus.erasureHeading }}</h2>
       <DerivedBadge v-if="erasureStale" tone="overdue">{{ sk.adminStatus.erasureStale }}</DerivedBadge>
       <p v-if="erasureStatus.latestSuccessfulRun">
@@ -96,33 +122,30 @@ await load()
       <p v-else>{{ sk.adminStatus.erasureNever }}</p>
     </section>
 
-    <section>
+    <section class="admin-status__jobs">
       <h2>{{ sk.adminStatus.otherJobsHeading }}</h2>
-      <AppTable>
-        <thead>
-          <tr>
-            <th>{{ sk.adminStatus.columnJob }}</th>
-            <th>{{ sk.adminStatus.columnLastRun }}</th>
-            <th>{{ sk.adminStatus.columnLastSuccess }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="status in otherStatuses" :key="status.jobName">
-            <td>{{ sk.adminStatus.jobNames[status.jobName] }}</td>
-            <td>
-              <span v-if="status.latestRun">
-                {{ formatDateTime(status.latestRun.startedAt) }} —
-                {{ status.latestRun.outcome === 'success' ? sk.adminStatus.outcomeSuccess : sk.adminStatus.outcomeFailure }}
-              </span>
-              <span v-else>{{ sk.adminStatus.neverRun }}</span>
-            </td>
-            <td>
-              <span v-if="status.latestSuccessfulRun">{{ formatDateTime(status.latestSuccessfulRun.startedAt) }}</span>
-              <span v-else>{{ sk.adminStatus.neverRun }}</span>
-            </td>
-          </tr>
-        </tbody>
-      </AppTable>
+      <ul class="admin-status__list">
+        <li v-for="status in otherStatuses" :key="status.jobName" class="admin-status__job">
+          <div class="admin-status__job-head">
+            <span class="admin-status__job-name">{{ sk.adminStatus.jobNames[status.jobName] }}</span>
+            <span class="admin-status__chip" :class="`admin-status__chip--${jobHealth(status)}`">
+              {{ sk.adminStatus.health[jobHealth(status)] }}
+            </span>
+          </div>
+          <p class="admin-status__job-meta">
+            <template v-if="status.latestRun">
+              {{ sk.adminStatus.columnLastRun }}: {{ formatDateTime(status.latestRun.startedAt) }}
+            </template>
+            <template v-if="status.latestSuccessfulRun">
+              · {{ sk.adminStatus.columnLastSuccess }}: {{ formatDateTime(status.latestSuccessfulRun.startedAt) }}
+            </template>
+            <template v-else-if="status.latestRun"> · {{ sk.adminStatus.neverSucceeded }} </template>
+          </p>
+          <p v-if="failureHint(status)" class="admin-status__hint">
+            {{ sk.adminStatus.hints[failureHint(status)!] }}
+          </p>
+        </li>
+      </ul>
     </section>
   </main>
 </template>
@@ -131,10 +154,41 @@ await load()
 .admin-status {
   max-width: 900px;
   margin: 0 auto;
-  padding: var(--ht-space-5);
+  padding: var(--ht-space-5) var(--ht-space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--ht-space-6);
+  gap: var(--ht-space-5);
+}
+
+.admin-status__title {
+  margin: 0;
+}
+
+.admin-status__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--ht-space-3);
+  margin: 0;
+  padding: var(--ht-space-3) var(--ht-space-4);
+  border-radius: var(--ht-radius-card);
+  font-weight: 600;
+  color: var(--ht-on-brand);
+}
+
+.admin-status__summary--ok {
+  background: var(--ht-ok);
+}
+
+.admin-status__summary--problem {
+  background: var(--ht-danger);
+}
+
+.admin-status__summary-mark {
+  flex: none;
+  width: var(--ht-space-3);
+  height: var(--ht-space-3);
+  border-radius: 50%;
+  background: var(--ht-on-brand);
 }
 
 .admin-status__headline {
@@ -147,7 +201,88 @@ await load()
   gap: var(--ht-space-2);
 }
 
+.admin-status__headline h2,
+.admin-status__headline p {
+  margin: 0;
+}
+
 .admin-status__headline--stale {
   border-color: var(--ht-derived-overdue);
+}
+
+.admin-status__jobs h2 {
+  margin: 0 0 var(--ht-space-3);
+}
+
+.admin-status__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
+}
+
+.admin-status__job {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-1);
+  padding: var(--ht-space-3) var(--ht-space-4);
+}
+
+.admin-status__job + .admin-status__job {
+  border-top: 1px solid var(--ht-line);
+}
+
+.admin-status__job-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ht-space-3);
+}
+
+.admin-status__job-name {
+  font-weight: 600;
+}
+
+.admin-status__job-meta {
+  margin: 0;
+  font-size: var(--ht-text-2);
+  color: var(--ht-ink-muted);
+}
+
+/* Stored facts from the ledger: solid chips (FR-28's stored treatment). */
+.admin-status__chip {
+  flex: none;
+  padding: var(--ht-space-1) var(--ht-space-2);
+  border-radius: var(--ht-radius-plate);
+  font-family: var(--ht-font-condensed);
+  font-weight: 700;
+  font-size: var(--ht-text-1);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ht-on-brand);
+}
+
+.admin-status__chip--ok {
+  background: var(--ht-ok);
+}
+
+.admin-status__chip--failing {
+  background: var(--ht-danger);
+}
+
+.admin-status__chip--never {
+  background: var(--ht-warn);
+}
+
+.admin-status__hint {
+  margin: var(--ht-space-1) 0 0;
+  padding: var(--ht-space-2) var(--ht-space-3);
+  border-left: var(--ht-space-1) solid var(--ht-danger);
+  background: var(--ht-surface-sunk);
+  font-size: var(--ht-text-2);
 }
 </style>

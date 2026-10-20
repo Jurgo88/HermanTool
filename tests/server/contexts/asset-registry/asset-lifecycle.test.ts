@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { TenantId } from '../../../../server/contexts/_shared'
 import {
+  AssetAlreadyActivatedError,
   AssetNotFoundError,
   AssetNotTaggedError,
   AssetRetiredError,
@@ -9,6 +10,8 @@ import {
 } from '../../../../server/contexts/asset-registry/types'
 import {
   bindAssetTag,
+  cancelAssetRegistration,
+  REGISTRATION_CANCELLED_REASON,
   markAssetRentable,
   markAssetUnavailable,
   registerAsset,
@@ -198,5 +201,98 @@ describe('Tenant isolation (FR-33)', () => {
     await expect(
       markAssetRentable(repo, { tenantId: tenantB, assetId: assetForA.id, operatorId }),
     ).rejects.toThrow(AssetNotFoundError)
+  })
+})
+
+describe('cancelAssetRegistration (FR-25, FR-26: a unit registered by mistake)', () => {
+  let repo: FakeAssetRegistryRepository
+
+  beforeEach(() => {
+    repo = createFakeAssetRegistryRepository()
+    repo.seedAssetType(tenantA, 1)
+  })
+
+  async function registeredAndTagged() {
+    const asset = await registerAsset(repo, { tenantId: tenantA, assetTypeId: 1, operatorId })
+    await bindAssetTag(repo, { tenantId: tenantA, assetId: asset.id, tagCode: `HT-${asset.id}`, operatorId })
+    return asset
+  }
+
+  it('retires a never-activated unit, records why and who, and deletes nothing (FR-34)', async () => {
+    const asset = await registeredAndTagged()
+
+    const cancelled = await cancelAssetRegistration(repo, { tenantId: tenantA, assetId: asset.id, operatorId })
+
+    expect(cancelled.status).toBe('retired')
+    const last = repo.allStatusEvents().filter((e) => e.assetId === asset.id).at(-1)
+    expect(last).toMatchObject({
+      fromStatus: 'unavailable',
+      toStatus: 'retired',
+      reason: REGISTRATION_CANCELLED_REASON,
+      operatorId,
+    })
+    expect(await repo.getAsset(tenantA, asset.id)).not.toBeNull()
+    expect(await repo.listPendingActivation(tenantA)).toHaveLength(0)
+  })
+
+  it('refuses a unit that has been in service, even if it is unavailable again', async () => {
+    const asset = await registeredAndTagged()
+    await markAssetRentable(repo, { tenantId: tenantA, assetId: asset.id, operatorId })
+    await markAssetUnavailable(repo, { tenantId: tenantA, assetId: asset.id, operatorId, reason: 'damaged' })
+
+    await expect(
+      cancelAssetRegistration(repo, { tenantId: tenantA, assetId: asset.id, operatorId }),
+    ).rejects.toThrow(AssetAlreadyActivatedError)
+    expect((await repo.getAsset(tenantA, asset.id))?.status).toBe('unavailable')
+  })
+
+  it('refuses a rentable unit and an already retired one', async () => {
+    const rentable = await registeredAndTagged()
+    await markAssetRentable(repo, { tenantId: tenantA, assetId: rentable.id, operatorId })
+    await expect(
+      cancelAssetRegistration(repo, { tenantId: tenantA, assetId: rentable.id, operatorId }),
+    ).rejects.toThrow(AssetAlreadyActivatedError)
+
+    const unit = await registeredAndTagged()
+    await cancelAssetRegistration(repo, { tenantId: tenantA, assetId: unit.id, operatorId })
+    await expect(
+      cancelAssetRegistration(repo, { tenantId: tenantA, assetId: unit.id, operatorId }),
+    ).rejects.toThrow(AssetRetiredError)
+  })
+
+  it('cannot reach another Tenant’s unit (FR-33)', async () => {
+    const asset = await registeredAndTagged()
+
+    await expect(
+      cancelAssetRegistration(repo, { tenantId: tenantB, assetId: asset.id, operatorId }),
+    ).rejects.toThrow(AssetNotFoundError)
+  })
+
+  it('marks only never-activated units as cancellable in the waiting list', async () => {
+    const fresh = await registeredAndTagged()
+    const used = await registeredAndTagged()
+    await markAssetRentable(repo, { tenantId: tenantA, assetId: used.id, operatorId })
+    await markAssetUnavailable(repo, { tenantId: tenantA, assetId: used.id, operatorId, reason: 'damaged' })
+
+    const pending = await repo.listPendingActivation(tenantA)
+    expect(pending.map((p) => [p.asset.id, p.neverActivated])).toEqual([
+      [fresh.id, true],
+      [used.id, false],
+    ])
+  })
+})
+
+describe('listTaggedAssets (FR-26: reprint a label)', () => {
+  it('lists every unit with an active tag except retired ones, scoped by Tenant', async () => {
+    const repo = createFakeAssetRegistryRepository()
+    repo.seedAssetType(tenantA, 1)
+    const kept = await registerAsset(repo, { tenantId: tenantA, assetTypeId: 1, operatorId })
+    await bindAssetTag(repo, { tenantId: tenantA, assetId: kept.id, tagCode: 'HT-1', operatorId })
+    const gone = await registerAsset(repo, { tenantId: tenantA, assetTypeId: 1, operatorId })
+    await bindAssetTag(repo, { tenantId: tenantA, assetId: gone.id, tagCode: 'HT-2', operatorId })
+    await cancelAssetRegistration(repo, { tenantId: tenantA, assetId: gone.id, operatorId })
+
+    expect((await repo.listTaggedAssets(tenantA)).map((t) => t.tag.tagCode)).toEqual(['HT-1'])
+    expect(await repo.listTaggedAssets(tenantB)).toEqual([])
   })
 })

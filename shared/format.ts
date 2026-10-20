@@ -36,6 +36,17 @@ export function formatDay(isoDay: string): string {
   )
 }
 
+// S-08 heading: "utorok 20. 10. 2026" for the counter's own day.
+export function formatWeekdayDay(isoDay: string): string {
+  return new Intl.DateTimeFormat(LOCALE, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(parseRentalDay(isoDay))
+}
+
 // S-02 calendar title: "október 2026" for '2026-10' (D-58).
 export function formatMonth(isoMonth: string): string {
   return new Intl.DateTimeFormat(LOCALE, { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(

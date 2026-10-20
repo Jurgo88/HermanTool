@@ -12,6 +12,7 @@ import {
   AssetNotTaggedError,
   AssetRegistryError,
   AssetRetiredError,
+  AssetAlreadyActivatedError,
   AssetTypeNotFoundError,
   createPostgresAssetRegistryRepository,
   EmptyBulkRegistrationError,
@@ -45,7 +46,12 @@ export function translateAssetRegistryError(err: unknown): never {
   ) {
     throw createError({ statusCode: 400, statusMessage: err.message, data: { code: err.constructor.name } })
   }
-  if (err instanceof TagAlreadyBoundError || err instanceof AssetRetiredError || err instanceof AssetNotTaggedError) {
+  if (
+    err instanceof TagAlreadyBoundError ||
+    err instanceof AssetRetiredError ||
+    err instanceof AssetNotTaggedError ||
+    err instanceof AssetAlreadyActivatedError
+  ) {
     throw createError({ statusCode: 409, statusMessage: err.message, data: { code: err.constructor.name } })
   }
   if (err instanceof AssetRegistryError) {
