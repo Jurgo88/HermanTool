@@ -69,10 +69,15 @@ potvrdiť.
 | 12 | Je správne uviesť SOI ako subjekt alternatívneho riešenia sporov a zmienka o platforme RSO EÚ už nepatrí (platforma bola zrušená)? |
 | celé | Chýba niečo z povinných predzmluvných informácií? Treba vzorový formulár na odstúpenie, aj keď právo neplatí? |
 
-## 3. Doklad totožnosti (OQ #2) — blokuje spustenie
+## 3. Doklad totožnosti (OQ #2)
 
-Aplikácia dnes **odmietne uložiť** fotografiu dokladu, kým nie je nastavená
-doba uchovávania. Bez odpovede preto nemôže prebehnúť žiadny prenájom.
+**Rozhodnuté 20. 10. 2026 (D-61):** fotografiu dokladu uchovávame **365 dní**
+od vyúčtovania zálohy (ak k prevzatiu nedôjde, od nahratia), na základe
+**oprávneného záujmu** (čl. 6 ods. 1 písm. f) GDPR). Aplikácia už podľa toho
+fotografie ukladá aj maže. Prosíme o písomné potvrdenie tohto základu
+vrátane testu proporcionality a toho, či zákon č. 18/2018 Z. z. dovoľuje
+kopírovať doklad bez súhlasu (otázka 1). Ak bude potrebný súhlas, doplníme
+ho do aplikácie.
 
 **Otázky**
 

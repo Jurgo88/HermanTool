@@ -5,7 +5,6 @@ import {
   eraseExpiredIdentityEvidence,
   reanchorRetentionDeadlineForCustomer,
 } from '../../../../server/contexts/customer-identity-compliance/retention'
-import { RetentionWindowNotConfiguredError } from '../../../../server/contexts/customer-identity-compliance/types'
 import { createFakeIdentityEvidenceStorageGateway, type FakeIdentityEvidenceStorageGateway } from './fake-gateway'
 import {
   createFakeCustomerIdentityComplianceRepository,
@@ -30,22 +29,27 @@ describe('reanchorRetentionDeadlineForCustomer (D-36)', () => {
     customerId = customer.id
   })
 
-  it('is currently blocked end-to-end by OQ #2 (CLAUDE.md: do NOT invent the retention window)', async () => {
-    await repo.insertIdentityEvidence(tenantA, {
-      customerId,
-      objectKey: 'obj-1',
-      retentionDeadline: new Date(Date.now() + 86_400_000),
-    })
+  it('moves every IdentityEvidence deadline of the Customer to 365 days after Settlement (D-61)', async () => {
+    for (const objectKey of ['obj-1', 'obj-2']) {
+      await repo.insertIdentityEvidence(tenantA, {
+        customerId,
+        objectKey,
+        retentionDeadline: new Date(Date.now() + 86_400_000),
+      })
+    }
+    const settledAt = new Date('2026-10-20T10:00:00.000Z')
+    const expected = new Date(settledAt.getTime() + 365 * 86_400_000)
 
-    await expect(
-      reanchorRetentionDeadlineForCustomer(repo, { tenantId: tenantA, customerId, settledAt: new Date() }),
-    ).rejects.toThrow(RetentionWindowNotConfiguredError)
+    const reanchored = await reanchorRetentionDeadlineForCustomer(repo, { tenantId: tenantA, customerId, settledAt })
+
+    expect(reanchored).toHaveLength(2)
+    expect(repo.allIdentityEvidence().map((evidence) => evidence.retentionDeadline)).toEqual([expected, expected])
   })
 
-  it('is a no-op for a Customer with no IdentityEvidence, and still refuses per OQ #2', async () => {
+  it('is a no-op for a Customer with no IdentityEvidence', async () => {
     await expect(
       reanchorRetentionDeadlineForCustomer(repo, { tenantId: tenantA, customerId, settledAt: new Date() }),
-    ).rejects.toThrow(RetentionWindowNotConfiguredError)
+    ).resolves.toEqual([])
   })
 })
 

@@ -22,6 +22,8 @@ NORMATIVE. Read it before implementing anything non-trivial.
 - Part 4 §16.4 — Rent Star catalog: PowerSource, UseArea, Accessory,
   S-02 detail + calendar, public identity, pilot import (D-54…D-60).
   Catalog data under review: `docs/catalog-source/pilot-catalog.csv`
+- Part 4 §16.5 — launch questions answered: IdentityEvidence retention
+  365 days, legitimate interest (D-61, resolves OQ #2)
 
 ## Precedence when instructions conflict
 1. Part 4 §16.2 implementation-review decisions (D-38…D-42)
@@ -115,16 +117,16 @@ rather than inventing a default.
 Full reasoning in docs/reviews/implementation-review-2026-08-04.md. 
 Each has a GitHub issue; cite the IR number alongside the governing 
 identifier in commits. Status below reconciled against the codebase 
-on 2026-10-03 — most items closed since the review; only IR-02 and 
-IR-07 remain genuinely blocked, both on a lawyer answer (OQ #2, OQ #27).
+on 2026-10-03 — most items closed since the review; IR-02 closed on 
+2026-10-20 (D-61), so only IR-07 remains blocked, on a lawyer answer (OQ #27).
 
 - **IR-01 (Critical) — RESOLVED** (`3886ed6`, #69). Pool count 
   (`getRentablePoolCount` in asset-registry/repository.ts) counts 
   rentable/in_possession/under_inspection per D-38.
-- **IR-02 (Critical) — STILL OPEN.** RETENTION_WINDOW_DAYS is still 
-  `null` (identity-evidence.ts); the guard correctly throws 
-  `RetentionWindowNotConfiguredError` rather than defaulting. No 
-  end-to-end rental is possible until OQ #2 is answered. Not a code fix.
+- **IR-02 (Critical) — RESOLVED** (D-61, #70). RETENTION_WINDOW_DAYS 
+  is 365 (identity-evidence.ts), on legitimate interest; counsel still 
+  to confirm the basis in writing. The guard stays: setting it back to 
+  `null` makes uploads refuse again.
 - **IR-03 (High) — RESOLVED** (`32af3df`, #71). CI exists: 
   `.github/workflows/ci.yml` plus banned-term/boundary/date-arithmetic 
   checks (D-34).
@@ -160,7 +162,8 @@ IR-07 remain genuinely blocked, both on a lawyer answer (OQ #2, OQ #27).
 
 ## Launch-blocking open questions (do NOT invent defaults)
 - Cancellation/refund policy (OQ #1) — leave cancel path unimplemented
-- IdentityEvidence retention window value + legal basis (OQ #2)
+- ~~IdentityEvidence retention window value + legal basis (OQ #2)~~ — 
+  resolved by D-61: 365 days, legitimate interest
 - Backup retention horizon value (OQ #3)
 - Controller–processor agreement (OQ #4)
 - Customer-record retention period + basis (OQ #27, IR-07)

@@ -15,7 +15,6 @@ import {
   IdentityEvidenceErasedError,
   IdentityEvidenceNotFoundError,
   ReservationGroupNotConfirmedError,
-  RetentionWindowNotConfiguredError,
 } from '../../../../server/contexts/customer-identity-compliance/types'
 import { createFakeIdentityEvidenceStorageGateway, type FakeIdentityEvidenceStorageGateway } from './fake-gateway'
 import {
@@ -25,9 +24,12 @@ import {
 
 const tenantA = '11111111-1111-1111-1111-111111111111' as TenantId
 
-describe('computeRetentionDeadline', () => {
-  it('refuses to compute a deadline while OQ #2 is unresolved (CLAUDE.md: do NOT invent defaults)', () => {
-    expect(() => computeRetentionDeadline(new Date())).toThrow(RetentionWindowNotConfiguredError)
+const DAY_MS = 24 * 60 * 60 * 1000
+
+describe('computeRetentionDeadline (D-61)', () => {
+  it('is 365 days after the moment it is counted from', () => {
+    const from = new Date('2026-10-20T10:00:00.000Z')
+    expect(computeRetentionDeadline(from)).toEqual(new Date(from.getTime() + 365 * DAY_MS))
   })
 })
 
@@ -76,21 +78,22 @@ describe('requestIdentityEvidenceUpload', () => {
     ).rejects.toThrow(CustomerNotFoundError)
   })
 
-  it('is currently blocked end-to-end by OQ #2, even when otherwise valid (CLAUDE.md: do NOT invent the retention window)', async () => {
-    await expect(
-      requestIdentityEvidenceUpload(repo, gateway, {
-        tenantId: tenantA,
-        customerId,
-        reservationGroupId: 1,
-        isReservationGroupConfirmed: true,
-        contentType: 'image/jpeg',
-      }),
-    ).rejects.toThrow(RetentionWindowNotConfiguredError)
+  it('creates the IdentityEvidence with its RetentionDeadline and hands out one upload URL (FR-12, P7)', async () => {
+    const now = new Date('2026-10-20T10:00:00.000Z')
 
-    // Refuses before touching the repository or the gateway — no
-    // half-created IdentityEvidence row, no live presigned URL.
-    expect(repo.allIdentityEvidence()).toHaveLength(0)
-    expect(gateway.uploadUrlCalls).toHaveLength(0)
+    const { identityEvidence, uploadUrl } = await requestIdentityEvidenceUpload(repo, gateway, {
+      tenantId: tenantA,
+      customerId,
+      reservationGroupId: 1,
+      isReservationGroupConfirmed: true,
+      contentType: 'image/jpeg',
+      now,
+    })
+
+    expect(identityEvidence.retentionDeadline).toEqual(new Date(now.getTime() + 365 * DAY_MS))
+    expect(repo.allIdentityEvidence()).toHaveLength(1)
+    expect(gateway.uploadUrlCalls).toEqual([{ objectKey: identityEvidence.objectKey, contentType: 'image/jpeg' }])
+    expect(uploadUrl).toBeTruthy()
   })
 })
 

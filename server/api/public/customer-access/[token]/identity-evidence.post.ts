@@ -16,10 +16,7 @@ const bodySchema = z.object({ contentType: z.string().min(1) })
 // (D-15). Reuses the exact same requestIdentityEvidenceUpload mechanism
 // server/api/handover/customers/[customerId]/identity-evidence.post.ts
 // already calls for the Operator-at-the-counter fallback channel — the
-// only difference is who is holding the phone (FR-13). Currently
-// unusable end-to-end regardless: OQ #2 (retention window,
-// launch-blocking) makes requestIdentityEvidenceUpload refuse before
-// creating anything — see identity-evidence.ts.
+// only difference is who is holding the phone (FR-13).
 export default defineEventHandler(async (event) => {
   const token = getCustomerAccessTokenParam(event)
   const body = await readValidatedBody(event, bodySchema.parse)

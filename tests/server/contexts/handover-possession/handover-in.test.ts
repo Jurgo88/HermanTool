@@ -331,13 +331,9 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
       ).rejects.toThrow(RentalAgreementAlreadySettledError)
     })
 
-    it('completes Settlement even though D-36 retention re-anchoring is blocked by OQ #2 (mechanism built, value still unset)', async () => {
+    it('re-anchors the Customer IdentityEvidence deadline to 365 days after Settlement (D-36, D-61)', async () => {
       const { rentalAgreement } = await handIn()
 
-      // Would throw RetentionWindowNotConfiguredError if it propagated —
-      // completeSettlement must swallow that specific error (D-36 is not
-      // allowed to fail an already-resolved deposit) while still calling
-      // reanchorRetentionDeadlineForCustomer under the hood.
       const result = await completeSettlement({ repo: handoverRepo, identityRepo }, {
         tenantId: tenantA,
         rentalAgreementId: rentalAgreement.id,
@@ -345,7 +341,10 @@ describe('performHandoverIn / completeSettlement / markAssetReturnedToPool', () 
         returnedAmount: depositAmount,
       })
 
-      expect(result.rentalAgreement.settlementCompletedAt).not.toBeNull()
+      const settledAt = result.rentalAgreement.settlementCompletedAt!
+      expect(identityRepo.allIdentityEvidence()[0]!.retentionDeadline).toEqual(
+        new Date(settledAt.getTime() + 365 * 24 * 60 * 60 * 1000),
+      )
     })
 
     it('refuses a deduction when a ConditionReport is missing (FR-20, P1 corollary)', async () => {

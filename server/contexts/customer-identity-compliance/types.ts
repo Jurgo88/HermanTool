@@ -27,8 +27,7 @@ export interface Customer {
 // `retentionDeadline` is NOT NULL at the type level, matching the
 // migration: FR-12/P7 make an IdentityEvidence value without a deadline
 // unrepresentable, not merely disallowed. See ./identity-evidence.ts for
-// why creating one is currently guarded by RetentionWindowNotConfiguredError
-// rather than a placeholder value (OQ #2, CLAUDE.md "do NOT invent
+// the window (D-61) and the guard should it ever be unset (CLAUDE.md "do NOT invent
 // defaults" for launch-blocking Open Questions).
 export interface IdentityEvidence {
   id: number
@@ -184,16 +183,13 @@ export class ReservationGroupNotConfirmedError extends CustomerIdentityComplianc
   }
 }
 
-// OQ #2 (CLAUDE.md launch-blocking, "do NOT invent defaults"): the
-// IdentityEvidence retention window value and its legal basis are
-// unset. Thrown by identity-evidence.ts's computeRetentionDeadline
-// rather than falling back to a guessed number of days — the same
-// "leave the path unimplemented" treatment CLAUDE.md already prescribes
-// for OQ #1's cancellation path.
+// Thrown by identity-evidence.ts's computeRetentionDeadline if the window
+// D-61 set is ever unset again, rather than falling back to a guessed
+// number of days (CLAUDE.md "do NOT invent defaults").
 export class RetentionWindowNotConfiguredError extends CustomerIdentityComplianceError {
   constructor() {
     super(
-      'IdentityEvidence retention window is not configured (OQ #2 — value and legal basis unresolved). ' +
+      'IdentityEvidence retention window is not configured (D-61). ' +
         'Refusing to create IdentityEvidence with a guessed retention window.',
     )
   }
