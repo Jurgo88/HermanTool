@@ -74,6 +74,27 @@ const preparingPendingSheet = ref(false)
 const pending = ref<PendingActivationEntry[]>([])
 const markingRentableAssetId = ref<number | null>(null)
 const markingAllRentable = ref(false)
+const markingGroupId = ref<number | null>(null)
+
+// One card per AssetType, its units as tags: twelve units of one drill read
+// as "Vŕtačka × 12", not as twelve rows.
+const pendingGroups = computed(() => {
+  const groups = new Map<number, { assetTypeId: number; name: string; entries: PendingActivationEntry[] }>()
+  for (const entry of pending.value) {
+    const group = groups.get(entry.assetTypeId) ?? {
+      assetTypeId: entry.assetTypeId,
+      name: assetTypeName(entry.assetTypeId),
+      entries: [],
+    }
+    group.entries.push(entry)
+    groups.set(entry.assetTypeId, group)
+  }
+  return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, 'sk'))
+})
+
+const markingAny = computed(
+  () => markingAllRentable.value || markingGroupId.value !== null || markingRentableAssetId.value !== null,
+)
 
 function assetTypeName(assetTypeId: number): string {
   return assetTypes.value.find((a) => a.id === assetTypeId)?.name ?? String(assetTypeId)
@@ -234,6 +255,22 @@ async function markAllRentable() {
   }
 }
 
+async function markGroupRentable(assetTypeId: number) {
+  errorCode.value = null
+  errorMessage.value = null
+  markingGroupId.value = assetTypeId
+  try {
+    for (const entry of pending.value.filter((p) => p.assetTypeId === assetTypeId)) {
+      await $fetch(`/api/asset-registry/assets/${entry.assetId}/mark-rentable`, { method: 'POST' })
+      pending.value = pending.value.filter((p) => p.assetId !== entry.assetId)
+    }
+  } catch (err: unknown) {
+    await handleFetchError(err)
+  } finally {
+    markingGroupId.value = null
+  }
+}
+
 await loadAssetTypes()
 await loadPending()
 </script>
@@ -309,42 +346,56 @@ await loadPending()
       <h2>{{ sk.adminAssetRegistry.pendingHeading }}</h2>
       <p>{{ sk.adminAssetRegistry.pendingIntro }}</p>
       <div class="admin-asset-registry__pending-actions">
-        <AppButton variant="secondary" :pending="markingAllRentable" @click="markAllRentable">
+        <AppButton
+          variant="secondary"
+          :disabled="markingAny && !markingAllRentable"
+          :pending="markingAllRentable"
+          @click="markAllRentable"
+        >
           {{ markingAllRentable ? sk.adminAssetRegistry.markingRentable : sk.adminAssetRegistry.markAllRentableAction }}
         </AppButton>
         <AppButton variant="secondary" :pending="preparingPendingSheet" @click="printPendingSheet">
           {{ preparingPendingSheet ? sk.adminAssetRegistry.preparingSheet : sk.adminAssetRegistry.printPendingAction }}
         </AppButton>
       </div>
-      <AppTable>
-        <thead>
-          <tr>
-            <th>{{ sk.adminAssetRegistry.columnAssetType }}</th>
-            <th>{{ sk.adminAssetRegistry.columnTagCode }}</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="entry in pending" :key="entry.assetId">
-            <td>{{ assetTypeName(entry.assetTypeId) }}</td>
-            <td><TagCodePlate>{{ entry.tagCode }}</TagCodePlate></td>
-            <td>
+      <div class="admin-asset-registry__groups">
+        <article v-for="group in pendingGroups" :key="group.assetTypeId" class="admin-asset-registry__group">
+          <header class="admin-asset-registry__group-head">
+            <h3 class="admin-asset-registry__group-name">
+              {{ group.name }}
+              <span class="admin-asset-registry__group-count">
+                {{ sk.adminAssetRegistry.groupCount.replace('{count}', String(group.entries.length)) }}
+              </span>
+            </h3>
+            <AppButton
+              variant="secondary"
+              :disabled="markingAny && markingGroupId !== group.assetTypeId"
+              :pending="markingGroupId === group.assetTypeId"
+              @click="markGroupRentable(group.assetTypeId)"
+            >
+              {{
+                markingGroupId === group.assetTypeId
+                  ? sk.adminAssetRegistry.markingRentable
+                  : sk.adminAssetRegistry.markGroupAction.replace('{count}', String(group.entries.length))
+              }}
+            </AppButton>
+          </header>
+          <ul class="admin-asset-registry__units">
+            <li v-for="entry in group.entries" :key="entry.assetId" class="admin-asset-registry__unit">
+              <TagCodePlate>{{ entry.tagCode }}</TagCodePlate>
               <AppButton
-                variant="secondary"
-                :disabled="markingAllRentable"
+                variant="quiet"
+                :aria-label="sk.adminAssetRegistry.markOneLabel.replace('{tag}', entry.tagCode)"
+                :disabled="markingAny && markingRentableAssetId !== entry.assetId"
                 :pending="markingRentableAssetId === entry.assetId"
                 @click="markRentable(entry.assetId)"
               >
-                {{
-                  markingRentableAssetId === entry.assetId
-                    ? sk.adminAssetRegistry.markingRentable
-                    : sk.adminAssetRegistry.markRentableAction
-                }}
+                {{ sk.adminAssetRegistry.markOneAction }}
               </AppButton>
-            </td>
-          </tr>
-        </tbody>
-      </AppTable>
+            </li>
+          </ul>
+        </article>
+      </div>
     </section>
     <EmptyState v-else class="no-print" :message="sk.adminAssetRegistry.pendingEmpty" />
 
@@ -379,10 +430,85 @@ await loadPending()
   gap: var(--ht-space-3);
 }
 
+/* Wraps on a phone, where the type's long names would otherwise push the
+ * row past the screen. */
 .admin-asset-registry__builder-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
+  gap: 0 var(--ht-space-3);
+}
+
+.admin-asset-registry__builder-row > :first-child {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.admin-asset-registry__builder-row select {
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-asset-registry__builder-row > :nth-child(2) {
+  flex: 0 1 140px;
+}
+
+.admin-asset-registry__builder-row > .app-button {
+  margin-bottom: var(--ht-space-4);
+}
+
+.admin-asset-registry__groups {
+  display: flex;
+  flex-direction: column;
   gap: var(--ht-space-3);
+  margin-top: var(--ht-space-3);
+}
+
+.admin-asset-registry__group {
+  padding: var(--ht-space-3) var(--ht-space-4);
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
+}
+
+.admin-asset-registry__group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ht-space-2);
+}
+
+.admin-asset-registry__group-name {
+  margin: 0;
+  font-size: var(--ht-text-3);
+}
+
+.admin-asset-registry__group-count {
+  margin-left: var(--ht-space-1);
+  color: var(--ht-ink-muted);
+  font-weight: 400;
+}
+
+.admin-asset-registry__units {
+  list-style: none;
+  margin: var(--ht-space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ht-space-1) var(--ht-space-3);
+}
+
+.admin-asset-registry__unit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ht-space-1);
+}
+
+@media (max-width: 599px) {
+  .admin-asset-registry {
+    padding: var(--ht-space-4);
+  }
 }
 
 .admin-asset-registry__pending-actions {

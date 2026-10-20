@@ -110,23 +110,40 @@ await load()
           }}</AppButton>
         </template>
         <template v-else>
+          <span class="classification-list__arrows">
+            <button
+              type="button"
+              class="classification-list__move"
+              :aria-label="sk.adminClassification.moveUpLabel.replace('{label}', entry.label)"
+              :disabled="pending || index === 0"
+              @click="move(index, -1)"
+            >
+              <span aria-hidden="true">{{ sk.adminClassification.moveUpGlyph }}</span>
+            </button>
+            <button
+              type="button"
+              class="classification-list__move"
+              :aria-label="sk.adminClassification.moveDownLabel.replace('{label}', entry.label)"
+              :disabled="pending || index === entries.length - 1"
+              @click="move(index, 1)"
+            >
+              <span aria-hidden="true">{{ sk.adminClassification.moveDownGlyph }}</span>
+            </button>
+          </span>
           <span class="classification-list__label">{{ entry.label }}</span>
-          <AppButton variant="quiet" :disabled="pending || index === 0" @click="move(index, -1)">
-            {{ sk.adminClassification.moveUpAction }}
-          </AppButton>
-          <AppButton
-            variant="quiet"
-            :disabled="pending || index === entries.length - 1"
-            @click="move(index, 1)"
-          >
-            {{ sk.adminClassification.moveDownAction }}
-          </AppButton>
-          <AppButton variant="secondary" :disabled="pending" @click="startRename(entry)">
-            {{ sk.adminClassification.renameAction }}
-          </AppButton>
-          <AppButton variant="quiet" :disabled="pending" @click="remove(entry)">
-            {{ sk.adminClassification.removeAction }}
-          </AppButton>
+          <span class="classification-list__actions">
+            <AppButton variant="quiet" :disabled="pending" @click="startRename(entry)">
+              {{ sk.adminClassification.renameAction }}
+            </AppButton>
+            <AppButton
+              variant="quiet"
+              class="classification-list__remove"
+              :disabled="pending"
+              @click="remove(entry)"
+            >
+              {{ sk.adminClassification.removeAction }}
+            </AppButton>
+          </span>
         </template>
       </li>
     </ol>
@@ -149,26 +166,70 @@ await load()
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-3);
+  padding: var(--ht-space-4);
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
+}
+
+.classification-list h3 {
+  margin: 0;
 }
 
 .classification-list__entries {
+  list-style: none;
   margin: 0;
-  padding-left: var(--ht-space-5);
+  padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--ht-space-1);
 }
 
+/* One line per entry: the arrows, the name, then its two actions. */
 .classification-list__entry {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--ht-space-2);
+  padding: var(--ht-space-1) 0;
+}
+
+.classification-list__entry + .classification-list__entry {
+  border-top: 1px solid var(--ht-line);
+}
+
+.classification-list__arrows {
+  display: inline-flex;
+  gap: var(--ht-space-1);
+}
+
+.classification-list__move {
+  width: var(--ht-hit-min);
+  height: var(--ht-hit-min);
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius-plate);
+  background: var(--ht-surface);
+  color: var(--ht-ink);
+  font-size: var(--ht-text-3);
+  cursor: pointer;
+}
+
+.classification-list__move:disabled {
+  color: var(--ht-line-strong);
+  cursor: default;
 }
 
 .classification-list__label {
-  flex: 1 1 auto;
+  flex: 1 1 120px;
   font-weight: 600;
+}
+
+.classification-list__actions {
+  display: inline-flex;
+  gap: var(--ht-space-1);
+}
+
+.classification-list__remove {
+  color: var(--ht-danger);
 }
 
 .classification-list__in-use {

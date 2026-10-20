@@ -201,7 +201,7 @@ export const sk = {
       ],
     },
     privacyPageBody:
-      'Toto je dočasný text — konečné znenie zásad ochrany súkromia, vrátane doby uchovávania dokladov totožnosti a údajov zákazníka, ešte čaká na právne schválenie (OQ #2, OQ #4, OQ #27).',
+      'Toto je dočasný text — konečné znenie zásad ochrany súkromia, vrátane doby uchovávania dokladov totožnosti a údajov zákazníka, ešte čaká na právne schválenie.',
   },
   // D-50, UIF-03: domain errors carry a stable `code` (the throwing
   // class's own name, attached server-side by every translate*Error
@@ -292,7 +292,7 @@ export const sk = {
   adminPin: {
     title: 'Môj PIN',
     intro:
-      'Tento PIN potvrdzuje, ktorý operátor fyzicky preberá alebo vydáva náradie na zdieľanom telefóne pri pulte (S-10 – S-12). Nie je to prihlasovacie heslo.',
+      'Tento PIN potvrdzuje, ktorý operátor fyzicky preberá alebo vydáva náradie na zdieľanom telefóne pri pulte. Nie je to prihlasovacie heslo.',
     pinLabel: 'Nový PIN (aspoň 4 znaky)',
     confirmLabel: 'Potvrdiť PIN',
     mismatchError: 'Zadané PIN sa nezhodujú.',
@@ -301,6 +301,9 @@ export const sk = {
     success: 'PIN bol uložený.',
   },
   operatorBar: {
+    brandName: 'Rent Star',
+    brandSuffix: 'Správa',
+    navLabel: 'Správa',
     catalogLink: 'Katalóg',
     assetRegistryLink: 'Registrácia a štítky',
     statusLink: 'Stav systému',
@@ -371,6 +374,11 @@ export const sk = {
   quantityStepper: {
     decreaseGlyph: '−',
     increaseGlyph: '+',
+  },
+  // C-29.
+  sidePanel: {
+    closeLabel: 'Zavrieť',
+    closeGlyph: '×',
   },
   // C-21 (D-58): levels are derived facts, worded as such (D-47).
   availabilityCalendar: {
@@ -507,11 +515,27 @@ export const sk = {
   },
   adminCatalog: {
     title: 'Správa katalógu',
-    assetTypesHeading: 'Typy náradia',
+    newAction: '+ Nové náradie',
+    tabsLabel: 'Časti katalógu',
+    tabs: { tools: 'Náradie', prices: 'Ceny', filters: 'Filtre katalógu' },
+    searchLabel: 'Hľadať náradie',
+    showLabel: 'Zobraziť',
+    show: { all: 'Všetko', published: 'Publikované', unpublished: 'Nepublikované', accessories: 'Doplnky' },
+    noMatch: 'Hľadaniu nezodpovedá žiadne náradie.',
+    perDay: '{amount} / deň',
+    depositMeta: 'záloha {amount}',
+    editTitle: 'Upraviť: {name}',
+    newHint: 'Fotku, zatriedenie a obsah stránky doplníte po vytvorení cez Upraviť. Nové náradie je nepublikované, kým ho nepublikujete.',
+    pricesIntro: 'Upravte ceny a zálohy priamo v tabuľke. Zmenené riadky sú označené a uložíte ich naraz.',
+    pricesChanged: 'Zmenené riadky: {count}',
+    pricesSave: 'Uložiť ceny ({count})',
+    pricesSaving: 'Ukladám ceny…',
+    pricesSaved: 'Uložené ceny: {count}.',
+    pricesReset: 'Zrušiť zmeny',
+    pricesInvalid: 'Niektorá suma nie je platná. Zadajte 0 alebo viac.',
+    dayRateFor: 'Cena za deň: {name}',
+    depositFor: 'Záloha: {name}',
     columnName: 'Názov',
-    columnDayRate: 'Cena/deň',
-    columnDeposit: 'Depozit',
-    columnPublished: 'Publikované',
     published: 'Publikované',
     unpublished: 'Nepublikované',
     publishAction: 'Publikovať',
@@ -526,7 +550,7 @@ export const sk = {
     fieldName: 'Názov',
     fieldDescription: 'Popis',
     fieldDayRate: 'Cena/deň (EUR)',
-    fieldDeposit: 'Depozit (EUR)',
+    fieldDeposit: 'Záloha (EUR)',
     createAction: 'Vytvoriť',
     // D-60, OQ #29: the imported prices are placeholders until confirmed.
     provisionalPricesNotice:
@@ -568,8 +592,10 @@ export const sk = {
     saveAction: 'Uložiť',
     cancelAction: 'Zrušiť',
     removeAction: 'Odstrániť',
-    moveUpAction: 'Vyššie',
-    moveDownAction: 'Nižšie',
+    moveUpLabel: 'Posunúť {label} vyššie',
+    moveDownLabel: 'Posunúť {label} nižšie',
+    moveUpGlyph: '↑',
+    moveDownGlyph: '↓',
     empty: 'Zatiaľ žiadne položky.',
     inUseBy: 'Používa ju: {names}',
   },
@@ -607,10 +633,12 @@ export const sk = {
     pendingIntro:
       'Tieto kusy sú zaregistrované a označené štítkom, ale ešte nie sú dostupné na rezerváciu — priložte štítok na náradie a potvrďte.',
     pendingEmpty: 'Žiadne kusy nečakajú na uvedenie do prevádzky.',
-    columnTagCode: 'Kód štítku',
-    markRentableAction: 'Uviesť do prevádzky',
     markingRentable: 'Uvádzam do prevádzky…',
     markAllRentableAction: 'Uviesť všetky do prevádzky',
+    groupCount: '× {count}',
+    markGroupAction: 'Uviesť do prevádzky ({count})',
+    markOneAction: 'Uviesť',
+    markOneLabel: 'Uviesť do prevádzky kus {tag}',
   },
   // C-25 (FR-24, S-17).
   lateAttestation: {
@@ -662,7 +690,7 @@ export const sk = {
     verificationRecorded: 'Overenie totožnosti zaznamenané.',
 
     handoverOutHeading: 'Vydanie náradia — {customerName}',
-    depositLabel: 'Vyberte hotovostný depozit: {amount}',
+    depositLabel: 'Vyberte zálohu v hotovosti: {amount}',
     tagCodeLabel: 'Kód štítku (naskenovať)',
     conditionPhotosLabel: 'Fotografie stavu pri odovzdaní',
     conditionPhotosAddAction: 'Pridať fotografiu',
@@ -684,19 +712,19 @@ export const sk = {
     conditionPhotosInLabel: 'Fotografie stavu pri vrátení',
     submitHandoverInAction: 'Potvrdiť vrátenie',
     submittingHandoverIn: 'Preberám vrátenie…',
-    handoverInSuccess: 'Náradie vrátené. Pokračujte vyrovnaním depozitu.',
+    handoverInSuccess: 'Náradie vrátené. Pokračujte vyrovnaním zálohy.',
 
-    settlementHeading: 'Vyrovnanie depozitu',
+    settlementHeading: 'Vyrovnanie zálohy',
     pairedEvidenceOutLabel: 'Fotodokumentácia pri vydaní',
     pairedEvidenceInLabel: 'Fotodokumentácia pri vrátení',
     pairedEvidenceOk: 'potvrdená',
     pairedEvidenceMissing: 'nepotvrdená',
     pairedEvidenceIncompleteNote: 'Kým nie sú potvrdené fotografie z oboch strán, zrážku zo zálohy nie je možné zapísať.',
     returnedAmountLabel: 'Vrátená suma (EUR)',
-    deductionReasonLabel: 'Dôvod zrážky (ak je suma nižšia než depozit)',
+    deductionReasonLabel: 'Dôvod zrážky (ak je suma nižšia než záloha)',
     submitSettlementAction: 'Potvrdiť vyrovnanie',
     submittingSettlement: 'Vyrovnávam…',
-    settlementSuccess: 'Depozit vyrovnaný.',
+    settlementSuccess: 'Záloha vyrovnaná.',
 
     worklistNavHeading: 'Ďalšie zoznamy',
     overdueNavAction: 'Omeškané',
@@ -755,7 +783,7 @@ export const sk = {
   },
   adminCounterNoShows: {
     title: 'Nedostavili sa',
-    note: 'Rezervované dni sa touto akciou neuvoľňujú (OQ #1). Kontaktujte zákazníka.',
+    note: 'Rezervované dni sa touto akciou neuvoľňujú. Kontaktujte zákazníka.',
     empty: 'Žiadne nedostavenia.',
   },
   adminStatus: {
@@ -765,12 +793,25 @@ export const sk = {
     erasureStale: 'Naposledy úspešne prebehol — je to už dávno, skontrolujte',
     erasureNever: 'Ešte nikdy úspešne neprebehol',
     otherJobsHeading: 'Ostatné naplánované úlohy',
-    columnJob: 'Úloha',
     columnLastRun: 'Posledný beh',
     columnLastSuccess: 'Posledný úspešný beh',
-    outcomeSuccess: 'úspech',
-    outcomeFailure: 'zlyhanie',
     neverRun: 'Ešte nebežala',
+    neverSucceeded: 'ešte nikdy neprebehla úspešne',
+    summaryOk: 'Všetky naplánované úlohy bežia.',
+    summaryProblem: 'Pozor: nefungujúce úlohy: {count}. Pozrite vysvetlenie pri každej z nich.',
+    health: {
+      ok: 'Beží',
+      failing: 'Zlyháva',
+      never: 'Ešte nebežala',
+    },
+    hints: {
+      missingEmailKey:
+        'Chýba kľúč pre odosielanie e-mailov (Resend). Doplňte ho v nastaveniach Netlify ako NUXT_RESEND_API_KEY. Kým chýba, zákazníkom neodchádzajú ani potvrdenia rezervácií.',
+      missingJobConfig: 'Úlohe chýba nastavenie v GitHube (tajné údaje alebo premenné repozitára).',
+      backupNotConfigured:
+        'Záloha sa ešte nikdy nevykonala. V GitHube treba doplniť údaje pre zálohu (pripojenie k databáze a úložisko Cloudflare R2) a vytvoriť bucket na zálohy.',
+      unknown: 'Úloha zlyhala. Podrobnosti nájdete v GitHub Actions pri danom behu.',
+    },
     jobNames: {
       expiry_sweep: 'Kontrola vypršaných rezervácií',
       evidence_erasure: 'Výmaz identifikačných dokladov',

@@ -301,6 +301,7 @@ Twenty components. Filenames use domain vocabulary (`UI-D-02`); none is generic 
 | `C-22` | `ClassificationFilter` | two groups, PowerSource and UseArea; toggle chips, OR within a group, AND across (`D-54`); state is visible as text, not colour alone |
 | `C-23` | `AssetTypeCard` | `S-01` grid cell: image (placeholder when absent, `D-56`), name, day rate via `C-14`; the whole card links to `S-02` |
 | `C-27` | `PublicHero` | style C: the header's brand band continued behind a public page's opening (title, a line, figures); the content after it rises into it by `--ht-hero-overlap`; the page sets `hero: true` so the header drops its curve; `narrow` aligns it with one centred card column |
+| `C-29` | `SidePanel` | a panel from the right on a wide screen, full screen on a phone, for editing one thing over a list (`S-19`); native `<dialog>` like `C-04` |
 | `C-28` | `DraftSummaryList` | the tools of a reservation draft as a short list: catalog photo when there is one, name, days, units; an Accessory under its principal (`D-57`); used by `S-04` and `S-05` |
 | `C-26` | `QuantityStepper` | a whole number with − / + buttons at the hit target and a typeable field, clamped to min and max; each button has its own accessible name |
 
