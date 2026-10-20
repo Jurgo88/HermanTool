@@ -24,6 +24,8 @@ export interface DraftReservationLine {
   depositAmount: { amount: number; currency: string }
   period: { startDay: string; endDay: string }
   quantity: number
+  // The catalog photo, for the checkout list; absent on drafts stored before it.
+  imageFile?: string | null
   // D-57: set on an Accessory's line — the principal it was added with,
   // so removing the principal removes it too (checkout would refuse it).
   principalAssetTypeId?: number

@@ -74,6 +74,12 @@ describe('parseStoredDraft (S-03, draft kept in the browser)', () => {
     expect(parseStoredDraft(stored)).toEqual([hammer, { ...bits, principalAssetTypeId: 7 }])
   })
 
+  it('keeps the photo a line was added with, and drafts stored before photos (D-56)', () => {
+    const withPhoto = { ...hammer, imageFile: 'vrtacie-kladivo.webp' }
+    expect(parseStoredDraft(JSON.stringify([withPhoto, bits]))).toEqual([withPhoto, bits])
+    expect(parseStoredDraft(JSON.stringify([{ ...hammer, imageFile: 42 }]))).toEqual([])
+  })
+
   it('yields an empty draft for anything malformed, never an error', () => {
     for (const raw of [
       null,

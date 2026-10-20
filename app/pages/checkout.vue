@@ -100,6 +100,14 @@ const anyLineInPast = computed(() => quote.value?.lines.some((line) => line.star
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const attempted = ref(false)
 
+// A quiet confirmation once a field holds something of the right shape. It
+// blocks nothing: the errors above and the server decide.
+const fieldValid = computed(() => ({
+  name: customerName.value.trim().length >= 2,
+  email: EMAIL_PATTERN.test(customerEmail.value.trim()),
+  phone: customerPhone.value.replace(/\D/g, '').length >= 6,
+}))
+
 const fieldErrors = computed(() => {
   if (!attempted.value) return { name: null, email: null, phone: null, terms: null }
   const email = customerEmail.value.trim()
@@ -208,7 +216,7 @@ async function pay() {
 
 <template>
   <main class="checkout-page">
-    <PublicHero narrow>
+    <PublicHero>
       <h1>{{ sk.checkout.title }}</h1>
       <p>{{ sk.checkout.lead }}</p>
     </PublicHero>
@@ -224,13 +232,14 @@ async function pay() {
       </NuxtLink>
     </div>
 
-    <form v-else class="checkout__form" novalidate @submit.prevent="pay">
-      <div v-if="unpaidHoldUntil && pendingGroupId" class="checkout__pending" role="status">
-        <p>{{ sk.checkout.pendingNotice.replace('{time}', formatTime(unpaidHoldUntil)) }}</p>
-        <NuxtLink :to="`/reservations/${pendingGroupId}/cancel`">
-          <AppButton variant="primary">{{ sk.checkout.pendingResumeAction }}</AppButton>
-        </NuxtLink>
-      </div>
+    <div v-else-if="unpaidHoldUntil && pendingGroupId" class="checkout__pending" role="status">
+      <p>{{ sk.checkout.pendingNotice.replace('{time}', formatTime(unpaidHoldUntil)) }}</p>
+      <NuxtLink :to="`/reservations/${pendingGroupId}/cancel`">
+        <AppButton variant="primary">{{ sk.checkout.pendingResumeAction }}</AppButton>
+      </NuxtLink>
+    </div>
+
+    <form v-if="restored && draftLines.length > 0" class="checkout__form" novalidate @submit.prevent="pay">
 
       <section class="checkout__section" aria-labelledby="checkout-tools">
         <h2 id="checkout-tools" class="checkout__heading">
@@ -243,6 +252,15 @@ async function pay() {
             class="checkout__line"
             :class="{ 'checkout__line--accessory': isAccessory }"
           >
+            <span class="checkout__thumb" aria-hidden="true">
+              <img
+                v-if="line.imageFile"
+                :src="`/catalog/${line.imageFile}`"
+                alt=""
+                width="96"
+                height="96"
+              />
+            </span>
             <div class="checkout__line-text">
               <span class="checkout__line-name">
                 {{ line.assetTypeName }}
@@ -265,17 +283,21 @@ async function pay() {
                 type="button"
                 class="checkout__remove"
                 :aria-label="sk.checkout.removeLineLabel.replace('{name}', line.assetTypeName)"
+                :title="sk.checkout.removeLineLabel.replace('{name}', line.assetTypeName)"
                 :disabled="paying"
                 @click="removeLine(index)"
               >
-                {{ sk.checkout.removeLineAction }}
+                <span aria-hidden="true">{{ sk.checkout.removeLineGlyph }}</span>
               </button>
             </div>
           </li>
         </ul>
         <p v-if="quoteStatus === 'loading' && !quote" aria-busy="true">{{ sk.checkout.quoteLoading }}</p>
         <AppAlert v-else-if="quoteStatus === 'error'" :message="sk.checkout.quoteError" />
-        <NuxtLink to="/" class="checkout__add">{{ sk.checkout.addMoreAction }}</NuxtLink>
+        <NuxtLink to="/" class="checkout__add">
+          <span class="checkout__add-mark" aria-hidden="true">{{ sk.checkout.addMoreGlyph }}</span>
+          {{ sk.checkout.addMoreAction }}
+        </NuxtLink>
       </section>
 
       <section class="checkout__section" aria-labelledby="checkout-details">
@@ -284,6 +306,7 @@ async function pay() {
         </h2>
         <AppField :label="sk.checkout.nameLabel" :error="fieldErrors.name">
           <template #default="slotProps">
+            <span class="checkout__input">
             <input
               :id="slotProps.id"
               ref="nameInput"
@@ -296,10 +319,13 @@ async function pay() {
               :aria-describedby="slotProps.ariaDescribedby"
               :disabled="paying"
             />
+            <span v-if="fieldValid.name" class="checkout__valid" aria-hidden="true" />
+            </span>
           </template>
         </AppField>
         <AppField :label="sk.checkout.emailLabel" :hint="sk.checkout.emailHint" :error="fieldErrors.email">
           <template #default="slotProps">
+            <span class="checkout__input">
             <input
               :id="slotProps.id"
               ref="emailInput"
@@ -314,10 +340,13 @@ async function pay() {
               :aria-describedby="slotProps.ariaDescribedby"
               :disabled="paying"
             />
+            <span v-if="fieldValid.email" class="checkout__valid" aria-hidden="true" />
+            </span>
           </template>
         </AppField>
         <AppField :label="sk.checkout.phoneLabel" :hint="sk.checkout.phoneHint" :error="fieldErrors.phone">
           <template #default="slotProps">
+            <span class="checkout__input">
             <input
               :id="slotProps.id"
               ref="phoneInput"
@@ -330,10 +359,15 @@ async function pay() {
               :aria-describedby="slotProps.ariaDescribedby"
               :disabled="paying"
             />
+            <span v-if="fieldValid.phone" class="checkout__valid" aria-hidden="true" />
+            </span>
           </template>
         </AppField>
       </section>
 
+      <!-- Wide screens: the payment and the button stay in view beside the
+        tools and the details. A phone keeps one column (display: contents). -->
+      <div class="checkout__side">
       <section class="checkout__section" aria-labelledby="checkout-payment">
         <h2 id="checkout-payment" class="checkout__heading">
           <span class="checkout__step" aria-hidden="true">3</span>{{ sk.checkout.paymentHeading }}
@@ -393,6 +427,7 @@ async function pay() {
         </AppButton>
         <p class="checkout__note">{{ sk.checkout.paymentNote }}</p>
       </div>
+      </div>
     </form>
     </div>
   </main>
@@ -408,6 +443,7 @@ async function pay() {
   position: relative;
   box-sizing: border-box;
   max-width: 680px;
+  width: 100%;
   margin: calc(var(--ht-hero-overlap) * -1) auto 0;
   padding: 0 var(--ht-space-4);
   display: flex;
@@ -427,7 +463,7 @@ async function pay() {
   padding: var(--ht-space-4);
   background: var(--ht-surface);
   border: 2px solid var(--ht-brand-light);
-  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  border-radius: var(--ht-radius-card);
   box-shadow: var(--ht-shadow-card);
 }
 
@@ -444,7 +480,7 @@ async function pay() {
   margin: 0;
   padding: var(--ht-space-5);
   background: var(--ht-surface);
-  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  border-radius: var(--ht-radius-card);
   box-shadow: var(--ht-shadow-card);
 }
 
@@ -465,7 +501,7 @@ async function pay() {
   gap: var(--ht-space-3);
   padding: var(--ht-space-5) var(--ht-space-4);
   background: var(--ht-surface);
-  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  border-radius: var(--ht-radius-card);
   box-shadow: var(--ht-shadow-card);
 }
 
@@ -500,9 +536,32 @@ async function pay() {
 
 .checkout__line {
   display: flex;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: var(--ht-space-3);
   padding: var(--ht-space-3) var(--ht-space-4);
+}
+
+.checkout__thumb {
+  flex: none;
+  width: calc(var(--ht-space-7) + var(--ht-space-2));
+  height: calc(var(--ht-space-7) + var(--ht-space-2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ht-space-1);
+  box-sizing: border-box;
+  border-radius: var(--ht-radius-tile);
+  background: var(--ht-surface);
+}
+
+.checkout__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.checkout__line-text {
+  flex: 1;
 }
 
 .checkout__line + .checkout__line {
@@ -552,29 +611,97 @@ async function pay() {
   flex: none;
 }
 
+/* A small cross; its accessible name says which tool it removes. */
 .checkout__remove {
-  min-height: var(--ht-hit-min);
-  padding: 0 var(--ht-space-1);
-  margin-right: calc(var(--ht-space-1) * -1);
-  background: none;
+  width: var(--ht-hit-min);
+  height: var(--ht-hit-min);
+  margin-right: calc(var(--ht-space-2) * -1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: transparent;
   border: 0;
+  border-radius: var(--ht-radius-tile);
   color: var(--ht-ink-muted);
-  font-size: var(--ht-text-2);
-  text-decoration: underline;
-  text-underline-offset: 0.2em;
+  font-size: var(--ht-text-5);
+  line-height: 1;
   cursor: pointer;
+  transition:
+    background-color var(--ht-motion),
+    color var(--ht-motion);
 }
 
-.checkout__remove:hover {
+.checkout__remove:hover:not(:disabled) {
+  background: var(--ht-surface-sunk);
   color: var(--ht-danger);
 }
 
+/* A dashed tile the width of the list: there is room for more. */
 .checkout__add {
-  align-self: flex-start;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  min-height: var(--ht-hit-min);
+  justify-content: center;
+  gap: var(--ht-space-2);
+  min-height: calc(var(--ht-hit-min) + var(--ht-space-2));
+  border: 2px dashed var(--ht-line-strong);
+  border-radius: var(--ht-radius-card);
+  color: var(--ht-brand);
   font-weight: 600;
+  text-decoration: none;
+  transition:
+    background-color var(--ht-motion),
+    border-color var(--ht-motion);
+}
+
+.checkout__add:hover {
+  border-color: var(--ht-brand);
+  background: var(--ht-brand-tint);
+}
+
+.checkout__add-mark {
+  font-size: var(--ht-text-4);
+  line-height: 1;
+}
+
+.checkout__input {
+  position: relative;
+  display: block;
+}
+
+.checkout__input input {
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: var(--ht-space-7);
+}
+
+/* A drawn check mark in a green circle inside the field. */
+.checkout__valid {
+  position: absolute;
+  right: var(--ht-space-3);
+  top: 50%;
+  width: var(--ht-space-5);
+  height: var(--ht-space-5);
+  border-radius: 50%;
+  background: var(--ht-ok);
+  transform: translateY(-50%);
+}
+
+.checkout__valid::after {
+  content: '';
+  position: absolute;
+  left: 36%;
+  top: 22%;
+  width: 22%;
+  height: 44%;
+  border: solid var(--ht-on-brand);
+  border-width: 0 calc(var(--ht-space-1) / 2) calc(var(--ht-space-1) / 2) 0;
+  transform: rotate(45deg);
+}
+
+/* Phone: one column, the wrapper dissolves. */
+.checkout__side {
+  display: contents;
 }
 
 .checkout__amounts {
@@ -650,7 +777,7 @@ async function pay() {
   margin-bottom: var(--ht-space-5);
   padding: var(--ht-space-3) var(--ht-space-4);
   background: var(--ht-surface);
-  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  border-radius: var(--ht-radius-card);
   box-shadow: var(--ht-shadow-raised);
 }
 
@@ -666,9 +793,36 @@ async function pay() {
 }
 
 @media (min-width: 900px) {
+  .checkout {
+    max-width: 1200px;
+    padding-bottom: var(--ht-space-7);
+  }
+
+  .checkout__form {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: var(--ht-space-5);
+    row-gap: var(--ht-space-4);
+    align-items: start;
+  }
+
+  .checkout__form > .checkout__section {
+    grid-column: 1;
+  }
+
+  .checkout__side {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: var(--ht-space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--ht-space-3);
+  }
+
   .checkout__action {
     position: static;
-    margin-bottom: var(--ht-space-7);
+    margin-bottom: 0;
     box-shadow: var(--ht-shadow-card);
   }
 }

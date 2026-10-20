@@ -210,6 +210,7 @@ function reserve() {
     depositAmount: assetType.value.depositAmount,
     period,
     quantity: quantity.value,
+    imageFile: assetType.value.imageFile,
   })
   for (const accessory of assetType.value.accessories) {
     if (!chosenAccessoryIds.value.includes(accessory.id)) continue
@@ -221,6 +222,7 @@ function reserve() {
       period,
       quantity: quantity.value,
       principalAssetTypeId: assetType.value.id,
+      imageFile: accessory.imageFile,
     })
   }
   added.value = true

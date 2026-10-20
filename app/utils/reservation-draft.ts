@@ -66,7 +66,8 @@ export function parseStoredDraft(raw: string | null): DraftReservationLine[] {
       isDay(line.period?.endDay) &&
       Number.isInteger(line.quantity) &&
       line.quantity > 0 &&
-      (line.principalAssetTypeId === undefined || Number.isInteger(line.principalAssetTypeId)),
+      (line.principalAssetTypeId === undefined || Number.isInteger(line.principalAssetTypeId)) &&
+      (line.imageFile === undefined || line.imageFile === null || typeof line.imageFile === 'string'),
   )
   return valid ? (data as DraftReservationLine[]) : []
 }
