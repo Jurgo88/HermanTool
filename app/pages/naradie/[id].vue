@@ -11,7 +11,7 @@ import { sk } from '~/i18n/sk'
 import { formatCount, formatMoney, type MonetaryAmountView } from '~/utils/format'
 import type { CalendarMonth } from '~/components/AvailabilityCalendar.vue'
 
-definePageMeta({ layout: 'public', hero: true })
+definePageMeta({ layout: 'public' })
 
 interface AccessoryView {
   id: number
@@ -242,10 +242,10 @@ const hint = computed(() => {
 
 <template>
   <main class="detail">
-    <PublicHero>
+    <header class="detail__head">
       <NuxtLink to="/" class="detail__back">{{ sk.assetTypeDetail.backToCatalog }}</NuxtLink>
       <template v-if="assetType">
-        <h1>{{ assetType.name }}</h1>
+        <h1 class="detail__title">{{ assetType.name }}</h1>
         <p v-if="assetType.description" class="detail__lead">{{ assetType.description }}</p>
         <!-- FR-02, S-02: the day rate and the cash deposit with equal weight. -->
         <div class="detail__chips">
@@ -257,15 +257,15 @@ const hint = computed(() => {
           </span>
         </div>
       </template>
-    </PublicHero>
+    </header>
 
     <div class="detail__body">
       <AppAlert v-if="loadError" :message="sk.assetTypeDetail.loadError" />
 
       <!-- Phone: one column — photo, the reservation card, details, and a bar
         floating at the bottom with the sum and the button. Wide screens: the
-        photo and details on the left, the card and the bar on the right, all
-        rising into the hero band. .detail__side is only a wrapper on a phone
+        photo and details on the left, the card and the bar on the right.
+        .detail__side is only a wrapper on a phone
         (display: contents), so its children take part in the page order. -->
       <div v-else-if="assetType" class="detail__layout">
         <section class="detail__intro">
@@ -382,14 +382,14 @@ const hint = computed(() => {
                 {{ sk.assetTypeDetail.addedTitle }}
               </p>
               <div class="detail__added-actions">
-                <AppButton variant="quiet" @click="pickAnother">
-                  {{ sk.assetTypeDetail.pickAnotherAction }}
-                </AppButton>
                 <NuxtLink to="/checkout" class="detail__cta-link">
                   <AppButton class="detail__cta" variant="primary">
                     {{ sk.assetTypeDetail.continueAction }}
                   </AppButton>
                 </NuxtLink>
+                <AppButton variant="quiet" @click="pickAnother">
+                  {{ sk.assetTypeDetail.pickAnotherAction }}
+                </AppButton>
               </div>
             </template>
 
@@ -469,14 +469,33 @@ const hint = computed(() => {
   width: 100%;
 }
 
+.detail__head {
+  box-sizing: border-box;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--ht-space-4) var(--ht-space-4) var(--ht-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+}
+
 .detail__back {
   align-self: flex-start;
+  color: var(--ht-brand);
+  font-weight: 600;
   font-size: var(--ht-text-2);
-  opacity: 0.9;
+}
+
+.detail__title {
+  margin: 0;
+  font-size: var(--ht-text-5);
+  line-height: 1.15;
 }
 
 .detail__lead {
+  margin: 0;
   max-width: 60ch;
+  color: var(--ht-ink-muted);
   font-size: var(--ht-text-3);
 }
 
@@ -490,9 +509,10 @@ const hint = computed(() => {
 .detail__chip {
   display: inline-flex;
   align-items: center;
-  min-height: var(--ht-space-6);
+  min-height: calc(var(--ht-space-6) + var(--ht-space-1));
   padding: 0 var(--ht-space-3);
-  border-radius: var(--ht-radius-pill);
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius-tile);
   background: var(--ht-surface);
   color: var(--ht-ink);
   font-weight: 700;
@@ -500,14 +520,16 @@ const hint = computed(() => {
 }
 
 .detail__chip--rate {
-  color: var(--ht-brand);
+  border-color: var(--ht-brand-tint);
+  background: var(--ht-brand-tint);
+  color: var(--ht-brand-deep);
 }
 
 .detail__body {
+  box-sizing: border-box;
   max-width: 1200px;
-  margin: calc(var(--ht-hero-overlap) * -1) auto 0;
+  margin: 0 auto;
   padding: 0 var(--ht-space-4) var(--ht-space-5);
-  position: relative;
 }
 
 .detail__layout {
@@ -555,7 +577,7 @@ const hint = computed(() => {
   justify-content: center;
   padding: var(--ht-space-5);
   background: var(--ht-surface);
-  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  border-radius: var(--ht-radius-card);
   box-shadow: var(--ht-shadow-card);
 }
 
@@ -617,7 +639,7 @@ const hint = computed(() => {
   gap: var(--ht-space-4);
   padding: var(--ht-space-5) var(--ht-space-4);
   background: var(--ht-surface);
-  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  border-radius: var(--ht-radius-card);
   box-shadow: var(--ht-shadow-card);
 }
 
@@ -800,7 +822,7 @@ const hint = computed(() => {
   gap: var(--ht-space-2);
   padding: var(--ht-space-3) var(--ht-space-4);
   background: var(--ht-surface);
-  border-radius: calc(var(--ht-radius-card) + var(--ht-space-1));
+  border-radius: var(--ht-radius-card);
   box-shadow: var(--ht-shadow-raised);
 }
 
@@ -808,17 +830,20 @@ const hint = computed(() => {
   margin: 0;
 }
 
+/* The period and its sum on one line, the button full width under them. */
 .detail__action-row {
   display: flex;
-  align-items: center;
-  gap: var(--ht-space-3);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ht-space-2);
 }
 
 .detail__summary {
-  flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ht-space-3);
 }
 
 .detail__summary-period {
@@ -839,7 +864,7 @@ const hint = computed(() => {
 }
 
 .detail__cta {
-  flex: none;
+  width: 100%;
   height: calc(var(--ht-hit-min) + var(--ht-space-2));
   padding: 0 var(--ht-space-5);
   font-size: var(--ht-text-3);
@@ -853,15 +878,12 @@ const hint = computed(() => {
   font-weight: 600;
 }
 
+/* The next step full width, the way back under it. */
 .detail__added-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--ht-space-2);
-}
-
-.detail__added-actions .detail__cta-link {
-  flex: 1;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ht-space-1);
 }
 
 .detail__added-actions .detail__cta {
@@ -891,6 +913,10 @@ const hint = computed(() => {
 }
 
 @media (min-width: 900px) {
+  .detail__title {
+    font-size: var(--ht-text-6);
+  }
+
   .detail__body {
     padding-bottom: var(--ht-space-7);
   }
@@ -936,19 +962,5 @@ const hint = computed(() => {
     box-shadow: var(--ht-shadow-card);
   }
 
-  .detail__action-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .detail__summary {
-    flex-direction: row;
-    align-items: baseline;
-    justify-content: space-between;
-  }
-
-  .detail__cta {
-    width: 100%;
-  }
 }
 </style>

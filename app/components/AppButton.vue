@@ -42,6 +42,7 @@ withDefaults(
   font-size: var(--ht-text-2);
   transition:
     transform var(--ht-motion),
+    background-color var(--ht-motion),
     box-shadow var(--ht-motion);
   padding: 0 var(--ht-space-4);
   height: var(--ht-hit-min);
@@ -59,8 +60,16 @@ withDefaults(
   box-shadow: var(--ht-button-primary-shadow);
 }
 
+@media (hover: hover) {
+  .app-button--primary:not(:disabled):hover {
+    background: var(--ht-button-primary-hover);
+    box-shadow: var(--ht-button-primary-shadow-hover);
+  }
+}
+
 .app-button--primary:not(:disabled):active {
   transform: translateY(1px);
+  box-shadow: var(--ht-button-primary-shadow);
 }
 
 .app-button--secondary {

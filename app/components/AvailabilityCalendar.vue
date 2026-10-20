@@ -165,7 +165,7 @@ function levelLabel(day: CalendarDay): string {
   align-items: center;
   justify-content: space-between;
   padding: var(--ht-space-1);
-  border-radius: var(--ht-radius-pill);
+  border-radius: var(--ht-radius-card);
   background: var(--ht-surface-sunk);
 }
 
@@ -179,7 +179,7 @@ function levelLabel(day: CalendarDay): string {
   min-width: var(--ht-hit-min);
   min-height: var(--ht-hit-min);
   border: 0;
-  border-radius: var(--ht-radius-pill);
+  border-radius: var(--ht-radius-tile);
   background: var(--ht-surface);
   box-shadow: var(--ht-shadow-card);
   color: var(--ht-ink);

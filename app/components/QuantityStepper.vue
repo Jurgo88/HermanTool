@@ -76,7 +76,7 @@ function onInput(event: Event) {
   align-items: center;
   gap: var(--ht-space-1);
   padding: var(--ht-space-1);
-  border-radius: var(--ht-radius-pill);
+  border-radius: var(--ht-radius-card);
   background: var(--ht-surface-sunk);
 }
 
@@ -84,7 +84,7 @@ function onInput(event: Event) {
   min-width: var(--ht-hit-min);
   min-height: var(--ht-hit-min);
   border: 0;
-  border-radius: var(--ht-radius-pill);
+  border-radius: var(--ht-radius-tile);
   background: var(--ht-brand);
   color: var(--ht-on-brand);
   font-size: var(--ht-text-4);

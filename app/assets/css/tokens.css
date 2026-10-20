@@ -69,7 +69,9 @@
   --ht-button-weight: 600;
   --ht-button-radius: var(--ht-radius-plate);
   --ht-button-primary-bg: var(--ht-signal);
+  --ht-button-primary-hover: var(--ht-signal);
   --ht-button-primary-shadow: none;
+  --ht-button-primary-shadow-hover: none;
 
   /* Notch, rounded corners and the home indicator of an installed app
    * (viewport-fit=cover, nuxt.config.ts). 0 in a normal browser tab. */
@@ -163,25 +165,25 @@
    * chosen Accessory; --ht-ink on it ≈14:1, --ht-ink-muted ≥4.5:1. */
   --ht-brand-tint: #d8ecf8;
 
-  /* Style C (owner decision 12 October 2026): soft, rounded cards lifted
+  /* Style C (owner decision 12 October 2026): cards lifted
    * off a cool page by a blue-tinted shadow, figures in the body face,
-   * buttons in sentence case with the brand gradient. */
+   * the designer's buttons with a brand shadow (owner review, 20 October). */
   --ht-paper: #f6f8fb;
-  --ht-radius-plate: 12px;
-  --ht-radius-card: 20px;
-  /* The designer's own rounding for buttons, filter chips and catalog tiles. */
+  /* The designer's 8 px everywhere (owner review, 20 October 2026). */
+  --ht-radius-plate: 8px;
+  --ht-radius-card: 8px;
   --ht-radius-tile: 8px;
   --ht-radius-hero: 32px;
   --ht-shadow-card: 0 1px 2px rgb(31 95 168 / 6%), 0 16px 40px rgb(31 95 168 / 12%);
   --ht-shadow-raised: 0 12px 32px rgb(20 24 27 / 18%);
   --ht-font-money: var(--ht-font-sans);
-  --ht-button-font: var(--ht-font-sans);
-  --ht-button-case: none;
-  --ht-button-tracking: normal;
-  --ht-button-weight: 700;
+  /* Buttons: the designer's (solid brand, condensed capitals, 8 px), lifted
+   * by a brand shadow that deepens on hover. */
   --ht-button-radius: var(--ht-radius-tile);
-  --ht-button-primary-bg: linear-gradient(100deg, var(--ht-brand-deep), var(--ht-brand));
-  --ht-button-primary-shadow: 0 10px 24px rgb(43 47 143 / 30%);
+  --ht-button-primary-bg: var(--ht-brand);
+  --ht-button-primary-hover: var(--ht-brand-deep);
+  --ht-button-primary-shadow: 0 4px 12px rgb(31 95 168 / 28%);
+  --ht-button-primary-shadow-hover: 0 8px 20px rgb(43 47 143 / 34%);
   /* A hairline or a glass fill on the brand gradient (never under text
    * that needs contrast: text there sits on --ht-brand-deep or white). */
   --ht-on-brand-line: rgb(255 255 255 / 55%);
