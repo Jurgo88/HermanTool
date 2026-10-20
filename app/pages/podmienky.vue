@@ -16,13 +16,14 @@ function print() {
 </script>
 
 <template>
-  <main class="legal-page">
-    <header class="legal-page__head">
-      <h1>{{ sk.legalTerms.title }}</h1>
-      <p class="legal-page__meta">
+  <div class="legal-shell">
+    <header class="legal-head">
+      <h1 class="legal-head__title">{{ sk.legalTerms.title }}</h1>
+      <p class="legal-head__meta">
         {{ terms.dateLabel }} · {{ sk.legalTerms.versionLabel.replace('{version}', terms.version) }}
       </p>
     </header>
+  <main class="legal-page">
 
     <DraftNotice>
       <p>{{ sk.draft.termsPageBody }}</p>
@@ -57,33 +58,57 @@ function print() {
       <NuxtLink to="/"><AppButton variant="quiet">{{ sk.legalTerms.backToCatalogAction }}</AppButton></NuxtLink>
     </div>
   </main>
+  </div>
 </template>
 
 <style scoped>
-.legal-page {
-  max-width: 680px;
-  margin: 0 auto;
-  padding: var(--ht-space-5) var(--ht-space-4) var(--ht-space-7);
-  display: flex;
-  flex-direction: column;
-  gap: var(--ht-space-5);
-  line-height: 1.6;
+.legal-shell {
+  width: 100%;
 }
 
-.legal-page__head h1 {
+.legal-head {
+  box-sizing: border-box;
+  width: calc(100% - var(--ht-space-4) * 2);
+  max-width: 680px;
+  margin: 0 auto;
+  padding: var(--ht-space-5) 0 var(--ht-space-4);
+}
+
+.legal-head__title {
   margin: 0;
 }
 
-.legal-page__meta {
+.legal-head__meta {
   margin: var(--ht-space-1) 0 0;
   color: var(--ht-ink-muted);
   font-size: var(--ht-text-2);
 }
 
+/* One reading card. */
+.legal-page {
+  box-sizing: border-box;
+  width: calc(100% - var(--ht-space-4) * 2);
+  max-width: 680px;
+  margin: 0 auto var(--ht-space-7);
+  padding: var(--ht-space-5) var(--ht-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-5);
+  line-height: 1.6;
+  background: var(--ht-surface);
+  border-radius: var(--ht-radius-card);
+  box-shadow: var(--ht-shadow-card);
+}
+
+@media (min-width: 720px) {
+  .legal-page {
+    padding: var(--ht-space-6);
+  }
+}
+
 .legal-page__contents {
   padding: var(--ht-space-4);
-  background: var(--ht-surface);
-  border: 1px solid var(--ht-line);
+  background: var(--ht-paper);
   border-radius: var(--ht-radius-card);
 }
 

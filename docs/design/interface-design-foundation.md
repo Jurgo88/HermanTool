@@ -191,6 +191,8 @@ Mono is not a decoration: it marks *values that identify a physical object or an
 
 Full set lives in `app/assets/css/tokens.css`. Names are semantic; a component never references a raw value.
 
+**Public style C (owner decisions, 12 and 20 October 2026).** The public surface re-points a few tokens so its pages read as a shop rather than a form: a cooler `--ht-paper`, blue-tinted shadows that lift cards off it (`--ht-shadow-card`, `--ht-shadow-raised`) and figures in the body face (`--ht-font-money`). After the owner's review the designer's own shapes stay: 8 px for cards, tiles, calendar days and buttons (`--ht-radius-*`), buttons as drawn (solid brand, condensed capitals) with a brand shadow that deepens on hover (`--ht-button-*`), and the designer's header with its curve on `S-01`, `S-02` and `S-07`. Only the checkout flow (`S-03`, `S-04`, `S-05`) opens with a hero band (`C-27`), where the header turns horizontal (`--ht-band-gradient`) to join it without a seam. The operator surfaces keep their defaults (mono figures, flat).
+
 ```css
 :root {
   /* Ink & surface — light surfaces (public, admin) */
@@ -298,6 +300,9 @@ Twenty components. Filenames use domain vocabulary (`UI-D-02`); none is generic 
 | `C-21` | `AvailabilityCalendar` | month grid from the server's month payload; free / last / none as **derived** treatment (`D-47`); first-then-last day selection of a RentalPeriod; no date arithmetic in the component (`D-58`, `D-51`) |
 | `C-22` | `ClassificationFilter` | two groups, PowerSource and UseArea; toggle chips, OR within a group, AND across (`D-54`); state is visible as text, not colour alone |
 | `C-23` | `AssetTypeCard` | `S-01` grid cell: image (placeholder when absent, `D-56`), name, day rate via `C-14`; the whole card links to `S-02` |
+| `C-27` | `PublicHero` | style C: the header's brand band continued behind a public page's opening (title, a line, figures); the content after it rises into it by `--ht-hero-overlap`; the page sets `hero: true` so the header drops its curve; `narrow` aligns it with one centred card column |
+| `C-28` | `DraftSummaryList` | the tools of a reservation draft as a short list: catalog photo when there is one, name, days, units; an Accessory under its principal (`D-57`); used by `S-04` and `S-05` |
+| `C-26` | `QuantityStepper` | a whole number with − / + buttons at the hit target and a typeable field, clamped to min and max; each button has its own accessible name |
 
 ---
 
@@ -319,13 +324,12 @@ Each screen: route · surface · governing identifiers · what it must show · s
 
 **`S-02` AssetType detail** — `/naradie/:assetTypeId` · `FR-01`, `FR-02`, `FR-03`, `D-38`, `D-55`–`D-58`, `W1`
 *Un-deferred by `D-58`.*
-- **Left column:** image, then includedContents as "V cene je …", then handlingNotice in a danger-bordered box, then description, then specifications as a two-column definition list.
-- **Right column:**
-  - `C-21` calendar.
-  - Accessory checkboxes, each with its own day rate and deposit. A checkbox is disabled with the reason when the Accessory is not free for the selected RentalPeriod.
-  - Quantity.
-  - Day rate and **deposit with equal weight** (`FR-02`).
-  - The **Rezervovať** action. It adds the AssetType, and any checked Accessory at the same quantity, as draft lines for the selected RentalPeriod.
+*Re-laid out 12 October 2026, reviewed 20 October (owner decisions: the reservation as a card beside the photo; the designer's header, buttons and 8 px).*
+- **Opening** (under the designer's header): back link, name, description, then the day rate and the **deposit with equal weight** (`FR-02`) as two equal chips.
+- **Photo and figures:** the photo card; up to four specifications become figures under it; then handlingNotice. On a wide screen this is the left column.
+- **Reservation card** (right column on a wide screen, beside the photo): `C-21` calendar, whose picked range shows both ends in the brand fill and the days between in a pale brand tint; quantity as `C-26` (− / +); Accessories as selectable rows with their own day rate and deposit, disabled with the reason when not free for the RentalPeriod.
+- **Action bar** (fixed to the bottom on a phone, under the card on a wide screen): the period, its number of days and the **sum for the period** from the server quote (no date arithmetic on the page, `D-51`), then **Pridať do rezervácie**. After adding, the bar confirms it and offers **Pokračovať k platbe** and **Vybrať iný termín** instead of the same button, so one tap cannot add the period twice.
+- **Details:** specifications and the package contents as collapsible sections below the card.
 - **Terms:** a link only. Acceptance stays in `S-03` (`D-35`, `D-58`).
 - **States:** loading, not found or unpublished (`S-24`), calendar error, range not selectable, Accessory unavailable.
 

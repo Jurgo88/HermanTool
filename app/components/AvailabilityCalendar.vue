@@ -44,6 +44,17 @@ function inRange(day: string): boolean {
   return day >= props.startDay && day <= end
 }
 
+// The ends of the picked range get the full brand fill, the days between a
+// pale wash, so the whole RentalPeriod reads as one span.
+function rangeClass(day: string): string[] {
+  if (!inRange(day)) return []
+  const end = props.endDay ?? props.startDay
+  const classes: string[] = []
+  if (day === props.startDay) classes.push('availability-calendar__day--edge', 'availability-calendar__day--start')
+  if (day === end) classes.push('availability-calendar__day--edge', 'availability-calendar__day--end')
+  return classes.length > 0 ? classes : ['availability-calendar__day--between']
+}
+
 function levelLabel(day: CalendarDay): string {
   if (!day.selectable || day.level === null) return sk.availabilityCalendar.levelPast
   if (day.level === 'none') return sk.availabilityCalendar.levelNone
@@ -97,7 +108,10 @@ function levelLabel(day: CalendarDay): string {
         :key="day.day"
         type="button"
         class="availability-calendar__day"
-        :class="[`availability-calendar__day--${day.selectable ? (day.level ?? 'past') : 'past'}`]"
+        :class="[
+          `availability-calendar__day--${day.selectable ? (day.level ?? 'past') : 'past'}`,
+          ...rangeClass(day.day),
+        ]"
         :disabled="!isPickable(day)"
         :aria-pressed="inRange(day.day)"
         :aria-label="`${formatDay(day.day)}, ${levelLabel(day)}`"
@@ -150,33 +164,41 @@ function levelLabel(day: CalendarDay): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: var(--ht-space-1);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface-sunk);
 }
 
 .availability-calendar__title {
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  margin: 0;
+  font-size: var(--ht-text-3);
+  text-transform: capitalize;
 }
 
 .availability-calendar__nav {
   min-width: var(--ht-hit-min);
   min-height: var(--ht-hit-min);
-  border: 1px solid var(--ht-line-strong);
-  border-radius: var(--ht-radius-card);
+  border: 0;
+  border-radius: var(--ht-radius-tile);
   background: var(--ht-surface);
+  box-shadow: var(--ht-shadow-card);
   color: var(--ht-ink);
   font-size: var(--ht-text-4);
   cursor: pointer;
 }
 
 .availability-calendar__nav:disabled {
+  background: transparent;
+  box-shadow: none;
   color: var(--ht-line-strong);
   cursor: default;
 }
 
+/* No gap across a row, so a picked range reads as one band. */
 .availability-calendar__grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--ht-space-1);
+  row-gap: var(--ht-space-1);
 }
 
 .availability-calendar__weekday {
@@ -189,13 +211,16 @@ function levelLabel(day: CalendarDay): string {
 
 .availability-calendar__day {
   min-height: var(--ht-hit-min);
+  transition:
+    background-color var(--ht-motion),
+    border-color var(--ht-motion);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0;
   padding: var(--ht-space-1);
-  border: 1px solid var(--ht-line);
+  border: 2px solid transparent;
   border-radius: var(--ht-radius-plate);
   background: var(--ht-surface);
   color: var(--ht-ink);
@@ -243,10 +268,12 @@ function levelLabel(day: CalendarDay): string {
 /* Derived: one unit left — dotted edge (explained in the legend). */
 .availability-calendar__day--last {
   border: 2px dotted var(--ht-warn);
+  margin-inline: calc(var(--ht-space-1) / 2);
 }
 
 /* Derived: nothing free — hatched (explained in the legend). */
 .availability-calendar__day--none {
+  margin-inline: calc(var(--ht-space-1) / 2);
   background: var(--ht-hatch);
   color: var(--ht-ink-muted);
   cursor: not-allowed;
@@ -259,10 +286,33 @@ function levelLabel(day: CalendarDay): string {
   cursor: default;
 }
 
-.availability-calendar__day[aria-pressed='true'] {
+@media (hover: hover) {
+  .availability-calendar__day--free:hover {
+    background: var(--ht-brand-tint);
+  }
+}
+
+.availability-calendar__day--between {
+  border-radius: 0;
+  background: var(--ht-brand-tint);
+  color: var(--ht-ink);
+}
+
+.availability-calendar__day--edge {
   background: var(--ht-brand);
-  border-color: var(--ht-brand-deep);
+  border-color: var(--ht-brand);
   color: var(--ht-on-brand);
+}
+
+/* The band's ends round outward only; a one-day range keeps both. */
+.availability-calendar__day--start:not(.availability-calendar__day--end) {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.availability-calendar__day--end:not(.availability-calendar__day--start) {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
 }
 
 .availability-calendar__day:focus-visible,

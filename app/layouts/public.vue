@@ -11,12 +11,16 @@ import { sk } from '~/i18n/sk'
 usePwaHead('public')
 
 const { lines } = useReservationDraft()
+
+// A page that opens with <PublicHero> joins the header to it (no curve).
+const route = useRoute()
+const joined = computed(() => route.meta.hero === true)
 const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.quantity, 0))
 </script>
 
 <template>
   <div class="public-surface" data-surface="public">
-    <header class="public-header">
+    <header class="public-header" :class="{ 'public-header--joined': joined }">
       <div class="public-header__inner">
         <NuxtLink to="/" class="public-header__brand" :aria-label="sk.publicHeader.homeLabel">
           <span class="public-header__wordmark">{{ sk.publicHeader.brandName }}</span>
@@ -57,6 +61,15 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
   background: var(--ht-header-gradient);
   border-radius: var(--ht-header-curve);
   color: var(--ht-on-brand);
+}
+
+.public-header--joined {
+  background: var(--ht-band-gradient);
+  border-radius: 0;
+}
+
+.public-header--joined .public-header__inner {
+  padding-bottom: var(--ht-space-3);
 }
 
 .public-header__inner {
@@ -108,7 +121,7 @@ const draftUnits = computed(() => lines.value.reduce((sum, line) => sum + line.q
   align-items: center;
   min-height: var(--ht-hit-min);
   padding: 0 var(--ht-space-4);
-  border-radius: var(--ht-radius-card);
+  border-radius: var(--ht-radius-tile);
   font-family: var(--ht-font-condensed);
   font-weight: 600;
   font-size: var(--ht-text-2);

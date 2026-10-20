@@ -44,15 +44,21 @@ defineProps<{
   gap: var(--ht-space-2);
   padding: var(--ht-space-3);
   background: var(--ht-surface);
-  border: 1px solid var(--ht-line);
-  border-radius: var(--ht-radius-card);
+  border: 1px solid transparent;
+  border-radius: var(--ht-radius-tile);
+  box-shadow: var(--ht-shadow-card);
   color: var(--ht-ink);
   text-decoration: none;
-  transition: border-color var(--ht-motion) ease-out;
+  transition:
+    transform var(--ht-motion) ease-out,
+    border-color var(--ht-motion) ease-out;
 }
 
-.asset-type-card:hover {
-  border-color: var(--ht-brand);
+@media (hover: hover) {
+  .asset-type-card:hover {
+    transform: translateY(calc(var(--ht-space-1) * -1));
+    border-color: var(--ht-brand-tint);
+  }
 }
 
 .asset-type-card:focus-visible {
@@ -65,6 +71,8 @@ defineProps<{
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: var(--ht-space-2);
+  border-radius: var(--ht-radius-tile);
   background: var(--ht-surface);
 }
 
@@ -83,15 +91,18 @@ defineProps<{
 .asset-type-card__name {
   /* Takes the spare height, so the price always sits on the bottom edge. */
   flex: 1 1 auto;
-  font-family: var(--ht-font-condensed);
   font-weight: 600;
   font-size: var(--ht-text-3);
-  text-align: center;
+  line-height: 1.3;
 }
 
 .asset-type-card__rate {
-  text-align: center;
+  align-self: flex-start;
+  padding: var(--ht-space-1) var(--ht-space-3);
+  border-radius: var(--ht-radius-tile);
+  background: var(--ht-brand-tint);
   color: var(--ht-brand-deep);
+  font-size: var(--ht-text-2);
   font-weight: 600;
 }
 

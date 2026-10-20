@@ -167,7 +167,7 @@ function clear() {
   min-height: var(--ht-hit-min);
   padding: 0 var(--ht-space-4);
   border: 2px solid var(--ht-brand);
-  border-radius: var(--ht-radius-card);
+  border-radius: var(--ht-radius-tile);
   background: var(--ht-surface);
   color: var(--ht-brand-deep);
   font-family: var(--ht-font-condensed);
