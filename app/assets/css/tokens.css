@@ -42,6 +42,13 @@
   /* Geometry */
   --ht-radius-plate: 2px; /* identifiers, chips, inputs */
   --ht-radius-card: 8px;
+  --ht-dialog-max-width: 88rem;
+  --ht-dialog-max-height: 56rem;
+  --ht-line-width: 1px;
+  --ht-focus-ring-width: 3px;
+  --ht-focus-ring-offset: 2px;
+  --ht-tracking-wide: 0.08em;
+  --ht-control-check-size: 1.25rem;
   --ht-space-1: 4px;
   --ht-space-2: 8px;
   --ht-space-3: 12px;
@@ -59,6 +66,8 @@
   --ht-radius-hero: var(--ht-radius-card);
   --ht-shadow-card: none;
   --ht-shadow-raised: none;
+  --ht-shadow-dialog: 0 16px 48px rgb(20 24 27 / 24%);
+  --ht-dialog-backdrop: rgb(20 24 27 / 64%);
 
   /* Figures and buttons: the operator surfaces keep the mono figures and the
    * condensed capitals; the public surface re-points these (D-59, style C). */

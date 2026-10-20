@@ -34,7 +34,8 @@ export const sk = {
   // (useReservationDraft.ts); the name collision is coincidental, the
   // two are unrelated concepts.
   draft: {
-    checkoutTermsNotice: 'Podmienky sú zatiaľ návrh — ich konečné znenie ešte čaká na právne schválenie.',
+    checkoutTermsNotice:
+      'Podmienky sú zatiaľ návrh — ich konečné znenie ešte čaká na právne schválenie.',
     checkoutTermsAcceptLabel: 'Súhlasím s podmienkami prenájmu (návrh)',
     termsPageBody:
       'Toto je návrh podmienok prenájmu. Kým ho neschváli právnik, nie je záväzný a údaje v hranatých zátvorkách sa ešte doplnia.',
@@ -223,13 +224,16 @@ export const sk = {
       UseAreaNotFoundError: 'Táto oblasť použitia neexistuje.',
       ClassificationLabelRequiredError: 'Zadajte názov.',
       ClassificationLabelTakenError: 'Položka s týmto názvom už existuje.',
-      ClassificationInUseError: 'Túto položku ešte používa niektoré náradie. Najprv ju pri ňom zrušte.',
-      ClassificationSequenceMismatchError: 'Poradie sa medzičasom zmenilo. Obnovte stránku a skúste to znova.',
+      ClassificationInUseError:
+        'Túto položku ešte používa niektoré náradie. Najprv ju pri ňom zrušte.',
+      ClassificationSequenceMismatchError:
+        'Poradie sa medzičasom zmenilo. Obnovte stránku a skúste to znova.',
       InvalidSpecificationError: 'Každý parameter musí mať názov aj hodnotu.',
       InvalidImageFileError: 'Neplatný súbor fotky.',
       AccessoryChainError: 'Doplnok nemôže mať vlastné doplnky a nemôže patriť k inému doplnku.',
       AccessoryOfItselfError: 'Náradie nemôže byť doplnkom samého seba.',
-      InvalidBulkRegistrationLineError: 'Neplatný riadok v zozname — skontrolujte typ náradia a počet kusov.',
+      InvalidBulkRegistrationLineError:
+        'Neplatný riadok v zozname — skontrolujte typ náradia a počet kusov.',
       EmptyBulkRegistrationError: 'Zoznam na registráciu je prázdny.',
       MalformedCsvRowError: 'Nesprávny formát CSV riadku.',
       TagAlreadyBoundError: 'Tento štítok je už priradený k inému kusu.',
@@ -266,12 +270,14 @@ export const sk = {
       IdentityVerificationReasonRequiredError: 'Zadajte dôvod zamietnutia.',
       CustomerAlreadyExistsForGroupError: 'Pre túto rezerváciu už zákazník existuje.',
       ReservationGroupNotConfirmedError: 'Táto rezervácia ešte nie je potvrdená platbou.',
-      RetentionWindowNotConfiguredError: 'Nahratie dokladu momentálne nie je možné. Kontaktujte správcu.',
+      RetentionWindowNotConfiguredError:
+        'Nahratie dokladu momentálne nie je možné. Kontaktujte správcu.',
       IdentityEvidenceCustomerMismatchError: 'Tento doklad nepatrí tomuto zákazníkovi.',
       PinTooShortError: 'PIN musí mať aspoň 4 znaky.',
     },
     customer: {
-      PaymentProviderUnavailableError: 'Platbu sa momentálne nepodarilo spustiť. Skúste to prosím o chvíľu znova.',
+      PaymentProviderUnavailableError:
+        'Platbu sa momentálne nepodarilo spustiť. Skúste to prosím o chvíľu znova.',
       ReservationGroupAlreadyPaidError: 'Táto rezervácia je už zaplatená.',
       TermsNotAcceptedError: 'Najprv potvrďte podmienky prenájmu.',
       AccessoryWithoutPrincipalError:
@@ -280,7 +286,8 @@ export const sk = {
       AssetTypeUnavailableError:
         'Niektoré náradie si na zvolené dni medzitým rezervoval niekto iný. Upravte výber a skúste to znova.',
       InvalidCustomerDetailsError: 'Skontrolujte, prosím, meno, e-mail a telefón.',
-      RetentionWindowNotConfiguredError: 'Nahratie dokladu momentálne nie je možné. Skúste to prosím neskôr.',
+      RetentionWindowNotConfiguredError:
+        'Nahratie dokladu momentálne nie je možné. Skúste to prosím neskôr.',
     },
   },
   errorPage: {
@@ -364,7 +371,8 @@ export const sk = {
     accessoryUnavailable: 'V zvolenom termíne nie je voľný v tomto počte.',
     accessoryPickPeriodFirst: 'Najprv vyberte termín.',
     rangeChecking: 'Overujem dostupnosť…',
-    rangeUnavailable: 'V zvolenom termíne nie je voľný požadovaný počet kusov. Vyberte iný termín alebo menej kusov.',
+    rangeUnavailable:
+      'V zvolenom termíne nie je voľný požadovaný počet kusov. Vyberte iný termín alebo menej kusov.',
     rangeError: 'Dostupnosť sa nepodarilo overiť. Skúste to prosím znova.',
     dayCount: { one: '{count} deň', few: '{count} dni', many: '{count} dní' },
     totalLabel: 'Spolu za prenájom',
@@ -383,6 +391,7 @@ export const sk = {
   sidePanel: {
     closeLabel: 'Zavrieť',
     closeGlyph: '×',
+    editorLabel: 'Editor katalógu',
   },
   // C-21 (D-58): levels are derived facts, worded as such (D-47).
   availabilityCalendar: {
@@ -437,7 +446,8 @@ export const sk = {
     payActionNoAmount: 'Zaplatiť kartou',
     startingPayment: 'Presmerúvam na platbu…',
     paymentNote: 'Platbu kartou spracuje Stripe. Údaje vašej karty nevidíme.',
-    paymentProviderError: 'Platbu sa momentálne nepodarilo spustiť. Skúste to prosím o chvíľu znova.',
+    paymentProviderError:
+      'Platbu sa momentálne nepodarilo spustiť. Skúste to prosím o chvíľu znova.',
     conflictError: 'Túto akciu momentálne nie je možné dokončiť. Skúste stránku načítať znova.',
     pendingNotice: 'Máte rezerváciu, ktorú ste ešte nezaplatili. Náradie vám držíme do {time}.',
     pendingResumeAction: 'Dokončiť platbu',
@@ -455,13 +465,15 @@ export const sk = {
     backToCatalogAction: 'Späť do katalógu',
     statusLoading: 'Zisťujem stav rezervácie…',
     payableTitle: 'Platba nebola dokončená',
-    payableBody: 'Náradie vám držíme do {time}. Ak dovtedy nezaplatíte, rezervácia vyprší a náradie sa uvoľní.',
+    payableBody:
+      'Náradie vám držíme do {time}. Ak dovtedy nezaplatíte, rezervácia vyprší a náradie sa uvoľní.',
     payAgainAction: 'Zaplatiť znova',
     startingPayment: 'Presmerúvam na platbu…',
     editAction: 'Upraviť výber',
     editNote: 'Ak výber zmeníte, vytvorí sa nová rezervácia a táto vyprší sama.',
     expiredTitle: 'Rezervácia vypršala',
-    expiredBody: 'Platba nebola dokončená včas, preto sme náradie uvoľnili. Váš výber sme si zapamätali, môžete to skúsiť znova.',
+    expiredBody:
+      'Platba nebola dokončená včas, preto sme náradie uvoľnili. Váš výber sme si zapamätali, môžete to skúsiť znova.',
     retryAction: 'Skúsiť znova',
     paidTitle: 'Rezervácia je už zaplatená',
     paidBody: 'Platbu sme prijali. Potvrdenie vám príde e-mailom.',
@@ -482,14 +494,17 @@ export const sk = {
       expired: 'vypršané',
     },
     uploadHeading: 'Doklad totožnosti',
-    uploadIntro: 'Nahrajte prosím fotografiu dokladu totožnosti — overíme ju pri vyzdvihnutí náradia.',
-    uploadWhySentence: 'Doklad potrebujeme, aby sme pri vyzdvihnutí overili, že náradie preberá skutočne ten, kto si ho rezervoval — bez tohto kroku vám ho na mieste nemôžeme vydať.',
+    uploadIntro:
+      'Nahrajte prosím fotografiu dokladu totožnosti — overíme ju pri vyzdvihnutí náradia.',
+    uploadWhySentence:
+      'Doklad potrebujeme, aby sme pri vyzdvihnutí overili, že náradie preberá skutočne ten, kto si ho rezervoval — bez tohto kroku vám ho na mieste nemôžeme vydať.',
     fileLabel: 'Súbor',
     uploadAction: 'Nahrať',
     uploading: 'Nahrávam…',
     uploadDone: 'Doklad bol úspešne nahraný.',
     uploadNotConfirmedError: 'Nahratie sa nepodarilo potvrdiť, skúste to prosím znova.',
-    uploadUnavailableError: 'Nahratie dokladu momentálne nie je možné. Skúste to prosím neskôr alebo nás kontaktujte.',
+    uploadUnavailableError:
+      'Nahratie dokladu momentálne nie je možné. Skúste to prosím neskôr alebo nás kontaktujte.',
     uploadGenericError: 'Nahratie sa nepodarilo, skúste to prosím znova.',
   },
   // D-59: the Tenant's own identity on the public surface. The name is
@@ -524,17 +539,31 @@ export const sk = {
     tabs: { tools: 'Náradie', prices: 'Ceny', filters: 'Filtre katalógu' },
     searchLabel: 'Hľadať náradie',
     showLabel: 'Zobraziť',
-    show: { all: 'Všetko', published: 'Publikované', unpublished: 'Nepublikované', accessories: 'Doplnky' },
+    show: {
+      all: 'Všetko',
+      published: 'Publikované',
+      unpublished: 'Nepublikované',
+      accessories: 'Doplnky',
+    },
     noMatch: 'Hľadaniu nezodpovedá žiadne náradie.',
     perDay: '{amount} / deň',
     depositMeta: 'záloha {amount}',
     editTitle: 'Upraviť: {name}',
-    newHint: 'Fotku, zatriedenie a obsah stránky doplníte po vytvorení cez Upraviť. Nové náradie je nepublikované, kým ho nepublikujete.',
-    pricesIntro: 'Upravte ceny a zálohy priamo v tabuľke. Zmenené riadky sú označené a uložíte ich naraz.',
+    editActionFor: 'Upraviť: {name}',
+    newHint:
+      'Fotku, zatriedenie a obsah stránky doplníte po vytvorení cez Upraviť. Nové náradie je nepublikované, kým ho nepublikujete.',
+    pricesIntro:
+      'Upravte ceny a zálohy priamo v tabuľke. Zmenené riadky sa ukladajú postupne. Ak sa niektorý nepodarí uložiť, ostatné zmeny zostanú označené a môžete ich skúsiť znova.',
+    pricesHeading: 'Cenník typov náradia',
+    pricesShownLabel: 'Zobrazené',
+    pricesChangedLabel: 'Na uloženie',
+    priceDraftChanged: 'Neuložené zmeny',
     pricesChanged: 'Zmenené riadky: {count}',
     pricesSave: 'Uložiť ceny ({count})',
     pricesSaving: 'Ukladám ceny…',
     pricesSaved: 'Uložené ceny: {count}.',
+    pricesPartiallySaved:
+      'Uložených riadkov: {count}. Ostatné zmeny zostali zachované; skontrolujte chybu a skúste uloženie znova.',
     pricesReset: 'Zrušiť zmeny',
     pricesInvalid: 'Niektorá suma nie je platná. Zadajte 0 alebo viac.',
     dayRateFor: 'Cena za deň: {name}',
@@ -545,7 +574,8 @@ export const sk = {
     publishAction: 'Publikovať',
     unpublishAction: 'Zrušiť publikáciu',
     unpublishConfirmTitle: 'Zrušiť publikáciu',
-    unpublishConfirmBody: 'Tento typ náradia prestane byť viditeľný v katalógu — návštevník, ktorý si ho práve prezerá, ho už nebude môcť rezervovať.',
+    unpublishConfirmBody:
+      'Tento typ náradia prestane byť viditeľný v katalógu — návštevník, ktorý si ho práve prezerá, ho už nebude môcť rezervovať.',
     editAction: 'Upraviť',
     saveAction: 'Uložiť',
     cancelAction: 'Zrušiť',
@@ -556,6 +586,7 @@ export const sk = {
     fieldDayRate: 'Cena/deň (EUR)',
     fieldDeposit: 'Záloha (EUR)',
     createAction: 'Vytvoriť',
+    creating: 'Vytváram…',
     // D-60, OQ #29: the imported prices are placeholders until confirmed.
     provisionalPricesNotice:
       'Ceny a zálohy z importu sú dočasné (15 / 20 / 25 €). Skontrolujte a potvrďte ich pri každom type náradia skôr, než katalóg uvidí zákazník.',
@@ -565,6 +596,22 @@ export const sk = {
     sectionContent: 'Obsah stránky náradia',
     sectionImage: 'Fotka',
     sectionAccessory: 'Doplnok',
+    editorIntro: 'Údaje sú rozdelené do krátkych sekcií. Zmeny sa prejavia po uložení.',
+    editorTabsLabel: 'Sekcie úpravy',
+    editorSections: {
+      basics: 'Základ',
+      classification: 'Zatriedenie',
+      content: 'Obsah stránky',
+      image: 'Fotka',
+    },
+    editorSectionHints: {
+      basics: 'Názov, opis, denná cena a záloha.',
+      classification: 'Pohon, použitie a súvisiace náradie.',
+      content: 'Informácie a parametre zobrazené zákazníkovi.',
+      image: 'Vyberte fotku, ktorá sa zobrazí v katalógu.',
+    },
+    editorSpecificationsHint: 'Poradie parametrov určuje ich poradie na stránke náradia.',
+    imagePreviewEmpty: 'Bez vybranej fotky',
     fieldPowerSource: 'Pohon',
     noPowerSource: '— bez pohonu —',
     fieldUseAreas: 'Oblasti použitia',
@@ -580,14 +627,24 @@ export const sk = {
     fieldImage: 'Súbor fotky',
     noImage: '— bez fotky —',
     accessoryOfLabel: 'Ponúkať ako doplnok k',
+    accessorySearchLabel: 'Hľadať náradie',
+    accessorySelectedCount: 'Vybraných typov náradia: {count}',
+    accessoryCandidatesEmpty:
+      'Momentálne nie je dostupné žiadne náradie, ku ktorému by sa dal doplnok priradiť.',
+    accessorySearchEmpty: 'Tomuto hľadaniu nezodpovedá žiadne náradie.',
     accessoryOfHint:
       'Doplnok sa v katalógu samostatne nezobrazí — ponúkne sa len na stránke vybraného náradia a rezervuje sa spolu s ním.',
     saved: 'Uložené.',
+    discardChangesTitle: 'Zahodiť neuložené zmeny?',
+    discardChangesBody:
+      'Úpravy v tomto formulári ešte nie sú uložené. Ak panel zavriete, prídete o ne.',
+    discardChangesAction: 'Zahodiť zmeny',
   },
   // S-19 classification lists (D-54).
   adminClassification: {
     heading: 'Filtre katalógu',
-    intro: 'Pohon a oblasti použitia, podľa ktorých zákazník filtruje katalóg. Poradie tu je poradie v katalógu.',
+    intro:
+      'Pohon a oblasti použitia, podľa ktorých zákazník filtruje katalóg. Poradie tu je poradie v katalógu.',
     powerSourcesHeading: 'Pohon',
     useAreasHeading: 'Oblasti použitia',
     newLabel: 'Nová položka',
@@ -612,7 +669,8 @@ export const sk = {
     intro:
       'Pre každý kus sa vytvorí nový záznam a vygeneruje sa nový QR štítok. Vyberte typ náradia a počet kusov nižšie.',
     builderHeading: 'Pridať typy náradia',
-    noAssetTypes: 'Zatiaľ nie je vytvorený žiadny typ náradia — vytvorte ho najprv v Správe katalógu.',
+    noAssetTypes:
+      'Zatiaľ nie je vytvorený žiadny typ náradia — vytvorte ho najprv v Správe katalógu.',
     assetTypeLabel: 'Typ náradia',
     quantityLabel: 'Počet kusov',
     addLineAction: 'Pridať',
@@ -648,11 +706,14 @@ export const sk = {
     cancelOneAction: 'Zrušiť',
     cancelOneLabel: 'Zrušiť registráciu kusu {tag}',
     cancelConfirmTitle: 'Zrušiť registráciu',
-    cancelConfirmOne: 'Kus {tag} sa vyradí z evidencie a jeho kód štítku sa už nepoužije. Záznam o tom ostane v histórii.',
-    cancelConfirmGroup: 'Vyradí sa {count} kusov typu {name}, ktoré ešte neboli v prevádzke. Ich kódy štítkov sa už nepoužijú. Záznam o tom ostane v histórii.',
+    cancelConfirmOne:
+      'Kus {tag} sa vyradí z evidencie a jeho kód štítku sa už nepoužije. Záznam o tom ostane v histórii.',
+    cancelConfirmGroup:
+      'Vyradí sa {count} kusov typu {name}, ktoré ešte neboli v prevádzke. Ich kódy štítkov sa už nepoužijú. Záznam o tom ostane v histórii.',
     cancelConfirmAction: 'Zrušiť registráciu',
     reprintHeading: 'Znovu vytlačiť štítky',
-    reprintIntro: 'Ak sa štítok na náradí poškodí alebo stratí, vytlačte ho znova. Kód ostane rovnaký.',
+    reprintIntro:
+      'Ak sa štítok na náradí poškodí alebo stratí, vytlačte ho znova. Kód ostane rovnaký.',
     reprintTypeLabel: 'Typ náradia',
     reprintChoose: '— vyberte typ náradia —',
     reprintAllTypes: 'Všetky typy náradia',
@@ -693,7 +754,8 @@ export const sk = {
     scanHeading: 'Skenovať štítok',
     scanHint: 'Namierte na štítok',
     scanCameraDenied: 'Prístup ku kamere nie je možný. Zadajte kód štítku ručne.',
-    scanCameraUnsupported: 'Tento prehliadač nepodporuje skenovanie kamerou. Zadajte kód štítku ručne.',
+    scanCameraUnsupported:
+      'Tento prehliadač nepodporuje skenovanie kamerou. Zadajte kód štítku ručne.',
     scanLabel: 'Kód štítku',
     scanAction: 'Vyhľadať',
     scanning: 'Hľadám…',
@@ -739,7 +801,8 @@ export const sk = {
     submitHandoverOutAction: 'Potvrdiť vydanie',
     submittingHandoverOut: 'Vydávam…',
     handoverOutSuccess: 'Náradie vydané. Zmluva #{id}.',
-    photoUploadFailed: 'Niektoré fotografie sa nepodarilo nahrať. Skúste to znova pri každej označenej fotografii.',
+    photoUploadFailed:
+      'Niektoré fotografie sa nepodarilo nahrať. Skúste to znova pri každej označenej fotografii.',
 
     handoverInHeading: 'Vrátenie náradia',
     conditionPhotosInLabel: 'Fotografie stavu pri vrátení',
@@ -752,7 +815,8 @@ export const sk = {
     pairedEvidenceInLabel: 'Fotodokumentácia pri vrátení',
     pairedEvidenceOk: 'potvrdená',
     pairedEvidenceMissing: 'nepotvrdená',
-    pairedEvidenceIncompleteNote: 'Kým nie sú potvrdené fotografie z oboch strán, zrážku zo zálohy nie je možné zapísať.',
+    pairedEvidenceIncompleteNote:
+      'Kým nie sú potvrdené fotografie z oboch strán, zrážku zo zálohy nie je možné zapísať.',
     returnedAmountLabel: 'Vrátená suma (EUR)',
     deductionReasonLabel: 'Dôvod zrážky (ak je suma nižšia než záloha)',
     submitSettlementAction: 'Potvrdiť vyrovnanie',

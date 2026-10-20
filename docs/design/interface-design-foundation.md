@@ -301,7 +301,7 @@ Twenty components. Filenames use domain vocabulary (`UI-D-02`); none is generic 
 | `C-22` | `ClassificationFilter` | two groups, PowerSource and UseArea; toggle chips, OR within a group, AND across (`D-54`); state is visible as text, not colour alone |
 | `C-23` | `AssetTypeCard` | `S-01` grid cell: image (placeholder when absent, `D-56`), name, day rate via `C-14`; the whole card links to `S-02` |
 | `C-27` | `PublicHero` | style C: the header's brand band continued behind a public page's opening (title, a line, figures); the content after it rises into it by `--ht-hero-overlap`; the page sets `hero: true` so the header drops its curve; `narrow` aligns it with one centred card column |
-| `C-29` | `SidePanel` | a panel from the right on a wide screen, full screen on a phone, for editing one thing over a list (`S-19`); native `<dialog>` like `C-04` |
+| `C-29` | `SidePanel` | a large centered editor dialog over the list on a wide screen, full screen on a phone, for editing one thing without losing list context (`S-19`); native `<dialog>` like `C-04` |
 | `C-28` | `DraftSummaryList` | the tools of a reservation draft as a short list: catalog photo when there is one, name, days, units; an Accessory under its principal (`D-57`); used by `S-04` and `S-05` |
 | `C-26` | `QuantityStepper` | a whole number with − / + buttons at the hit target and a typeable field, clamped to min and max; each button has its own accessible name |
 
@@ -399,9 +399,13 @@ Add editing (`PATCH` exists, no UI). Publish/unpublish through `C-19` — unpubl
   - PowerSource (select, may be empty) and UseAreas (multi-select) (`D-54`).
   - Specifications as an ordered list of label/value rows, plus includedContents and handlingNotice (`D-55`).
   - Image, chosen from the shipped files (`D-56`).
-  - Principals this AssetType is an Accessory of (`D-57`). Setting one hides the AssetType from `S-01`, and the form says so.
+  - Principals this AssetType is an Accessory of (`D-57`). Setting one hides the AssetType from `S-01`, and the form says so. The principal selector is searchable and uses aligned, keyboard-operable selection cards with a visible selected count.
 - **Classification:** a separate section maintains the PowerSource and UseArea lists: add, rename, reorder, remove. Removing one that is in use is refused with the reason and the AssetTypes that use it.
 - **Provisional prices:** while OQ #29 is open, an AssetType whose price is still the provisional import value is marked as such, so the owner can see which ones are left to confirm.
+- **Interactions:** the three Catalog tabs support arrow-key navigation and expose their selected panel to assistive technology. Closing an edited or new AssetType form with unsaved changes requires confirmation.
+- **Price saving:** each changed AssetType is saved separately. If a request fails after earlier rows succeeded, the interface reports the partial success and keeps the remaining edits available to retry.
+- **Price editor:** the price list keeps search and save feedback close to the inputs, shows visible and unsaved-change counts, and visually separates compact editable rows. On a phone, each row labels its own inputs. Provisional imported prices remain clearly identified as provisional; the interface does not imply individual confirmation without persisted confirmation data.
+- **Editor presentation:** `C-29` uses a large centered dialog on desktop, with the section form as keyboard-accessible tabs and save/cancel actions fixed outside the scrolling content. The image section includes a prominent preview.
 
 **`S-20` Asset registry & tags** — `/admin/asset-registry` · `FR-25`, `FR-26`, `W9`
 Restyle; keep the print sheet and give it a real print stylesheet sized to a physical label sheet (`UI-OQ-4`). Pending-activation list stays prominent — a registered, untagged Asset is invisible to the pool.

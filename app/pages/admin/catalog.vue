@@ -8,10 +8,10 @@
 //
 // Three tabs (owner review, 20 October 2026): the tools as a searchable
 // list, edited in a side panel (C-29); every day rate and deposit in one
-// table saved together (OQ #29: the imported prices are placeholders); and
-// the catalog filters (D-54). Unpublish lives in the panel and goes through
-// ConfirmAction (C-19): taking away something a Visitor may be looking at
-// deserves a confirmation; publish does not.
+// table (OQ #29: the imported prices are placeholders); and the catalog
+// filters (D-54). Price rows save one AssetType at a time so partial success
+// can be reported without losing edits. Unpublish lives in the panel and
+// goes through ConfirmAction (C-19).
 import { sk } from '~/i18n/sk'
 import { formatMoney } from '~/utils/format'
 import { loginLocation } from '~/utils/operator-redirect'
@@ -93,8 +93,49 @@ const tab = computed<Tab>(() => {
   return value === 'prices' || value === 'filters' ? value : 'tools'
 })
 
-function setTab(next: Tab) {
-  router.replace({ query: { ...route.query, tab: next === 'tools' ? undefined : next } })
+const visitedTabs = ref(new Set<Tab>([tab.value]))
+
+watch(tab, (selected) => {
+  if (!visitedTabs.value.has(selected)) {
+    visitedTabs.value = new Set(visitedTabs.value).add(selected)
+  }
+})
+
+function tabId(value: Tab) {
+  return `admin-catalog-tab-${value}`
+}
+
+function tabPanelId(value: Tab) {
+  return `admin-catalog-panel-${value}`
+}
+
+async function setTab(next: Tab, moveFocus = false) {
+  visitedTabs.value = new Set(visitedTabs.value).add(next)
+  await router.replace({ query: { ...route.query, tab: next === 'tools' ? undefined : next } })
+  if (moveFocus) {
+    await nextTick()
+    document.getElementById(tabId(next))?.focus()
+  }
+}
+
+function onTabKeydown(event: KeyboardEvent, current: Tab) {
+  const currentIndex = tabs.value.findIndex((item) => item.id === current)
+  let next: Tab | undefined
+
+  if (event.key === 'ArrowRight') {
+    next = tabs.value[(currentIndex + 1) % tabs.value.length]?.id
+  } else if (event.key === 'ArrowLeft') {
+    next = tabs.value[(currentIndex - 1 + tabs.value.length) % tabs.value.length]?.id
+  } else if (event.key === 'Home') {
+    next = tabs.value[0]?.id
+  } else if (event.key === 'End') {
+    next = tabs.value[tabs.value.length - 1]?.id
+  }
+
+  if (next) {
+    event.preventDefault()
+    void setTab(next, true)
+  }
 }
 
 const tabs = computed(() => [
@@ -133,15 +174,24 @@ const showOptions = computed(() =>
 const visible = computed(() => {
   const query = fold(search.value.trim())
   return assetTypes.value.filter(
-    (assetType) => matchesShow(assetType, show.value) && (!query || fold(assetType.name).includes(query)),
+    (assetType) =>
+      matchesShow(assetType, show.value) && (!query || fold(assetType.name).includes(query)),
   )
 })
 
 // --- The side panel: edit one tool, or create a new one ---
 
+const form = reactive({
+  name: '',
+  description: '',
+  dayRateEuros: '',
+  depositEuros: '',
+})
 const panel = ref<'edit' | 'new' | null>(null)
 const editingId = ref<number | null>(null)
 const savingEdit = ref(false)
+const creating = ref(false)
+const editorDirty = ref(false)
 const editing = computed(() => assetTypes.value.find((a) => a.id === editingId.value) ?? null)
 
 const principalCandidates = computed(() =>
@@ -153,18 +203,54 @@ const principalCandidates = computed(() =>
 function startEdit(assetType: AssetTypeView) {
   errorCode.value = null
   savedId.value = null
+  editorDirty.value = false
   editingId.value = assetType.id
   panel.value = 'edit'
 }
 
 function startNew() {
   errorCode.value = null
+  form.name = ''
+  form.description = ''
+  form.dayRateEuros = ''
+  form.depositEuros = ''
   panel.value = 'new'
 }
+
+const showDiscardConfirm = ref(false)
 
 function closePanel() {
   panel.value = null
   editingId.value = null
+  editorDirty.value = false
+  showDiscardConfirm.value = false
+  form.name = ''
+  form.description = ''
+  form.dayRateEuros = ''
+  form.depositEuros = ''
+}
+
+const panelDirty = computed(() => {
+  if (panel.value === 'edit') return editorDirty.value
+  if (panel.value === 'new') {
+    return [form.name, form.description, form.dayRateEuros, form.depositEuros].some(
+      (value) => String(value).length > 0,
+    )
+  }
+  return false
+})
+
+function requestClosePanel() {
+  if (savingEdit.value || creating.value || publishing.value) return
+  if (panelDirty.value) {
+    showDiscardConfirm.value = true
+    return
+  }
+  closePanel()
+}
+
+function discardPanelChanges() {
+  closePanel()
 }
 
 async function saveEdit(body: Record<string, unknown>) {
@@ -183,14 +269,6 @@ async function saveEdit(body: Record<string, unknown>) {
     savingEdit.value = false
   }
 }
-
-const form = reactive({
-  name: '',
-  description: '',
-  dayRateEuros: '',
-  depositEuros: '',
-})
-const creating = ref(false)
 
 async function createAssetType() {
   errorCode.value = null
@@ -253,11 +331,19 @@ async function confirmUnpublish() {
 
 // --- Prices: every day rate and deposit in one table, saved together ---
 
-const priceDraft = reactive<Record<number, { dayRate: string | number; deposit: string | number }>>({})
+const priceDraft = reactive<Record<number, { dayRate: string | number; deposit: string | number }>>(
+  {},
+)
 const savingPrices = ref(false)
 const pricesSavedCount = ref<number | null>(null)
+const pricesPartialSavedCount = ref<number | null>(null)
 
 const toEuros = (minor: number) => (minor / 100).toFixed(2)
+
+function clearPriceSaveFeedback() {
+  pricesSavedCount.value = null
+  pricesPartialSavedCount.value = null
+}
 
 function resetPrices() {
   for (const assetType of assetTypes.value) {
@@ -266,14 +352,19 @@ function resetPrices() {
       deposit: toEuros(assetType.depositAmount.amount),
     }
   }
+  clearPriceSaveFeedback()
 }
 
 const isValidEuros = (value: string | number) =>
-  String(value).trim() !== '' && Number.isFinite(Number(value)) && Number(value) >= 0
+  String(value).trim() !== '' &&
+  Number.isFinite(Number(value)) &&
+  Number(value) >= 0 &&
+  Number.isInteger(Number(value) * 100)
 
 function priceChanged(assetType: AssetTypeView): boolean {
   const draft = priceDraft[assetType.id]
   if (!draft) return false
+  if (!isValidEuros(draft.dayRate) || !isValidEuros(draft.deposit)) return true
   return (
     toMinorUnits(draft.dayRate) !== assetType.dayRate.amount ||
     toMinorUnits(draft.deposit) !== assetType.depositAmount.amount
@@ -282,7 +373,9 @@ function priceChanged(assetType: AssetTypeView): boolean {
 
 const changedPrices = computed(() => assetTypes.value.filter(priceChanged))
 const pricesInvalid = computed(() =>
-  changedPrices.value.some((a) => !isValidEuros(priceDraft[a.id]!.dayRate) || !isValidEuros(priceDraft[a.id]!.deposit)),
+  changedPrices.value.some(
+    (a) => !isValidEuros(priceDraft[a.id]!.dayRate) || !isValidEuros(priceDraft[a.id]!.deposit),
+  ),
 )
 
 const priceRows = computed(() => {
@@ -293,27 +386,38 @@ const priceRows = computed(() => {
 async function savePrices() {
   if (changedPrices.value.length === 0 || pricesInvalid.value) return
   errorCode.value = null
-  pricesSavedCount.value = null
+  clearPriceSaveFeedback()
   savingPrices.value = true
   let saved = 0
   try {
-    for (const assetType of changedPrices.value) {
+    for (const assetType of [...changedPrices.value]) {
       const draft = priceDraft[assetType.id]!
+      const dayRateAmount = toMinorUnits(draft.dayRate)
+      const depositAmount = toMinorUnits(draft.deposit)
       await $fetch(`/api/catalog/asset-types/${assetType.id}`, {
         method: 'PATCH',
         body: {
-          dayRate: { amount: toMinorUnits(draft.dayRate), currency: assetType.dayRate.currency },
-          depositAmount: { amount: toMinorUnits(draft.deposit), currency: assetType.depositAmount.currency },
+          dayRate: { amount: dayRateAmount, currency: assetType.dayRate.currency },
+          depositAmount: { amount: depositAmount, currency: assetType.depositAmount.currency },
         },
       })
+      const index = assetTypes.value.findIndex((current) => current.id === assetType.id)
+      const current = assetTypes.value[index]
+      if (current) {
+        assetTypes.value[index] = {
+          ...current,
+          dayRate: { ...current.dayRate, amount: dayRateAmount },
+          depositAmount: { ...current.depositAmount, amount: depositAmount },
+        }
+      }
       saved += 1
     }
     pricesSavedCount.value = saved
   } catch (err: unknown) {
+    if (saved > 0) pricesPartialSavedCount.value = saved
     await handleFetchError(err)
   } finally {
     savingPrices.value = false
-    await load()
   }
 }
 
@@ -330,12 +434,16 @@ await Promise.all([load(), loadEditorOptions()])
     <div class="admin-catalog__tabs" role="tablist" :aria-label="sk.adminCatalog.tabsLabel">
       <button
         v-for="item in tabs"
+        :id="tabId(item.id)"
         :key="item.id"
         type="button"
         role="tab"
         class="admin-catalog__tab"
+        :aria-controls="visitedTabs.has(item.id) ? tabPanelId(item.id) : undefined"
         :aria-selected="tab === item.id"
+        :tabindex="tab === item.id ? 0 : -1"
         @click="setTab(item.id)"
+        @keydown="onTabKeydown($event, item.id)"
       >
         {{ item.label }}
       </button>
@@ -344,7 +452,15 @@ await Promise.all([load(), loadEditorOptions()])
     <AppAlert :code="errorCode" />
 
     <!-- Tools -->
-    <section v-if="tab === 'tools'" class="admin-catalog__panel" role="tabpanel">
+    <section
+      v-if="visitedTabs.has('tools')"
+      v-show="tab === 'tools'"
+      :id="tabPanelId('tools')"
+      class="admin-catalog__panel"
+      role="tabpanel"
+      :aria-labelledby="tabId('tools')"
+      tabindex="0"
+    >
       <div class="admin-catalog__toolbar">
         <AppField :label="sk.adminCatalog.searchLabel">
           <template #default="slotProps">
@@ -387,7 +503,12 @@ await Promise.all([load(), loadEditorOptions()])
             </span>
             <span class="admin-catalog__row-meta">
               {{ sk.adminCatalog.perDay.replace('{amount}', formatMoney(assetType.dayRate)) }} ·
-              {{ sk.adminCatalog.depositMeta.replace('{amount}', formatMoney(assetType.depositAmount)) }}
+              {{
+                sk.adminCatalog.depositMeta.replace(
+                  '{amount}',
+                  formatMoney(assetType.depositAmount),
+                )
+              }}
             </span>
             <span v-if="savedId === assetType.id" class="admin-catalog__saved" role="status">
               {{ sk.adminCatalog.saved }}
@@ -397,20 +518,51 @@ await Promise.all([load(), loadEditorOptions()])
             :tone="assetType.published ? 'confirmed' : 'neutral'"
             :label="assetType.published ? sk.adminCatalog.published : sk.adminCatalog.unpublished"
           />
-          <AppButton variant="secondary" @click="startEdit(assetType)">{{ sk.adminCatalog.editAction }}</AppButton>
+          <AppButton
+            variant="secondary"
+            :aria-label="sk.adminCatalog.editActionFor.replace('{name}', assetType.name)"
+            @click="startEdit(assetType)"
+          >
+            {{ sk.adminCatalog.editAction }}
+          </AppButton>
         </li>
       </ul>
     </section>
 
     <!-- Prices -->
-    <section v-else-if="tab === 'prices'" class="admin-catalog__panel" role="tabpanel">
+    <section
+      v-if="visitedTabs.has('prices')"
+      v-show="tab === 'prices'"
+      :id="tabPanelId('prices')"
+      class="admin-catalog__panel"
+      role="tabpanel"
+      :aria-labelledby="tabId('prices')"
+      tabindex="0"
+    >
       <AppAlert variant="warn" :message="sk.adminCatalog.provisionalPricesNotice" />
-      <p class="admin-catalog__intro">{{ sk.adminCatalog.pricesIntro }}</p>
-      <AppField :label="sk.adminCatalog.searchLabel">
-        <template #default="slotProps">
-          <input :id="slotProps.id" v-model="search" type="search" autocomplete="off" />
-        </template>
-      </AppField>
+      <div class="admin-catalog__price-toolbar">
+        <div class="admin-catalog__price-heading">
+          <h2>{{ sk.adminCatalog.pricesHeading }}</h2>
+          <p>{{ sk.adminCatalog.pricesIntro }}</p>
+        </div>
+        <div class="admin-catalog__price-tools">
+          <AppField :label="sk.adminCatalog.searchLabel">
+            <template #default="slotProps">
+              <input :id="slotProps.id" v-model="search" type="search" autocomplete="off" />
+            </template>
+          </AppField>
+          <div class="admin-catalog__price-summary" aria-live="polite">
+            <span class="admin-catalog__price-summary-stat">
+              <strong>{{ priceRows.length }}</strong>
+              <span>{{ sk.adminCatalog.pricesShownLabel }}</span>
+            </span>
+            <span class="admin-catalog__price-summary-stat">
+              <strong>{{ changedPrices.length }}</strong>
+              <span>{{ sk.adminCatalog.pricesChangedLabel }}</span>
+            </span>
+          </div>
+        </div>
+      </div>
 
       <div class="admin-catalog__prices">
         <div class="admin-catalog__prices-head" aria-hidden="true">
@@ -424,48 +576,75 @@ await Promise.all([load(), loadEditorOptions()])
           class="admin-catalog__price-row"
           :class="{ 'admin-catalog__price-row--changed': priceChanged(assetType) }"
         >
-          <span class="admin-catalog__price-name">{{ assetType.name }}</span>
+          <div class="admin-catalog__price-name">
+            <span>{{ assetType.name }}</span>
+            <span v-if="priceChanged(assetType)" class="admin-catalog__price-changed">
+              {{ sk.adminCatalog.priceDraftChanged }}
+            </span>
+          </div>
           <label class="admin-catalog__price-cell">
-          <span class="admin-catalog__price-label" aria-hidden="true">{{ sk.adminCatalog.fieldDayRate }}</span>
-          <input
-            v-model="priceDraft[assetType.id]!.dayRate"
-            type="number"
-            inputmode="decimal"
-            min="0"
-            step="0.01"
-            :aria-label="sk.adminCatalog.dayRateFor.replace('{name}', assetType.name)"
-            :aria-invalid="!isValidEuros(priceDraft[assetType.id]!.dayRate) ? 'true' : undefined"
-            :disabled="savingPrices"
-          />
+            <span class="admin-catalog__price-label" aria-hidden="true">{{
+              sk.adminCatalog.fieldDayRate
+            }}</span>
+            <input
+              v-model="priceDraft[assetType.id]!.dayRate"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.01"
+              :aria-label="sk.adminCatalog.dayRateFor.replace('{name}', assetType.name)"
+              :aria-invalid="!isValidEuros(priceDraft[assetType.id]!.dayRate) ? 'true' : undefined"
+              :disabled="savingPrices"
+              @input="clearPriceSaveFeedback"
+            />
           </label>
           <label class="admin-catalog__price-cell">
-          <span class="admin-catalog__price-label" aria-hidden="true">{{ sk.adminCatalog.fieldDeposit }}</span>
-          <input
-            v-model="priceDraft[assetType.id]!.deposit"
-            type="number"
-            inputmode="decimal"
-            min="0"
-            step="0.01"
-            :aria-label="sk.adminCatalog.depositFor.replace('{name}', assetType.name)"
-            :aria-invalid="!isValidEuros(priceDraft[assetType.id]!.deposit) ? 'true' : undefined"
-            :disabled="savingPrices"
-          />
+            <span class="admin-catalog__price-label" aria-hidden="true">{{
+              sk.adminCatalog.fieldDeposit
+            }}</span>
+            <input
+              v-model="priceDraft[assetType.id]!.deposit"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.01"
+              :aria-label="sk.adminCatalog.depositFor.replace('{name}', assetType.name)"
+              :aria-invalid="!isValidEuros(priceDraft[assetType.id]!.deposit) ? 'true' : undefined"
+              :disabled="savingPrices"
+              @input="clearPriceSaveFeedback"
+            />
           </label>
         </div>
+        <p v-if="priceRows.length === 0" class="admin-catalog__price-empty">
+          {{ sk.adminCatalog.noMatch }}
+        </p>
       </div>
 
       <div class="admin-catalog__prices-bar">
         <p v-if="pricesInvalid" class="admin-catalog__prices-error" role="alert">
           {{ sk.adminCatalog.pricesInvalid }}
         </p>
-        <p v-else-if="pricesSavedCount !== null && changedPrices.length === 0" class="admin-catalog__saved" role="status">
+        <p v-else-if="pricesPartialSavedCount !== null" class="admin-catalog__saved" role="status">
+          {{
+            sk.adminCatalog.pricesPartiallySaved.replace('{count}', String(pricesPartialSavedCount))
+          }}
+        </p>
+        <p
+          v-else-if="pricesSavedCount !== null && changedPrices.length === 0"
+          class="admin-catalog__saved"
+          role="status"
+        >
           {{ sk.adminCatalog.pricesSaved.replace('{count}', String(pricesSavedCount)) }}
         </p>
         <p v-else class="admin-catalog__prices-count">
           {{ sk.adminCatalog.pricesChanged.replace('{count}', String(changedPrices.length)) }}
         </p>
         <div class="admin-catalog__prices-actions">
-          <AppButton variant="quiet" :disabled="changedPrices.length === 0 || savingPrices" @click="resetPrices">
+          <AppButton
+            variant="quiet"
+            :disabled="changedPrices.length === 0 || savingPrices"
+            @click="resetPrices"
+          >
             {{ sk.adminCatalog.pricesReset }}
           </AppButton>
           <AppButton
@@ -485,7 +664,15 @@ await Promise.all([load(), loadEditorOptions()])
     </section>
 
     <!-- Filters -->
-    <section v-else class="admin-catalog__panel" role="tabpanel">
+    <section
+      v-if="visitedTabs.has('filters')"
+      v-show="tab === 'filters'"
+      :id="tabPanelId('filters')"
+      class="admin-catalog__panel"
+      role="tabpanel"
+      :aria-labelledby="tabId('filters')"
+      tabindex="0"
+    >
       <p class="admin-catalog__intro">{{ sk.adminClassification.intro }}</p>
       <div class="admin-catalog__classification-lists">
         <ClassificationListEditor
@@ -504,9 +691,11 @@ await Promise.all([load(), loadEditorOptions()])
     <SidePanel
       :open="panel === 'edit' && editing !== null"
       :title-text="editing ? sk.adminCatalog.editTitle.replace('{name}', editing.name) : ''"
-      @close="closePanel"
+      :close-disabled="savingEdit || publishing"
+      @close="requestClosePanel"
     >
       <template v-if="editing">
+        <AppAlert :code="errorCode" />
         <div class="admin-catalog__publish">
           <StateChip
             :tone="editing.published ? 'confirmed' : 'neutral'"
@@ -520,7 +709,12 @@ await Promise.all([load(), loadEditorOptions()])
           >
             {{ sk.adminCatalog.publishAction }}
           </AppButton>
-          <AppButton v-else variant="quiet" class="admin-catalog__unpublish" @click="showUnpublishConfirm = true">
+          <AppButton
+            v-else
+            variant="quiet"
+            class="admin-catalog__unpublish"
+            @click="showUnpublishConfirm = true"
+          >
             {{ sk.adminCatalog.unpublishAction }}
           </AppButton>
         </div>
@@ -531,15 +725,39 @@ await Promise.all([load(), loadEditorOptions()])
           :use-areas="useAreas"
           :images="images"
           :principal-candidates="principalCandidates"
-          :pending="savingEdit"
           @save="saveEdit"
-          @cancel="closePanel"
+          @dirty-change="editorDirty = $event"
         />
+      </template>
+      <template #footer>
+        <div class="admin-catalog__editor-footer">
+          <AppButton type="button" variant="quiet" @click="requestClosePanel">
+            {{ sk.adminCatalog.cancelAction }}
+          </AppButton>
+          <AppButton
+            type="submit"
+            form="asset-type-editor-form"
+            variant="primary"
+            :pending="savingEdit"
+          >
+            {{ savingEdit ? sk.adminCatalog.saving : sk.adminCatalog.saveAction }}
+          </AppButton>
+        </div>
       </template>
     </SidePanel>
 
-    <SidePanel :open="panel === 'new'" :title-text="sk.adminCatalog.newHeading" @close="closePanel">
-      <form class="admin-catalog__new-form" @submit.prevent="createAssetType">
+    <SidePanel
+      :open="panel === 'new'"
+      :title-text="sk.adminCatalog.newHeading"
+      :close-disabled="creating"
+      @close="requestClosePanel"
+    >
+      <form
+        id="asset-type-create-form"
+        class="admin-catalog__new-form"
+        @submit.prevent="createAssetType"
+      >
+        <AppAlert :code="errorCode" />
         <AppField :label="sk.adminCatalog.fieldName">
           <template #default="slotProps">
             <input :id="slotProps.id" v-model="form.name" type="text" required />
@@ -553,18 +771,46 @@ await Promise.all([load(), loadEditorOptions()])
         <div class="admin-catalog__new-prices">
           <AppField :label="sk.adminCatalog.fieldDayRate">
             <template #default="slotProps">
-              <input :id="slotProps.id" v-model="form.dayRateEuros" type="number" min="0" step="0.01" required />
+              <input
+                :id="slotProps.id"
+                v-model="form.dayRateEuros"
+                type="number"
+                min="0"
+                step="0.01"
+                required
+              />
             </template>
           </AppField>
           <AppField :label="sk.adminCatalog.fieldDeposit">
             <template #default="slotProps">
-              <input :id="slotProps.id" v-model="form.depositEuros" type="number" min="0" step="0.01" required />
+              <input
+                :id="slotProps.id"
+                v-model="form.depositEuros"
+                type="number"
+                min="0"
+                step="0.01"
+                required
+              />
             </template>
           </AppField>
         </div>
         <p class="admin-catalog__intro">{{ sk.adminCatalog.newHint }}</p>
-        <AppButton type="submit" variant="primary" :pending="creating">{{ sk.adminCatalog.createAction }}</AppButton>
       </form>
+      <template #footer>
+        <div class="admin-catalog__editor-footer">
+          <AppButton type="button" variant="quiet" @click="requestClosePanel">
+            {{ sk.adminCatalog.cancelAction }}
+          </AppButton>
+          <AppButton
+            type="submit"
+            form="asset-type-create-form"
+            variant="primary"
+            :pending="creating"
+          >
+            {{ creating ? sk.adminCatalog.creating : sk.adminCatalog.createAction }}
+          </AppButton>
+        </div>
+      </template>
     </SidePanel>
 
     <ConfirmAction
@@ -575,6 +821,14 @@ await Promise.all([load(), loadEditorOptions()])
       :pending="unpublishing"
       @confirm="confirmUnpublish"
       @close="showUnpublishConfirm = false"
+    />
+    <ConfirmAction
+      :open="showDiscardConfirm"
+      :title-text="sk.adminCatalog.discardChangesTitle"
+      :body-text="sk.adminCatalog.discardChangesBody"
+      :confirm-label="sk.adminCatalog.discardChangesAction"
+      @confirm="discardPanelChanges"
+      @close="showDiscardConfirm = false"
     />
   </main>
 </template>
@@ -600,6 +854,12 @@ await Promise.all([load(), loadEditorOptions()])
 
 .admin-catalog__title {
   margin: 0;
+}
+
+.admin-catalog__editor-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ht-space-3);
 }
 
 /* Tabs as a segmented strip; the selected one carries the signal edge. */
@@ -783,19 +1043,77 @@ await Promise.all([load(), loadEditorOptions()])
 
 /* --- Prices --- */
 
-.admin-catalog__prices {
-  border: 1px solid var(--ht-line);
+.admin-catalog__price-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-3);
+  padding: var(--ht-space-4);
+  border: var(--ht-line-width) solid var(--ht-line);
   border-radius: var(--ht-radius-card);
   background: var(--ht-surface);
+}
+
+.admin-catalog__price-heading h2 {
+  margin: 0;
+  font-size: var(--ht-text-4);
+}
+
+.admin-catalog__price-heading p {
+  margin: var(--ht-space-1) 0 0;
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-2);
+}
+
+.admin-catalog__price-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--ht-space-3);
+}
+
+.admin-catalog__price-tools :deep(.app-field) {
+  margin-bottom: 0;
+}
+
+.admin-catalog__price-summary {
+  display: flex;
+  align-items: stretch;
+  gap: var(--ht-space-2);
+}
+
+.admin-catalog__price-summary-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--ht-space-2);
+  min-height: var(--ht-hit-min);
+  padding: 0 var(--ht-space-3);
+  border: var(--ht-line-width) solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-paper);
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-2);
+  white-space: nowrap;
+}
+
+.admin-catalog__price-summary-stat strong {
+  color: var(--ht-ink);
+  font-family: var(--ht-font-mono);
+  font-size: var(--ht-text-4);
+}
+
+.admin-catalog__prices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
 }
 
 .admin-catalog__prices-head,
 .admin-catalog__price-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(88px, 140px) minmax(88px, 140px);
+  grid-template-columns: minmax(0, 1fr) repeat(2, minmax(156px, 208px));
   align-items: center;
   gap: var(--ht-space-3);
-  padding: var(--ht-space-2) var(--ht-space-3);
+  padding: var(--ht-space-2) var(--ht-space-4);
 }
 
 .admin-catalog__prices-head {
@@ -805,11 +1123,21 @@ await Promise.all([load(), loadEditorOptions()])
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ht-ink-muted);
-  border-bottom: 1px solid var(--ht-line);
 }
 
-.admin-catalog__price-row + .admin-catalog__price-row {
-  border-top: 1px solid var(--ht-line);
+.admin-catalog__price-row {
+  min-height: var(--ht-hit-min);
+  border: var(--ht-line-width) solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
+  transition:
+    border-color var(--ht-motion),
+    background-color var(--ht-motion),
+    box-shadow var(--ht-motion);
+}
+
+.admin-catalog__price-row:hover {
+  border-color: var(--ht-line-strong);
 }
 
 .admin-catalog__price-row input {
@@ -825,12 +1153,34 @@ await Promise.all([load(), loadEditorOptions()])
 
 /* A changed row is marked at its edge until saved. */
 .admin-catalog__price-row--changed {
+  border-color: var(--ht-signal-deep);
   box-shadow: inset var(--ht-space-1) 0 0 var(--ht-signal);
   background: var(--ht-surface-sunk);
 }
 
 .admin-catalog__price-name {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ht-space-1);
+  min-width: 0;
   overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.admin-catalog__price-changed {
+  color: var(--ht-signal-deep);
+  font-size: var(--ht-text-1);
+  font-weight: 600;
+}
+
+.admin-catalog__price-empty {
+  margin: 0;
+  padding: var(--ht-space-5);
+  border: var(--ht-line-width) dashed var(--ht-line-strong);
+  border-radius: var(--ht-radius-card);
+  color: var(--ht-ink-muted);
+  text-align: center;
 }
 
 /* The column heads label the inputs on a wide screen; on a phone each input
@@ -844,8 +1194,23 @@ await Promise.all([load(), loadEditorOptions()])
     display: none;
   }
 
+  .admin-catalog__price-tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-catalog__price-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-catalog__price-summary-stat {
+    justify-content: center;
+    padding: 0 var(--ht-space-2);
+  }
+
   .admin-catalog__price-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: var(--ht-space-3);
   }
 
   .admin-catalog__price-name {
@@ -867,6 +1232,12 @@ await Promise.all([load(), loadEditorOptions()])
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--ht-ink-muted);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-catalog__price-row {
+    transition: none;
   }
 }
 

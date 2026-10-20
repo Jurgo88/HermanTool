@@ -1,14 +1,21 @@
-<!-- C-29 (D-43, S-19). A panel that slides in from the right on a wide
-  screen and fills a phone's screen, for editing one thing without leaving
-  the list behind it. Built on the native <dialog> like AppDialog (C-04):
-  focus trap, Esc and focus restore come with it. -->
+<!-- C-29 (D-43, S-19). A large editor dialog over the list on desktop and
+  a full-screen editor on a phone. Built on native <dialog> like AppDialog
+  (C-04): focus trap, Esc and focus restore come with it. -->
 <script setup lang="ts">
 import { sk } from '~/i18n/sk'
 
-const props = defineProps<{ open: boolean; titleText: string }>()
+const props = withDefaults(
+  defineProps<{ open: boolean; titleText: string; closeDisabled?: boolean }>(),
+  { closeDisabled: false },
+)
 const emit = defineEmits<{ close: [] }>()
 
 const dialogRef = ref<HTMLDialogElement | null>(null)
+
+function requestClose(event?: Event) {
+  event?.preventDefault()
+  if (!props.closeDisabled) emit('close')
+}
 
 watch(
   () => props.open,
@@ -26,20 +33,18 @@ onMounted(() => {
 </script>
 
 <template>
-  <dialog
-    ref="dialogRef"
-    class="side-panel"
-    :aria-label="titleText"
-    @close="emit('close')"
-    @cancel="emit('close')"
-  >
+  <dialog ref="dialogRef" class="side-panel" :aria-label="titleText" @cancel="requestClose">
     <header class="side-panel__head">
-      <h2 class="side-panel__title">{{ titleText }}</h2>
+      <div class="side-panel__heading">
+        <span class="side-panel__eyebrow">{{ sk.sidePanel.editorLabel }}</span>
+        <h2 class="side-panel__title">{{ titleText }}</h2>
+      </div>
       <button
         type="button"
         class="side-panel__close"
         :aria-label="sk.sidePanel.closeLabel"
-        @click="emit('close')"
+        :disabled="closeDisabled"
+        @click="requestClose()"
       >
         <span aria-hidden="true">{{ sk.sidePanel.closeGlyph }}</span>
       </button>
@@ -47,23 +52,28 @@ onMounted(() => {
     <div class="side-panel__body">
       <slot />
     </div>
+    <footer v-if="$slots.footer" class="side-panel__footer">
+      <slot name="footer" />
+    </footer>
   </dialog>
 </template>
 
 <style scoped>
 .side-panel {
   box-sizing: border-box;
-  width: 100%;
+  width: min(var(--ht-dialog-max-width), calc(100vw - var(--ht-space-6)));
+  height: min(var(--ht-dialog-max-height), calc(100dvh - var(--ht-space-6)));
   max-width: 100%;
-  height: 100dvh;
-  max-height: 100dvh;
-  margin: 0 0 0 auto;
+  max-height: 100%;
+  margin: auto;
   padding: 0;
   border: 0;
   background: var(--ht-paper);
   color: var(--ht-ink);
   display: none;
   flex-direction: column;
+  border-radius: var(--ht-radius-card);
+  box-shadow: var(--ht-shadow-dialog);
 }
 
 .side-panel[open] {
@@ -71,7 +81,7 @@ onMounted(() => {
 }
 
 .side-panel::backdrop {
-  background: rgb(0 0 0 / 45%);
+  background: var(--ht-dialog-backdrop);
 }
 
 .side-panel__head {
@@ -80,9 +90,25 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: var(--ht-space-3);
-  padding: calc(var(--ht-space-2) + var(--ht-safe-top)) var(--ht-space-4) var(--ht-space-2);
+  padding: calc(var(--ht-space-3) + var(--ht-safe-top))
+    calc(var(--ht-space-5) + var(--ht-safe-right)) var(--ht-space-3)
+    calc(var(--ht-space-5) + var(--ht-safe-left));
   background: var(--ht-surface);
-  border-bottom: 1px solid var(--ht-line);
+  border-bottom: var(--ht-line-width) solid var(--ht-line);
+  box-shadow: inset 0 var(--ht-space-1) 0 var(--ht-signal);
+}
+
+.side-panel__heading {
+  min-width: 0;
+}
+
+.side-panel__eyebrow {
+  color: var(--ht-ink-muted);
+  font-family: var(--ht-font-condensed);
+  font-size: var(--ht-text-1);
+  font-weight: 600;
+  letter-spacing: var(--ht-tracking-wide);
+  text-transform: uppercase;
 }
 
 .side-panel__title {
@@ -109,17 +135,53 @@ onMounted(() => {
   color: var(--ht-ink);
 }
 
+.side-panel__close:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .side-panel__body {
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--ht-space-4) var(--ht-space-4) calc(var(--ht-space-6) + var(--ht-safe-bottom));
+  padding: var(--ht-space-5) calc(var(--ht-space-5) + var(--ht-safe-right)) var(--ht-space-5)
+    calc(var(--ht-space-5) + var(--ht-safe-left));
 }
 
-@media (min-width: 720px) {
+.side-panel__footer {
+  flex: none;
+  padding: var(--ht-space-3) calc(var(--ht-space-5) + var(--ht-safe-right))
+    calc(var(--ht-space-3) + var(--ht-safe-bottom)) calc(var(--ht-space-5) + var(--ht-safe-left));
+  border-top: var(--ht-line-width) solid var(--ht-line);
+  background: var(--ht-surface);
+}
+
+.side-panel a:focus-visible,
+.side-panel button:focus-visible {
+  outline: var(--ht-focus-ring-width) solid var(--ht-signal-deep);
+  outline-offset: var(--ht-focus-ring-offset);
+}
+
+@media (max-width: 719px) {
   .side-panel {
-    width: min(640px, 92vw);
-    box-shadow: -8px 0 32px rgb(0 0 0 / 20%);
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+  }
+
+  .side-panel__head {
+    padding-inline-start: calc(var(--ht-space-4) + var(--ht-safe-left));
+    padding-inline-end: calc(var(--ht-space-4) + var(--ht-safe-right));
+  }
+
+  .side-panel__body {
+    padding-inline-start: calc(var(--ht-space-4) + var(--ht-safe-left));
+    padding-inline-end: calc(var(--ht-space-4) + var(--ht-safe-right));
+  }
+
+  .side-panel__footer {
+    padding-inline-start: calc(var(--ht-space-4) + var(--ht-safe-left));
+    padding-inline-end: calc(var(--ht-space-4) + var(--ht-safe-right));
   }
 }
 </style>
