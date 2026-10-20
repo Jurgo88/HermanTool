@@ -6,6 +6,7 @@ import { sk } from '~/i18n/sk'
 import { loginLocation } from '~/utils/operator-redirect'
 import { getErrorCode } from '~/utils/error-code'
 import { formatDayRange } from '~/utils/format'
+import { phoneHref } from '~/utils/phone'
 
 definePageMeta({ layout: 'counter' })
 
@@ -13,6 +14,7 @@ interface NoShowEntryView {
   reservation: { id: number; assetTypeId: number; period: { startDay: string; endDay: string } }
   assetTypeName: string
   customerName: string
+  customerPhone: string | null
 }
 
 const requestFetch = useRequestFetch()
@@ -57,6 +59,10 @@ try {
       :expected-value="formatDayRange(entry.reservation.period.startDay, entry.reservation.period.endDay)"
       :actual-label="sk.adminCounter.actualLabelPickup"
       :actual-value="sk.adminCounter.actualValueNotPickedUp"
-    />
+    >
+      <a v-if="entry.customerPhone" :href="phoneHref(entry.customerPhone)" class="counter-link">
+        {{ sk.adminCounter.callCustomerAction.replace('{phone}', entry.customerPhone) }}
+      </a>
+    </TwoClockRow>
   </main>
 </template>

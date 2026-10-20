@@ -9,6 +9,7 @@ import { sk } from '~/i18n/sk'
 import { loginLocation } from '~/utils/operator-redirect'
 import { getErrorCode } from '~/utils/error-code'
 import { formatDay, formatDayRange } from '~/utils/format'
+import { phoneHref } from '~/utils/phone'
 
 definePageMeta({ layout: 'counter' })
 
@@ -19,6 +20,7 @@ interface OverdueEntryView {
   shortfallDay: string | null
   assetTypeName: string
   customerName: string
+  customerPhone: string | null
 }
 
 const requestFetch = useRequestFetch()
@@ -123,6 +125,9 @@ async function confirmDeclareLost(pin: string) {
         <span v-else>{{ sk.adminCounterOverdue.noShortfall }}</span>
       </p>
       <div class="counter-actions">
+        <a v-if="entry.customerPhone" :href="phoneHref(entry.customerPhone)" class="counter-link">
+          {{ sk.adminCounter.callCustomerAction.replace('{phone}', entry.customerPhone) }}
+        </a>
         <NuxtLink
           :to="`/admin/counter/assets/${entry.rentalAgreement.assetId}`"
           class="counter-link"

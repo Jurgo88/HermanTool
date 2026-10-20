@@ -16,7 +16,9 @@ import { sk } from '~/i18n/sk'
 import { loginLocation } from '~/utils/operator-redirect'
 import type { PhotoState } from '~/components/PhotoCapture.vue'
 import { getErrorCode } from '~/utils/error-code'
-import { formatDateTime, formatDayRange, formatMoney } from '~/utils/format'
+import { formatDateTime, formatDayRange, formatMoney, formatWeekdayDay } from '~/utils/format'
+import { assetStatusLabel } from '~/utils/asset-status'
+import { phoneHref } from '~/utils/phone'
 import {
   emptyLateAttestation,
   isLateAttestationComplete,
@@ -45,6 +47,7 @@ interface TodaysPickupView {
   assetTypeName: string
   customerName: string
   customerId: number | null
+  customerPhone: string | null
 }
 
 interface TodaysReturnView {
@@ -53,6 +56,7 @@ interface TodaysReturnView {
   assetTypeName: string
   customerName: string
   customerId: number | null
+  customerPhone: string | null
 }
 
 interface AssetTypeView {
@@ -74,6 +78,7 @@ interface IdentityEvidenceView {
 const nuxtApp = useNuxtApp()
 const requestFetch = useRequestFetch()
 
+const today = ref<string | null>(null)
 const pickups = ref<TodaysPickupView[]>([])
 const returns = ref<TodaysReturnView[]>([])
 const assetTypes = ref<AssetTypeView[]>([])
@@ -111,14 +116,15 @@ async function handleFetchError(err: unknown): Promise<boolean> {
 
 async function loadWorklist() {
   try {
-    const [today, catalog] = await Promise.all([
-      requestFetch<{ pickups: TodaysPickupView[]; returns: TodaysReturnView[] }>(
+    const [worklist, catalog] = await Promise.all([
+      requestFetch<{ today: string; pickups: TodaysPickupView[]; returns: TodaysReturnView[] }>(
         '/api/handover/today',
       ),
       requestFetch<AssetTypeView[]>('/api/catalog/asset-types'),
     ])
-    pickups.value = today.pickups
-    returns.value = today.returns
+    today.value = worklist.today
+    pickups.value = worklist.pickups
+    returns.value = worklist.returns
     assetTypes.value = catalog
   } catch (err: unknown) {
     await handleFetchError(err)
@@ -130,6 +136,15 @@ async function uploadFile(url: string, file: File): Promise<void> {
 }
 
 await loadWorklist()
+
+// The counter phone stays open all day while Customers pay online, so the
+// worklist is fetched again whenever the app comes back to the front. Never
+// mid-task: a refresh must not move rows under an Operator's thumb.
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible' && panel.value === 'none') void loadWorklist()
+}
+onMounted(() => document.addEventListener('visibilitychange', onVisibilityChange))
+onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibilityChange))
 
 // ---------------------------------------------------------------------
 // Global scan (handover_in / asset_lookup — handover_out needs a
@@ -194,10 +209,19 @@ watch(outPhotos, (files) => {
 })
 
 const handoverOutBackGuard = computed(() =>
-  uploadingEvidence.value || outPhotos.value.length > 0
-    ? 'Rozrobené vydanie náradia sa stratí. Naozaj chcete odísť?'
-    : null,
+  uploadingEvidence.value || outPhotos.value.length > 0 ? sk.adminCounter.handoverOutBackGuard : null,
 )
+
+// S-09: the photo is shown before it is uploaded, so a blurred one is
+// retaken rather than sent.
+const evidencePreviewUrl = ref<string | null>(null)
+
+function setEvidenceFile(file: File | null) {
+  if (evidencePreviewUrl.value) URL.revokeObjectURL(evidencePreviewUrl.value)
+  evidenceFile.value = file
+  evidencePreviewUrl.value = file ? URL.createObjectURL(file) : null
+}
+onBeforeUnmount(() => setEvidenceFile(null))
 
 async function startHandoverOut(pickup: TodaysPickupView) {
   errorCode.value = null
@@ -205,7 +229,7 @@ async function startHandoverOut(pickup: TodaysPickupView) {
   info.value = null
   activePickup.value = pickup
   verificationDone.value = false
-  evidenceFile.value = null
+  setEvidenceFile(null)
   outTagCode.value = ''
   outPhotos.value = []
   outLate.value = emptyLateAttestation()
@@ -237,7 +261,10 @@ async function viewEvidence(identityEvidenceId: number) {
 }
 
 function onEvidenceFileChange(event: Event) {
-  evidenceFile.value = (event.target as HTMLInputElement).files?.[0] ?? null
+  const input = event.target as HTMLInputElement
+  setEvidenceFile(input.files?.[0] ?? null)
+  // Lets the same camera shot be chosen again after a retake is cancelled.
+  input.value = ''
 }
 
 async function captureEvidenceFallback() {
@@ -264,7 +291,7 @@ async function captureEvidenceFallback() {
     evidenceList.value = await requestFetch<IdentityEvidenceView[]>(
       `/api/handover/customers/${customerId}/identity-evidence`,
     )
-    evidenceFile.value = null
+    setEvidenceFile(null)
   } catch (err: unknown) {
     await handleFetchError(err)
   } finally {
@@ -414,7 +441,7 @@ watch(inPhotos, (files) => {
 })
 
 const handoverInBackGuard = computed(() =>
-  inPhotos.value.length > 0 ? 'Rozrobené vrátenie náradia sa stratí. Naozaj chcete odísť?' : null,
+  inPhotos.value.length > 0 ? sk.adminCounter.handoverInBackGuard : null,
 )
 const settlingAgreementId = ref<number | null>(null)
 
@@ -566,7 +593,12 @@ async function confirmSettlement(pin: string) {
     <!-- NFR-11: exactly one h1 per screen — every other panel below
       renders its own via StepHeader (C-17), so this one is conditional
       on being the only one on screen. -->
-    <h1 v-if="panel === 'none'">{{ sk.adminCounter.title }}</h1>
+    <!-- C-20 on the counter: only on the home, never inside a task. -->
+    <OperatorBar v-if="panel === 'none'" surface="counter" />
+    <header v-if="panel === 'none'" class="counter-heading">
+      <h1>{{ sk.adminCounter.title }}</h1>
+      <p v-if="today" class="counter-heading__day">{{ formatWeekdayDay(today) }}</p>
+    </header>
     <AppAlert :code="errorCode" :message="errorMessage" />
     <AppAlert v-if="info" variant="info" :message="info" />
 
@@ -599,14 +631,19 @@ async function confirmSettlement(pin: string) {
           :actual-label="sk.adminCounter.actualLabelPickup"
           :actual-value="sk.adminCounter.actualValueNotPickedUp"
         >
-          <AppButton
-            variant="primary"
-            size="counter"
-            class="counter-submit"
-            @click="startHandoverOut(pickup)"
-          >
-            {{ sk.adminCounter.handoverOutAction }}
-          </AppButton>
+          <div class="counter-actions">
+            <AppButton
+              variant="primary"
+              size="counter"
+              class="counter-submit"
+              @click="startHandoverOut(pickup)"
+            >
+              {{ sk.adminCounter.handoverOutAction }}
+            </AppButton>
+            <a v-if="pickup.customerPhone" :href="phoneHref(pickup.customerPhone)" class="counter-link">
+              {{ sk.adminCounter.callCustomerAction.replace('{phone}', pickup.customerPhone) }}
+            </a>
+          </div>
         </TwoClockRow>
       </section>
 
@@ -623,7 +660,11 @@ async function confirmSettlement(pin: string) {
           "
           :actual-label="sk.adminCounter.actualLabelReturn"
           :actual-value="sk.adminCounter.actualValueWithCustomer"
-        />
+        >
+          <a v-if="ret.customerPhone" :href="phoneHref(ret.customerPhone)" class="counter-link">
+            {{ sk.adminCounter.callCustomerAction.replace('{phone}', ret.customerPhone) }}
+          </a>
+        </TwoClockRow>
       </section>
 
       <section>
@@ -641,13 +682,18 @@ async function confirmSettlement(pin: string) {
 
     <section v-else-if="panel === 'lookup'">
       <StepHeader :title="sk.adminCounter.lookupHeading" @back="resetToWorklist" />
-      <p v-if="lookupResult">
-        {{
-          sk.adminCounter.assetLookupResult
-            .replace('{assetId}', String(lookupResult.asset.id))
-            .replace('{status}', lookupResult.asset.status)
-        }}
-      </p>
+      <template v-if="lookupResult">
+        <p>
+          {{
+            sk.adminCounter.assetLookupResult
+              .replace('{assetId}', String(lookupResult.asset.id))
+              .replace('{status}', assetStatusLabel(lookupResult.asset.status))
+          }}
+        </p>
+        <NuxtLink :to="`/admin/counter/assets/${lookupResult.asset.id}`" class="counter-link">
+          {{ sk.adminCounter.openAssetAction }}
+        </NuxtLink>
+      </template>
     </section>
 
     <section v-else-if="panel === 'handoverOut' && activePickup">
@@ -712,21 +758,30 @@ async function confirmSettlement(pin: string) {
         </AppField>
 
         <h4>{{ sk.adminCounter.captureFallbackHeading }}</h4>
-        <AppField :label="sk.adminCounter.fileLabel">
-          <template #default="slotProps">
-            <input
-              :id="slotProps.id"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              @change="onEvidenceFileChange"
-            />
-          </template>
-        </AppField>
+        <img
+          v-if="evidencePreviewUrl"
+          :src="evidencePreviewUrl"
+          :alt="sk.adminCounter.evidencePreviewAlt"
+          class="counter-capture__preview"
+        />
+        <!-- The whole label is the counter-size target; the input inside is
+          visually hidden but keeps its focus and its camera capture. -->
+        <label class="counter-capture" :class="{ 'counter-capture--retake': evidenceFile }">
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            class="counter-capture__input"
+            :disabled="uploadingEvidence"
+            @change="onEvidenceFileChange"
+          />
+          {{ evidenceFile ? sk.adminCounter.evidenceRetakeAction : sk.adminCounter.evidenceTakeAction }}
+        </label>
         <AppButton
-          variant="secondary"
+          v-if="evidenceFile"
+          variant="primary"
           size="counter"
-          :disabled="!evidenceFile"
+          class="counter-submit"
           :pending="uploadingEvidence"
           @click="captureEvidenceFallback"
         >
@@ -892,6 +947,66 @@ async function confirmSettlement(pin: string) {
 </template>
 
 <style scoped>
+/* S-08: which day the lists are for, from the server, under the title. */
+.counter-heading h1 {
+  margin: 0;
+}
+
+.counter-heading__day {
+  margin: var(--ht-space-1) 0 0;
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-3);
+}
+
+/* S-09: taking the photo is the step's main action, so it is a counter-size
+ * button, not the browser's file picker; once a photo is taken, uploading it
+ * becomes the main action and this turns into the quieter retake. */
+.counter-capture {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--ht-hit-counter);
+  padding: var(--ht-space-2) var(--ht-space-3);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-signal);
+  color: var(--ht-on-signal);
+  font-family: var(--ht-font-condensed);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.counter-capture--retake {
+  background: var(--ht-surface);
+  color: var(--ht-ink);
+  border: 1px solid var(--ht-ink-muted);
+}
+
+.counter-capture:focus-within {
+  outline: 3px solid var(--ht-signal);
+  outline-offset: 2px;
+}
+
+.counter-capture__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.counter-capture__preview {
+  display: block;
+  width: 100%;
+  max-height: 50vh;
+  object-fit: contain;
+  background: var(--ht-surface-sunk);
+  border: 1px solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+}
+
 /* S-08: the two worklists the counter links to, as full-size touch targets
  * (--ht-hit-counter) instead of two bare links run together. */
 .counter-links {

@@ -37,12 +37,14 @@ export interface OverdueEntry {
   shortfallDay: string | null
   assetTypeName: string
   customerName: string
+  customerPhone: string | null
 }
 
 export interface NoShowEntry {
   reservation: Reservation
   assetTypeName: string
   customerName: string
+  customerPhone: string | null
 }
 
 function addOneDay(day: string): string {
@@ -107,7 +109,7 @@ export async function listOverdue(
       shortfallByAssetType.set(reservation.assetTypeId, shortfallDay)
     }
 
-    const { assetTypeName, customerName } = await describeReservation(deps, tenantId, reservation)
+    const { assetTypeName, customerName, customerPhone } = await describeReservation(deps, tenantId, reservation)
     entries.push({
       reservation,
       rentalAgreement,
@@ -115,6 +117,7 @@ export async function listOverdue(
       shortfallDay: shortfallByAssetType.get(reservation.assetTypeId)!,
       assetTypeName,
       customerName,
+      customerPhone,
     })
   }
 
@@ -142,8 +145,8 @@ export async function listNoShows(
   for (const reservation of candidates) {
     const rentalAgreement = await deps.handoverRepo.getRentalAgreementByReservation(tenantId, reservation.id)
     if (rentalAgreement) continue // already handed out — not a NoShow
-    const { assetTypeName, customerName } = await describeReservation(deps, tenantId, reservation)
-    entries.push({ reservation, assetTypeName, customerName })
+    const { assetTypeName, customerName, customerPhone } = await describeReservation(deps, tenantId, reservation)
+    entries.push({ reservation, assetTypeName, customerName, customerPhone })
   }
   return entries
 }

@@ -83,6 +83,14 @@ describe('listTodaysPickups / listTodaysReturns (FR-42)', () => {
     expect(pickups[0]!.customerId).toBe(customer.id)
   })
 
+  it('carries the Customer phone, so the counter can call someone who has not come', async () => {
+    await confirmedReservation(TODAY, '2026-03-12')
+
+    const pickups = await listTodaysPickups(deps, { tenantId: tenantA, today: TODAY })
+
+    expect(pickups[0]!.customerPhone).toBe('+421900000000')
+  })
+
   it('excludes a Reservation already handed out from pickups', async () => {
     const { reservation, customer } = await confirmedReservation(TODAY, '2026-03-12')
     const asset = await assetRegistry.insertAsset(tenantA, { assetTypeId: HAMMER, status: 'rentable', operatorId })

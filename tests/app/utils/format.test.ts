@@ -8,6 +8,7 @@ import {
   formatMoney,
   formatTime,
   formatMonth,
+  formatWeekdayDay,
   todayInBratislava,
 } from '../../../app/utils/format'
 
@@ -41,6 +42,12 @@ describe('formatDay (D-51)', () => {
     // as the 11th or the 13th depending on the reader's own clock.
     expect(formatDay('2026-01-01')).toBe('1. 1. 2026')
     expect(formatDay('2026-12-31')).toBe('31. 12. 2026')
+  })
+})
+
+describe('formatWeekdayDay (S-08, D-51)', () => {
+  it('names the weekday in Slovak before the date', () => {
+    expect(formatWeekdayDay('2026-10-20')).toBe('utorok 20. 10. 2026')
   })
 })
 

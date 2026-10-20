@@ -28,6 +28,8 @@ export interface TodaysPickup {
   // fallbacks below, though in practice D-14 guarantees exactly one
   // Customer per ReservationGroup once checkout has run.
   customerId: number | null
+  // So the counter can call a Customer who has not turned up (W7).
+  customerPhone: string | null
 }
 
 export interface TodaysReturn {
@@ -36,6 +38,7 @@ export interface TodaysReturn {
   assetTypeName: string
   customerName: string
   customerId: number | null
+  customerPhone: string | null
 }
 
 // Exported for server/utils/overdue-noshow-views.ts's own reuse — same
@@ -44,7 +47,12 @@ export async function describeReservation(
   deps: Pick<OperatorCounterViewsDeps, 'catalogRepo' | 'identityRepo'>,
   tenantId: TenantId,
   reservation: Reservation,
-): Promise<{ assetTypeName: string; customerName: string; customerId: number | null }> {
+): Promise<{
+  assetTypeName: string
+  customerName: string
+  customerId: number | null
+  customerPhone: string | null
+}> {
   const [assetType, customer] = await Promise.all([
     deps.catalogRepo.getAssetType(tenantId, reservation.assetTypeId),
     deps.identityRepo.getCustomerByReservationGroup(tenantId, reservation.reservationGroupId),
@@ -56,6 +64,7 @@ export async function describeReservation(
     assetTypeName: assetType?.name ?? `AssetType ${reservation.assetTypeId}`,
     customerName: customer?.name ?? `ReservationGroup ${reservation.reservationGroupId}`,
     customerId: customer?.id ?? null,
+    customerPhone: customer?.phone ?? null,
   }
 }
 

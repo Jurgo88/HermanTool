@@ -77,8 +77,10 @@ usePwaHead('operator')
   gap: var(--ht-space-3);
 }
 
-/* The step bar stays edge to edge inside the padded column. */
-.counter-surface :deep(.step-header) {
+/* The step bar and the home's OperatorBar stay edge to edge inside the
+ * padded column. */
+.counter-surface :deep(.step-header),
+.counter-surface :deep(.operator-bar) {
   margin: calc(-1 * var(--ht-space-4)) calc(-1 * var(--ht-space-4)) 0;
 }
 </style>
