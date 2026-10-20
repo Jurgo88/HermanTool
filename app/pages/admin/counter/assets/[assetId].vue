@@ -12,6 +12,7 @@ import { loginLocation } from '~/utils/operator-redirect'
 import type { PhotoState } from '~/components/PhotoCapture.vue'
 import type { AttestationHistoryEntryView } from '~/components/AttestationTimeline.vue'
 import { getErrorCode } from '~/utils/error-code'
+import { assetStatusLabel } from '~/utils/asset-status'
 
 definePageMeta({ layout: 'counter' })
 
@@ -31,6 +32,7 @@ interface AssetView {
 
 interface HistoryResponse {
   asset: AssetView
+  assetTypeName: string | null
   tagCode: string | null
   history: AttestationHistoryEntryView[]
   operatorNames: Record<string, string>
@@ -42,6 +44,7 @@ const requestFetch = useRequestFetch()
 const nuxtApp = useNuxtApp()
 
 const asset = ref<AssetView | null>(null)
+const assetTypeName = ref<string | null>(null)
 const tagCode = ref<string | null>(null)
 const history = ref<AttestationHistoryEntryView[]>([])
 const operatorNames = ref<Record<string, string>>({})
@@ -75,6 +78,7 @@ async function load() {
   try {
     const result = await requestFetch<HistoryResponse>(`/api/handover/assets/${assetId}/attestation-history`)
     asset.value = result.asset
+    assetTypeName.value = result.assetTypeName
     tagCode.value = result.tagCode
     history.value = result.history
     operatorNames.value = result.operatorNames
@@ -227,12 +231,12 @@ async function confirmLateAttestation(pin: string) {
 
 <template>
   <main>
-    <StepHeader :title="sk.assetHistory.title" @back="goBack" />
+    <StepHeader :title="sk.assetHistory.title" :subtitle="assetTypeName" @back="goBack" />
     <AppAlert :code="errorCode" :message="errorMessage" />
     <p v-if="info">{{ info }}</p>
 
     <section v-if="asset">
-      <p>{{ sk.assetHistory.statusLabel }}: <StateChip :label="asset.status" tone="neutral" /></p>
+      <p>{{ sk.assetHistory.statusLabel }}: <StateChip :label="assetStatusLabel(asset.status)" tone="neutral" /></p>
       <p>
         {{ sk.assetHistory.tagCodeLabel }}:
         <TagCodePlate v-if="tagCode">{{ tagCode }}</TagCodePlate>

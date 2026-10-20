@@ -296,7 +296,7 @@ Twenty components. Filenames use domain vocabulary (`UI-D-02`); none is generic 
 | `C-17` | `StepHeader` | counter task stack: workflow name, Customer, back with in-flight guard |
 | `C-18` | `AttestationTimeline` | append-only history render for `S-13` (`D-10`, `FR-43`) |
 | `C-19` | `ConfirmAction` | irreversible acts: declare lost, unpublish, mark rentable in bulk |
-| `C-20` | `OperatorBar` | signed-in Operator, surface switcher, logout (`UIF-05`, `FR-34`) |
+| `C-20` | `OperatorBar` | signed-in Operator, surface switcher, logout (`UIF-05`, `FR-34`); `surface="counter"` on the `S-08` home without the admin links |
 | `C-21` | `AvailabilityCalendar` | month grid from the server's month payload; free / last / none as **derived** treatment (`D-47`); first-then-last day selection of a RentalPeriod; no date arithmetic in the component (`D-58`, `D-51`) |
 | `C-22` | `ClassificationFilter` | two groups, PowerSource and UseArea; toggle chips, OR within a group, AND across (`D-54`); state is visible as text, not colour alone |
 | `C-23` | `AssetTypeCard` | `S-01` grid cell: image (placeholder when absent, `D-56`), name, day rate via `C-14`; the whole card links to `S-02` |
@@ -355,9 +355,13 @@ Structure now, content in the `draft.` slot. Referenced from `S-03` and the foot
 
 **`S-08` Counter home** — `/admin/counter` · `FR-17`, `FR-42`, `FR-45`, `P3`
 The scan plate (`C-10`) occupies the top half. Below it, today's pickups and returns as `C-16` rows. A resolved scan navigates straight into the task the domain resolved — the Operator never chooses "vydať" or "prevziať". Unresolvable tag: explicit, with the code shown so it can be read aloud. Rows carry `C-08` when derived facts apply.
+- **Chrome:** `C-20` with `surface="counter"` on the home only: signed-in Operator, "Administrácia", logout. Shown to every Operator (`FR-36`, `D-16`). Inside a task and on `S-13`–`S-15`, `C-17` stays the only chrome, so the counter remains single-task.
+- **The day:** the title is "Pult", with the day the lists were built for, as the server sent it (`D-51`).
+- **Freshness:** the worklist is fetched again when the app returns to the foreground, never during a task.
+- **Contact:** pickup, return, `S-14` and `S-15` rows offer the Customer's phone as a `tel:` link.
 
 **`S-09` Identity verification** — task within `S-08` · `FR-13`, `FR-14`, `FR-15`, `NFR-06`
-Evidence list with upload times and confirmation state; view via `C-13`; verify / reject with reason. Counter-capture fallback via `C-12`. HandoverOut is unreachable until verification succeeds, and the screen says so before the Operator tries.
+Evidence list with upload times and confirmation state; view via `C-13`; verify / reject with reason. Counter-capture fallback: a counter-size "Odfotiť doklad" that opens the camera, a preview, then "Nahrať"; never the browser's bare file picker. HandoverOut is unreachable until verification succeeds, and the screen says so before the Operator tries.
 
 **`S-10` HandoverOut** — task · `W4`, `FR-14`, `FR-18`, `FR-19`, `FR-21`, `FR-22`, `D-35`
 Deposit amount stated large (it is a cash instruction). Tag scan chooses the Asset instance (`FR-18`). Condition photos via `C-12`. Submit triggers `C-11`. Result names the RentalAgreement in `C-09`. If terms acceptance is missing the group is refused — surfaced as a specific message, not a generic failure.
@@ -369,7 +373,7 @@ Scan resolves the Asset and its RentalAgreement. Return-condition photos. Overdu
 Deposit held, amount returned, deduction reason. **Paired-evidence status is shown before the deduction is attempted** (`UI-D-07`); when `FR-20` would reject, the control is disabled with the reason. `C-11` on submit. Includes return-to-pool once inspection is done (`FR-27`).
 
 **`S-13` Asset view & attestation history** — `/admin/counter/assets/:assetId` · `FR-43`, `FR-45`, `P4`, `D-10`
-The artefact `P4` exists to produce: append-only timeline (`C-18`) of ScanEvents, HandoverOut/In, ConditionReports, deposits, corrections — each with Operator attribution and both clocks. This is what gets read out in a dispute; it should be printable.
+The artefact `P4` exists to produce: append-only timeline (`C-18`) of ScanEvents, HandoverOut/In, ConditionReports, deposits, corrections — each with Operator attribution and both clocks. This is what gets read out in a dispute; it should be printable. The header names the AssetType; the status is its Slovak label, never the stored value.
 
 **`S-14` Overdue worklist** — `/admin/counter/overdue` · `FR-29`, `D-17`
 **Ranked by the earliest day the absence causes demand to exceed supply — not by days late.** The ranking is the requirement, so the screen must show the reason for the rank: which Reservation is threatened and on which day. Days late is secondary information.

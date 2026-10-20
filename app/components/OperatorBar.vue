@@ -5,10 +5,17 @@
   entry, and logout. Own its own "who am I" fetch rather than take
   displayName as a prop — every page under the admin layout is already
   guaranteed authenticated, so this component owning the concern keeps
-  the layout itself trivial. -->
+  the layout itself trivial.
+
+  `surface="counter"` is the same bar on the counter home (S-08): no admin
+  links, so the counter stays single-task, but who is signed in, the way
+  back to admin, and logout. Every Operator sees it (FR-36, D-16). -->
 <script setup lang="ts">
 import { sk } from '~/i18n/sk'
 import { loginLocation } from '~/utils/operator-redirect'
+
+const props = withDefaults(defineProps<{ surface?: 'admin' | 'counter' }>(), { surface: 'admin' })
+const onCounter = computed(() => props.surface === 'counter')
 
 const nuxtApp = useNuxtApp()
 const requestFetch = useRequestFetch()
@@ -41,16 +48,18 @@ await load()
 </script>
 
 <template>
-  <header class="operator-bar">
+  <header class="operator-bar" :class="{ 'operator-bar--counter': onCounter }">
     <div class="operator-bar__top">
-      <NuxtLink to="/admin/catalog" class="operator-bar__brand">
+      <NuxtLink :to="onCounter ? '/admin/counter' : '/admin/catalog'" class="operator-bar__brand">
         <span class="operator-bar__wordmark">{{ sk.operatorBar.brandName }}</span>
-        <span class="operator-bar__suffix">{{ sk.operatorBar.brandSuffix }}</span>
+        <span class="operator-bar__suffix">{{
+          onCounter ? sk.operatorBar.counterSuffix : sk.operatorBar.brandSuffix
+        }}</span>
       </NuxtLink>
 
       <!-- On a wide screen the links sit in this row; on a phone they move to
         a row of their own below, which scrolls sideways. -->
-      <nav class="operator-bar__nav" :aria-label="sk.operatorBar.navLabel">
+      <nav v-if="!onCounter" class="operator-bar__nav" :aria-label="sk.operatorBar.navLabel">
         <NuxtLink to="/admin/catalog" class="operator-bar__link" active-class="operator-bar__link--active">
           {{ sk.operatorBar.catalogLink }}
         </NuxtLink>
@@ -73,7 +82,10 @@ await load()
         <span v-if="displayName" class="operator-bar__who">
           {{ sk.operatorBar.signedInAs.replace('{name}', displayName) }}
         </span>
-        <NuxtLink to="/admin/counter" class="operator-bar__counter-link">
+        <NuxtLink v-if="onCounter" to="/admin/catalog" class="operator-bar__switch">
+          {{ sk.operatorBar.adminLink }}
+        </NuxtLink>
+        <NuxtLink v-else to="/admin/counter" class="operator-bar__switch">
           {{ sk.operatorBar.counterLink }}
         </NuxtLink>
         <button type="button" class="operator-bar__logout" :disabled="loggingOut" @click="logout">
@@ -187,7 +199,7 @@ await load()
   color: var(--ht-line-strong);
 }
 
-.operator-bar__counter-link {
+.operator-bar__switch {
   display: inline-flex;
   align-items: center;
   min-height: var(--ht-hit-min);
@@ -244,7 +256,7 @@ await load()
     display: none;
   }
 
-  .operator-bar__counter-link {
+  .operator-bar__switch {
     padding: 0 var(--ht-space-2);
     font-size: var(--ht-text-2);
   }
@@ -253,5 +265,53 @@ await load()
     margin: 0 calc(var(--ht-space-4) * -1);
     padding: 0 var(--ht-space-2);
   }
+}
+
+/* S-08: the counter's tokens are already dark, so the bar takes the
+ * StepHeader's ground instead of inverting ink and paper. Brand and the way
+ * to admin in the first row; who is signed in and logout in the second, on
+ * every width, because on a shared phone the name is the point (FR-34). */
+.operator-bar--counter {
+  background: var(--ht-surface-sunk);
+  color: var(--ht-ink);
+  border-bottom: 1px solid var(--ht-line);
+}
+
+.operator-bar--counter .operator-bar__top {
+  max-width: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'brand switch'
+    'who logout';
+  row-gap: 0;
+  padding-top: var(--ht-space-2);
+}
+
+.operator-bar--counter .operator-bar__identity {
+  display: contents;
+}
+
+.operator-bar--counter .operator-bar__suffix {
+  display: inline;
+}
+
+.operator-bar--counter .operator-bar__who {
+  grid-area: who;
+  display: block;
+  color: var(--ht-ink-muted);
+}
+
+.operator-bar--counter .operator-bar__switch {
+  grid-area: switch;
+}
+
+.operator-bar--counter .operator-bar__logout {
+  grid-area: logout;
+  justify-self: end;
+  color: var(--ht-ink-muted);
+}
+
+.operator-bar--counter .operator-bar__logout:hover {
+  color: var(--ht-ink);
 }
 </style>
