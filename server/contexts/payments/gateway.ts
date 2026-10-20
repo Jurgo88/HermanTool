@@ -53,14 +53,17 @@ export interface PaymentGateway {
 }
 
 export function createStripePaymentGateway(params: { secretKey: string; webhookSecret: string }): PaymentGateway {
-  const stripe = new Stripe(params.secretKey)
+  // The SDK throws at construction when the key is empty; built lazily so
+  // that surfaces inside each call's try as the typed error, not a raw 500.
+  let client: Stripe | undefined
+  const stripe = () => (client ??= new Stripe(params.secretKey))
 
   return {
     async createHostedCheckoutSession({ reservationGroupId, amount, successUrl, cancelUrl }) {
       // eslint-disable-next-line id-denylist -- Stripe's own SDK type name (D-34); not this codebase's domain "Session"
       let session: Stripe.Checkout.Session
       try {
-        session = await stripe.checkout.sessions.create({
+        session = await stripe().checkout.sessions.create({
           mode: 'payment',
           line_items: [
             {
@@ -97,7 +100,7 @@ export function createStripePaymentGateway(params: { secretKey: string; webhookS
 
       let event: Stripe.Event
       try {
-        event = stripe.webhooks.constructEvent(rawBody, signatureHeader, params.webhookSecret)
+        event = stripe().webhooks.constructEvent(rawBody, signatureHeader, params.webhookSecret)
       } catch {
         throw new ProviderWebhookSignatureInvalidError()
       }
@@ -115,7 +118,7 @@ export function createStripePaymentGateway(params: { secretKey: string; webhookS
 
     async expireHostedCheckoutSession(providerReference) {
       try {
-        await stripe.checkout.sessions.expire(providerReference)
+        await stripe().checkout.sessions.expire(providerReference)
         return true
       } catch {
         return false
@@ -123,7 +126,7 @@ export function createStripePaymentGateway(params: { secretKey: string; webhookS
     },
 
     async refund(providerPaymentReference, amount) {
-      await stripe.refunds.create({
+      await stripe().refunds.create({
         payment_intent: providerPaymentReference,
         amount: amount.amount,
       })
