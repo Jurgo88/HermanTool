@@ -19,7 +19,6 @@ import {
   eraseExpiredIdentityEvidence,
   reanchorRetentionDeadlineForCustomer,
 } from '../../../../server/contexts/customer-identity-compliance/retention'
-import { RetentionWindowNotConfiguredError } from '../../../../server/contexts/customer-identity-compliance/types'
 import { createFakeIdentityEvidenceStorageGateway } from './fake-gateway'
 
 const databaseUrl = process.env.NUXT_DATABASE_URL ?? ''
@@ -269,7 +268,7 @@ describe.skipIf(!databaseUrl)('Customer Identity & Compliance migration (integra
     expect(second).toHaveLength(0)
   })
 
-  it('re-anchors a Customer\'s IdentityEvidence deadline at Settlement once OQ #2 is set — currently refuses (D-36)', async () => {
+  it('re-anchors a Customer\'s IdentityEvidence deadline to 365 days after Settlement (D-36, D-61)', async () => {
     const repo = createPostgresCustomerIdentityComplianceRepository(sql)
     const customer = await repo.insertCustomer(tenantId, {
       reservationGroupId,
@@ -283,8 +282,13 @@ describe.skipIf(!databaseUrl)('Customer Identity & Compliance migration (integra
       retentionDeadline: new Date(Date.now() + 86_400_000),
     })
 
-    await expect(
-      reanchorRetentionDeadlineForCustomer(repo, { tenantId, customerId: customer.id, settledAt: new Date() }),
-    ).rejects.toThrow(RetentionWindowNotConfiguredError)
+    const settledAt = new Date('2026-10-20T10:00:00.000Z')
+    const [reanchored] = await reanchorRetentionDeadlineForCustomer(repo, {
+      tenantId,
+      customerId: customer.id,
+      settledAt,
+    })
+
+    expect(reanchored!.retentionDeadline).toEqual(new Date(settledAt.getTime() + 365 * 86_400_000))
   })
 })

@@ -21,9 +21,7 @@ const bodySchema = z.object({ contentType: z.string().min(1) })
 //
 // FR-11's Confirmed-ReservationGroup check is composed here from
 // Availability & Reservation's published interface — this context never
-// imports it (D-02). Currently unusable end-to-end regardless: OQ #2
-// (retention window, launch-blocking) makes requestIdentityEvidenceUpload
-// refuse before creating anything — see identity-evidence.ts.
+// imports it (D-02).
 export default defineEventHandler(async (event) => {
   const operator = await requireOperator(event)
   const customerId = getCustomerIdParam(event)

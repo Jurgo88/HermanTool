@@ -6,7 +6,7 @@
 | **Status** | Draft — authoritative for technology selection and risk |
 | **Scope** | Sections 13–16 and the Open Questions appendix. Section 17 (Independent Review) is Part 5. Section 16.2 reconciles the 04 August 2026 implementation review (`docs/reviews/implementation-review-2026-08-04.md`, findings `IR-01`…`IR-13`). |
 | **Depends on** | Parts 1, 2 and 3, all **frozen**. Their identifiers are referenced, never restated or renumbered. Section 16 reconciles Part 5's independent review; because Parts 1–3 are frozen, its corrections are expressed here as new decisions and flagged supersessions rather than as edits to those parts. |
-| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-42`; in the §16.3 interface-design pass, `D-43`…`D-53`; in the §16.4 catalog pass, `D-54`…`D-60`. Risks `R-01`…`R-17`. Ubiquitous Language: none before §16.4, which adds **PowerSource**, **UseArea** and **Accessory**. |
+| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-42`; in the §16.3 interface-design pass, `D-43`…`D-53`; in the §16.4 catalog pass, `D-54`…`D-60`; in §16.5, `D-61`. Risks `R-01`…`R-17`. Ubiquitous Language: none before §16.4, which adds **PowerSource**, **UseArea** and **Accessory**. |
 | **Prices verified** | 18 July 2026, against vendor pricing pages. Every number below has a date on it because every number below will move. |
 
 ### Flags: two contradictions and two defects
@@ -311,7 +311,7 @@ The map. Every decision from D-01, with its owning part and status. Reasoning is
 | **D-33** | **Per-(AssetType, day) hold counter maintained in the same transaction as Reservation creation, enforcing D-08 under concurrency.** | P4 §16 | accepted — implemented; verified by OQ #23 |
 | **D-34** | **Banned terms and dependency direction enforced in CI; the build fails on violation.** | P4 §16 | accepted — **not implemented (IR-03)** |
 | **D-35** | **Terms acceptance recorded on ReservationGroup before payment, with version and timestamp.** | P4 §16 | accepted — mechanics implemented; terms content and pre-contractual catalogue open (OQ #1) |
-| **D-36** | **Provisional RetentionDeadline at creation, re-anchored at Settlement; no evidence without an active deadline.** | P4 §16 | accepted — implemented; blocked on the window value (OQ #2) |
+| **D-36** | **Provisional RetentionDeadline at creation, re-anchored at Settlement; no evidence without an active deadline.** | P4 §16 | accepted — implemented; window set by D-61 |
 | **D-37** | **Payment after Pending expiry re-acquires atomically; on failure, auto-refund and notify.** | P4 §16 | accepted — implemented |
 | **D-38** | **Availability capacity is the size of the rentable pool, not the count of Assets currently in Rentable status.** | P4 §16.2 | accepted — supersedes the literal reading of D-08's "Rentable Assets" |
 | **D-39** | **Reused database client and locally verified Operator sessions on the request path; remote verification retained for evidence access.** | P4 §16.2 | accepted — **token lifetime open (OQ #25)** |
@@ -336,6 +336,7 @@ The map. Every decision from D-01, with its owning part and status. Reasoning is
 | **D-58** | **`S-02` un-deferred; the catalog is browsed without dates; availability is a server-derived month calendar (free / last / none) on `S-02`.** | P4 §16.4 | accepted — closes `UIF-04` |
 | **D-59** | **Rent Star is the public surface's identity: blue tokens and a header gradient on the public surface only. Not per-Tenant branding.** | P4 §16.4 | accepted — resolves `UI-OQ-3` |
 | **D-60** | **The pilot catalog is bootstrapped by one attributed, name-idempotent import from a reviewed CSV, at provisional tiered prices.** | P4 §16.4 | accepted — **prices provisional (OQ #29)** |
+| **D-61** | **IdentityEvidence is kept 365 days, on the Tenant's legitimate interest (GDPR Art. 6(1)(f)), counted as D-36 counts it.** | P4 §16.5 | accepted — resolves OQ #2, IR-02 |
 
 ### Long-term implications and migration difficulty — D-24 to D-32
 
@@ -740,6 +741,21 @@ FR-02 is met by `S-01` and `S-02` together: availability and DepositObligation a
 
 **Provisional prices, recorded as such:** the CSV carries no prices. At the Tenant's instruction, day rates are set by tier: 15 € for hand-held tools, 20 € for larger machines, 25 € for engine-driven and professional machines. Deposits are five times the day rate, and Accessories are 5 € per day with a 25 € deposit. Three rates come from the mockups (15, 15 and 25 €). All of them are editable in `S-19` (FR-37). **They are placeholders, not the Tenant's price list, and confirming them is launch-blocking (OQ #29).**
 
+## 16.5 Launch questions answered (20 October 2026)
+
+### D-61 — IdentityEvidence retention: 365 days, legitimate interest (resolves OQ #2, IR-02)
+
+**Decided by the Tenant on 20 October 2026.**
+- **Window:** `RETENTION_WINDOW_DAYS = 365`.
+- **Counting:** D-36 counts it. A provisional deadline is set from creation. It is re-anchored to 365 days after Settlement, once the deposit is resolved. A rental that never settles (a NoShow, a rejected verification) keeps the provisional deadline. FR-16's scheduled erasure removes the object when the deadline passes.
+- **Lawful basis:** the Tenant's legitimate interest (GDPR Art. 6(1)(f)) in being able to identify who rented a tool until claims over that rental are settled: an unreturned or damaged tool, a disputed deduction, a card dispute over the rental fee.
+- **Dispute timelines:** one year after Settlement covers the usual 120-day card-scheme dispute window with room to spare (Part 5 Finding 5).
+
+**What this does not settle:**
+- The real promise to a Customer is the window plus the backup horizon. The evidence bucket is unbacked (D-32), but its database rows are backed up (OQ #3).
+- The legitimate-interest balancing test, and whether Act No. 18/2018 Coll. permits copying an official document on this basis, are for the Tenant's counsel to confirm in writing (lawyer brief §3). If counsel requires consent instead, the upload flow must record it, and this decision is superseded.
+- The privacy notice must state the window and the basis.
+
 ## Appendix — Open Questions
 
 The pre-build checklist. Everything still open across Parts 1–4, flattest form, with where the context lives.
@@ -749,7 +765,7 @@ The pre-build checklist. Everything still open across Parts 1–4, flattest form
 | # | Question | Context |
 |---|---|---|
 | 1 | Cancellation and refund policy: does the distance-contract withdrawal right apply to short-term equipment hire, and on what terms? A lawyer, not an architect. | P1 launch-blocking · P3 §10 · R-01 |
-| 2 | The IdentityEvidence retention window: the number **and** the lawful basis, in writing, recorded in the spec, set with card-scheme dispute timelines in scope. | D-11 · P3 §12(e) · R-02 · R-15 |
+| 2 | ~~The IdentityEvidence retention window: the number **and** the lawful basis, in writing, recorded in the spec, set with card-scheme dispute timelines in scope.~~ — **resolved 2026-10-20 (D-61):** 365 days, legitimate interest; counsel to confirm the basis. | D-11 · P3 §12(e) · R-02 · R-15 |
 | 3 | The backup retention horizon value. Sum with #2 is the actual promise made to customers. | NFR-07 · D-32 |
 | 4 | Is there a written controller–processor agreement between the Tenant and the developer, naming sub-processors? | R-06 · R-13 |
 | 27 | The Customer-record retention period **and** its basis (accounting/limitation statute), recorded the way D-11 requires. Same lawyer, same conversation as #2 — the records exist in production today with no clock (IR-07). | P7 · Part 5 Finding 6 · IR-07 |

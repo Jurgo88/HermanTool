@@ -20,10 +20,8 @@
 //     at all, unlike D-17/D-09's deliberate refusal to automate (this is
 //     the automated case those two explicitly carved out as different).
 //
-// Both halves are, like every OQ #2-gated path in this context, blocked
-// end-to-end until the retention window value and legal basis are set
-// (RetentionWindowNotConfiguredError) — that is correct, not a bug: an
-// unconfigured window must refuse rather than guess (CLAUDE.md).
+// Both halves use the window D-61 set. Were it ever unset again, both
+// refuse (RetentionWindowNotConfiguredError) rather than guess.
 import type { TenantId } from '../_shared'
 import { computeRetentionDeadline } from './identity-evidence'
 import type { IdentityEvidenceStorageGateway } from './r2-gateway'

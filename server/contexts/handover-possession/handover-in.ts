@@ -231,9 +231,8 @@ export async function completeSettlement(
   // D-36: SettlementCompleted re-anchors this Customer's IdentityEvidence
   // deadline(s) from their provisional (creation-time) value. Must NOT
   // fail Settlement itself — the deposit is already resolved and
-  // recorded above, and OQ #2 being unset is an expected, structural
-  // refusal (RetentionWindowNotConfiguredError), not a bug to surface as
-  // a failed Settlement. Any OTHER error still propagates.
+  // recorded above, so an unset window (RetentionWindowNotConfiguredError)
+  // is not surfaced as a failed Settlement. Any OTHER error still propagates.
   try {
     await reanchorRetentionDeadlineForCustomer(identityRepo, {
       tenantId,

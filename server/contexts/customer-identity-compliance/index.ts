@@ -14,9 +14,7 @@
 // Every Customer and IdentityEvidence is an aggregate root and carries
 // `tenantId: TenantId` (D-01, P2). IdentityEvidence always carries a
 // RetentionDeadline, set at creation, never absent (P7, D-11) — see
-// ./identity-evidence.ts for why creating one is currently guarded by
-// RetentionWindowNotConfiguredError rather than a placeholder value
-// (OQ #2, still unresolved and launch-blocking per CLAUDE.md).
+// ./identity-evidence.ts for the window (D-61).
 //
 // Currently implements Customer creation (D-14), IdentityEvidence
 // submission mechanics (D-06, D-27, NFR-06, FR-11; issue #29),

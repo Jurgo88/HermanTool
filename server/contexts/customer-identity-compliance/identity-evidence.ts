@@ -17,17 +17,13 @@ import {
   type IdentityEvidenceAccessEvent,
 } from './types'
 
-// OQ #2 (CLAUDE.md launch-blocking, "do NOT invent defaults" for
-// unresolved Open Questions): the retention window value and its legal
-// basis are unset. A named constant exactly as #32/#33 require —
-// deliberately `null` rather than a guessed number of days, so
-// computeRetentionDeadline fails loudly instead of quietly promising an
-// erasure date nobody has signed off on (P7/FR-12 already forbid a
-// deadline-less IdentityEvidence row; guessing a number would just trade
-// one violation for another). Set this the day a lawyer names the
-// number — with the card-scheme chargeback horizon in view, not in
-// isolation (Part 5 Finding 5).
-export const RETENTION_WINDOW_DAYS: number | null = null
+// D-61 (OQ #2, decided 2026-10-20): one year, on the Tenant's legitimate
+// interest (GDPR Art. 6(1)(f)) in identifying the renter of a tool until
+// claims over it are settled. Counted from creation, then re-anchored at
+// Settlement (D-36). Covers the usual 120-day card-scheme dispute window
+// (Part 5 Finding 5). Kept `number | null`: setting it back to null makes
+// every upload refuse again rather than guess.
+export const RETENTION_WINDOW_DAYS: number | null = 365
 
 export function computeRetentionDeadline(from: Date): Date {
   if (RETENTION_WINDOW_DAYS === null) throw new RetentionWindowNotConfiguredError()
@@ -38,9 +34,7 @@ export function computeRetentionDeadline(from: Date): Date {
 // is Confirmed." `isReservationGroupConfirmed` is supplied by the caller
 // — a future route composing Availability & Reservation's published
 // interface — since this context never imports it (D-02, see
-// ./index.ts). Currently unusable end-to-end regardless of that flag:
-// computeRetentionDeadline throws before any row or presigned URL is
-// created, until OQ #2 is resolved.
+// ./index.ts).
 export async function requestIdentityEvidenceUpload(
   repo: CustomerIdentityComplianceRepository,
   gateway: IdentityEvidenceStorageGateway,
