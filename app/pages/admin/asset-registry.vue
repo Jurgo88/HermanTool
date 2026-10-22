@@ -1,31 +1,18 @@
 <script setup lang="ts">
-// QR tag generation & 200-asset pilot bootstrap (F10, FR-25, FR-26, W9,
-// S-20; issue #9). Posts a CSV of (assetTypeId, quantity) lines to
-// /api/asset-registry/bulk-register, which registers each Asset and
-// generates+binds a fresh opaque tag code (server/contexts/asset-registry/tag-code.ts)
-// for it — this page's only job is turning the returned tag codes into
-// QR images and a printable sheet. QR rendering happens entirely
-// client-side (the `qrcode` package): a tag code has no security
-// purpose (unlike D-23's Customer access token), so there is nothing
-// here for the server to protect by generating the image itself.
-//
-// The primary input is a line builder — pick an AssetType by NAME from
-// Catalog (reusing GET /api/catalog/asset-types, the same endpoint
-// ./catalog.vue already uses) rather than typing its numeric id, which
-// tested confusing and error-prone (an Operator has no reason to know
-// or copy AssetType ids by heart). Raw CSV paste/upload stays available
-// as a secondary, "advanced" path for a Tenant preparing a large import
-// from a spreadsheet — the backend's parseBulkRegistrationCsv is
-// unchanged; the builder just generates the same CSV text under the
-// hood before submitting.
-//
-// UI-OQ-4 answered 2026-10-09: plain A4 for now. The sheet is 3 × 7 labels
-// of 63.5 × 38.1 mm (AssetTagSheet, print.css), cut along dashed edges, and
-// the same grid fits that common label stock later. The sheet is also
-// printable from the pending-activation list, because the codes of Assets
-// not yet tagged are all there is to reprint a lost sheet from.
+// S-20 Units and labels (F10, FR-25, FR-26, FR-27, W9; issue #9, #201).
+// Rebuilt as three tabs after the owner's review (22 October 2026):
+//   - All units: every AssetType with its units by state, and the labels of
+//     any unit printed again with the same code (FR-26);
+//   - Add units: pick a tool from Catalog by name, a count, register;
+//   - To label: the W9 steps for units not yet in service — print, stick,
+//     confirm (markAssetRentable); a unit registered by mistake can be
+//     cancelled while it has never been in service.
+// QR images are rendered client-side (`qrcode`): a tag code is opaque and
+// carries no secret, so the server has nothing to protect by drawing it.
+// The A4 sheet (AssetTagSheet, print.css) is print-only on this page.
 import QRCode from 'qrcode'
 import { sk } from '~/i18n/sk'
+import { formatCount } from '~/utils/format'
 import { loginLocation } from '~/utils/operator-redirect'
 import { getErrorCode } from '~/utils/error-code'
 import type { AssetTagSheetEntry } from '~/components/AssetTagSheet.vue'
@@ -35,81 +22,46 @@ definePageMeta({ layout: 'admin' })
 interface AssetTypeOption {
   id: number
   name: string
+  imageFile: string | null
 }
 
-interface BulkRegisteredUnitView {
+interface UnitRef {
   assetId: number
   assetTypeId: number
   tagCode: string
 }
 
-interface PendingActivationEntry {
-  assetId: number
-  assetTypeId: number
-  tagCode: string
+interface PendingActivationEntry extends UnitRef {
   registeredAt: string
-  // No status change since registration: the registration may be cancelled.
+  // No status change since registration: still waiting for its first label.
   neverActivated: boolean
 }
 
 type AssetStatusView = 'rentable' | 'in_possession' | 'under_inspection' | 'unavailable' | 'retired'
 
-interface TaggedAssetEntry {
-  assetId: number
-  assetTypeId: number
+interface TaggedAssetEntry extends UnitRef {
   status: AssetStatusView
-  tagCode: string
 }
 
 interface BuilderLine {
   assetTypeId: number
-  assetTypeName: string
   quantity: number
 }
 
 const nuxtApp = useNuxtApp()
 const requestFetch = useRequestFetch()
+const route = useRoute()
+const router = useRouter()
 
 const assetTypes = ref<AssetTypeOption[]>([])
-const lines = ref<BuilderLine[]>([])
-const selectedAssetTypeId = ref<number | null>(null)
-const quantityInput = ref('')
-
-const csv = ref('')
+const pending = ref<PendingActivationEntry[]>([])
+const tagged = ref<TaggedAssetEntry[]>([])
 const errorCode = ref<string | null>(null)
 const errorMessage = ref<string | null>(null)
-const submitting = ref(false)
-const entries = ref<AssetTagSheetEntry[]>([])
-const preparingPendingSheet = ref(false)
+const busy = ref<string | null>(null)
 
-const pending = ref<PendingActivationEntry[]>([])
-const markingRentableAssetId = ref<number | null>(null)
-const markingAllRentable = ref(false)
-const markingGroupId = ref<number | null>(null)
-
-// One card per AssetType, its units as tags: twelve units of one drill read
-// as "Vŕtačka × 12", not as twelve rows.
-const pendingGroups = computed(() => {
-  const groups = new Map<number, { assetTypeId: number; name: string; entries: PendingActivationEntry[] }>()
-  for (const entry of pending.value) {
-    const group = groups.get(entry.assetTypeId) ?? {
-      assetTypeId: entry.assetTypeId,
-      name: assetTypeName(entry.assetTypeId),
-      entries: [],
-    }
-    group.entries.push(entry)
-    groups.set(entry.assetTypeId, group)
-  }
-  return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, 'sk'))
-})
-
-const markingAny = computed(
-  () => markingAllRentable.value || markingGroupId.value !== null || markingRentableAssetId.value !== null,
-)
-
-function assetTypeName(assetTypeId: number): string {
-  return assetTypes.value.find((a) => a.id === assetTypeId)?.name ?? String(assetTypeId)
-}
+const typeById = computed(() => new Map(assetTypes.value.map((t) => [t.id, t])))
+const assetTypeName = (id: number) => typeById.value.get(id)?.name ?? String(id)
 
 async function handleFetchError(err: unknown) {
   const statusCode = (err as { statusCode?: number })?.statusCode
@@ -121,325 +73,500 @@ async function handleFetchError(err: unknown) {
   errorCode.value = getErrorCode(err) ?? 'UNKNOWN'
 }
 
-async function loadAssetTypes() {
+function clearErrors() {
+  errorCode.value = null
+  errorMessage.value = null
+}
+
+async function load() {
   try {
-    assetTypes.value = await requestFetch<AssetTypeOption[]>('/api/catalog/asset-types')
-    if (assetTypes.value.length > 0) selectedAssetTypeId.value = assetTypes.value[0]!.id
+    ;[assetTypes.value, pending.value, tagged.value] = await Promise.all([
+      requestFetch<AssetTypeOption[]>('/api/catalog/asset-types'),
+      requestFetch<PendingActivationEntry[]>('/api/asset-registry/assets/pending-activation'),
+      requestFetch<TaggedAssetEntry[]>('/api/asset-registry/assets/tagged'),
+    ])
   } catch (err: unknown) {
     await handleFetchError(err)
   }
 }
 
+// --- What the page counts ---
+
+const toLabel = computed(() => pending.value.filter((p) => p.neverActivated))
+const toLabelIds = computed(() => new Set(toLabel.value.map((p) => p.assetId)))
+
+const summary = computed(() => {
+  const count = (test: (t: TaggedAssetEntry) => boolean) => tagged.value.filter(test).length
+  return {
+    rentable: count((t) => t.status === 'rentable'),
+    out: count((t) => t.status === 'in_possession' || t.status === 'under_inspection'),
+    toLabel: toLabel.value.length,
+    offline: count((t) => t.status === 'unavailable' && !toLabelIds.value.has(t.assetId)),
+  }
+})
+
+// --- Tabs, kept in the address ---
+
+type Tab = 'units' | 'add' | 'labels'
+const tab = computed<Tab>(() => {
+  const value = route.query.tab
+  if (value === 'add' || value === 'labels' || value === 'units') return value
+  return toLabel.value.length > 0 ? 'labels' : 'units'
+})
+
+function setTab(next: Tab) {
+  router.replace({ query: { ...route.query, tab: next } })
+}
+
+// --- Printing ---
+
+const sheetEntries = ref<AssetTagSheetEntry[]>([])
+
+// Q-level error correction: a label on a tool gets scuffed and greasy.
+async function printUnits(units: UnitRef[], busyKey: string) {
+  if (units.length === 0) return
+  clearErrors()
+  busy.value = busyKey
+  try {
+    sheetEntries.value = await Promise.all(
+      units.map(async (unit) => ({
+        assetId: unit.assetId,
+        tagCode: unit.tagCode,
+        assetTypeName: assetTypeName(unit.assetTypeId),
+        qrDataUrl: await QRCode.toDataURL(unit.tagCode, { margin: 1, width: 300, errorCorrectionLevel: 'Q' }),
+      })),
+    )
+    await nextTick()
+    window.print()
+  } finally {
+    busy.value = null
+  }
+}
+
+// --- All units ---
+
+const search = ref('')
+const expandedTypeId = ref<number | null>(null)
+const selected = ref<number[]>([])
+
+const fold = (text: string) =>
+  text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+
+const typeRows = computed(() => {
+  const query = fold(search.value.trim())
+  const unitsByType = new Map<number, TaggedAssetEntry[]>()
+  for (const unit of tagged.value) {
+    const list = unitsByType.get(unit.assetTypeId) ?? []
+    list.push(unit)
+    unitsByType.set(unit.assetTypeId, list)
+  }
+  return assetTypes.value
+    .filter((type) => !query || fold(type.name).includes(query))
+    .map((type) => {
+      const units = unitsByType.get(type.id) ?? []
+      const states = new Map<string, number>()
+      for (const unit of units) {
+        const key = toLabelIds.value.has(unit.assetId) ? 'toLabel' : unit.status
+        states.set(key, (states.get(key) ?? 0) + 1)
+      }
+      return { type, units, states: [...states.entries()] }
+    })
+    // Tools that have units first, then the rest of the catalog.
+    .sort((a, b) => Number(b.units.length > 0) - Number(a.units.length > 0) || a.type.name.localeCompare(b.type.name, 'sk'))
+})
+
+function toggleType(id: number) {
+  expandedTypeId.value = expandedTypeId.value === id ? null : id
+  selected.value = []
+}
+
+function selectAll(units: TaggedAssetEntry[]) {
+  selected.value = units.map((u) => u.assetId)
+}
+
+function stateLabel(key: string): string {
+  if (key === 'toLabel') return sk.adminAssetRegistry.toLabelStatus
+  return (sk.adminAssetRegistry.assetStatus as Record<string, string>)[key] ?? key
+}
+
+function startAdding(typeId: number) {
+  pickTypeId.value = typeId
+  pickQuery.value = ''
+  setTab('add')
+}
+
+// --- Add units ---
+
+const pickQuery = ref('')
+const pickTypeId = ref<number | null>(null)
+const quantity = ref(1)
+const lines = ref<BuilderLine[]>([])
+const csv = ref('')
+const registeredCount = ref<number | null>(null)
+
+const pickMatches = computed(() => {
+  const query = fold(pickQuery.value.trim())
+  if (!query) return []
+  return assetTypes.value.filter((type) => fold(type.name).includes(query)).slice(0, 8)
+})
+
+const picked = computed(() => (pickTypeId.value === null ? null : (typeById.value.get(pickTypeId.value) ?? null)))
+const linesTotal = computed(() => lines.value.reduce((sum, line) => sum + line.quantity, 0))
+
+function pick(id: number) {
+  pickTypeId.value = id
+  pickQuery.value = ''
+}
+
 function addLine() {
-  errorCode.value = null
-  errorMessage.value = null
-  const assetTypeId = selectedAssetTypeId.value
-  const quantity = Number(quantityInput.value)
-  if (!assetTypeId || !Number.isInteger(quantity) || quantity <= 0) {
-    errorMessage.value = sk.adminAssetRegistry.invalidLineError
-    return
-  }
-
-  const assetType = assetTypes.value.find((a) => a.id === assetTypeId)!
-  const existing = lines.value.find((l) => l.assetTypeId === assetTypeId)
-  if (existing) {
-    existing.quantity += quantity
-  } else {
-    lines.value.push({ assetTypeId, assetTypeName: assetType.name, quantity })
-  }
-  quantityInput.value = ''
+  if (pickTypeId.value === null) return
+  const existing = lines.value.find((l) => l.assetTypeId === pickTypeId.value)
+  if (existing) existing.quantity += quantity.value
+  else lines.value.push({ assetTypeId: pickTypeId.value, quantity: quantity.value })
+  pickTypeId.value = null
+  quantity.value = 1
 }
 
-function removeLine(index: number) {
-  lines.value.splice(index, 1)
-}
-
-async function onFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  csv.value = await file.text()
-}
-
-function buildCsv(): string {
-  if (lines.value.length > 0) {
-    return lines.value.map((l) => `${l.assetTypeId},${l.quantity}`).join('\n')
-  }
-  return csv.value
-}
-
-async function submit() {
-  errorCode.value = null
-  errorMessage.value = null
-  const body = buildCsv()
+async function register(body: string) {
+  clearErrors()
   if (!body.trim()) {
     errorMessage.value = sk.adminAssetRegistry.emptyCsvError
     return
   }
-
-  submitting.value = true
-  entries.value = []
+  busy.value = 'register'
   try {
-    const { units } = await $fetch<{ units: BulkRegisteredUnitView[] }>('/api/asset-registry/bulk-register', {
+    const { units } = await $fetch<{ units: UnitRef[] }>('/api/asset-registry/bulk-register', {
       method: 'POST',
       body: { csv: body },
     })
-
-    entries.value = await toSheetEntries(units)
     lines.value = []
     csv.value = ''
-    await loadPending()
+    registeredCount.value = units.length
+    await load()
+    setTab('labels')
   } catch (err: unknown) {
     await handleFetchError(err)
   } finally {
-    submitting.value = false
+    busy.value = null
   }
 }
 
-// Q-level error correction: a label on a tool gets scuffed and greasy.
-async function toSheetEntries(units: BulkRegisteredUnitView[]): Promise<AssetTagSheetEntry[]> {
-  return Promise.all(
-    units.map(async (unit) => ({
-      assetId: unit.assetId,
-      tagCode: unit.tagCode,
-      assetTypeName: assetTypeName(unit.assetTypeId),
-      qrDataUrl: await QRCode.toDataURL(unit.tagCode, { margin: 1, width: 300, errorCorrectionLevel: 'Q' }),
-    })),
-  )
+const registerLines = () => register(lines.value.map((l) => `${l.assetTypeId},${l.quantity}`).join('\n'))
+
+async function onFileChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (file) csv.value = await file.text()
 }
 
-function print() {
-  window.print()
-}
+// --- To label ---
 
-// The sheet for every Asset still waiting for its label to go on.
-async function printPendingSheet() {
-  errorCode.value = null
-  errorMessage.value = null
-  preparingPendingSheet.value = true
-  try {
-    await printEntries(pending.value)
-  } catch (err: unknown) {
-    await handleFetchError(err)
-  } finally {
-    preparingPendingSheet.value = false
+const toLabelGroups = computed(() => {
+  const groups = new Map<number, PendingActivationEntry[]>()
+  for (const entry of toLabel.value) {
+    groups.set(entry.assetTypeId, [...(groups.get(entry.assetTypeId) ?? []), entry])
   }
-}
+  return [...groups.entries()]
+    .map(([assetTypeId, entries]) => ({ assetTypeId, name: assetTypeName(assetTypeId), entries }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'sk'))
+})
 
-async function loadPending() {
+// W9 step 3: the label is on, the unit becomes Rentable. One request per
+// unit, so a failure part-way leaves the rest as they were and visible.
+async function makeRentable(units: UnitRef[], busyKey: string) {
+  clearErrors()
+  busy.value = busyKey
   try {
-    pending.value = await requestFetch<PendingActivationEntry[]>('/api/asset-registry/assets/pending-activation')
-  } catch (err: unknown) {
-    await handleFetchError(err)
-  }
-}
-
-async function markRentable(assetId: number) {
-  errorCode.value = null
-  errorMessage.value = null
-  markingRentableAssetId.value = assetId
-  try {
-    await $fetch(`/api/asset-registry/assets/${assetId}/mark-rentable`, { method: 'POST' })
-    pending.value = pending.value.filter((p) => p.assetId !== assetId)
-  } catch (err: unknown) {
-    await handleFetchError(err)
-  } finally {
-    markingRentableAssetId.value = null
-  }
-}
-
-async function markAllRentable() {
-  errorCode.value = null
-  errorMessage.value = null
-  markingAllRentable.value = true
-  try {
-    for (const entry of [...pending.value]) {
-      await $fetch(`/api/asset-registry/assets/${entry.assetId}/mark-rentable`, { method: 'POST' })
-      pending.value = pending.value.filter((p) => p.assetId !== entry.assetId)
+    for (const unit of units) {
+      await $fetch(`/api/asset-registry/assets/${unit.assetId}/mark-rentable`, { method: 'POST' })
+      pending.value = pending.value.filter((p) => p.assetId !== unit.assetId)
     }
+    if (pending.value.every((p) => !p.neverActivated)) registeredCount.value = null
   } catch (err: unknown) {
     await handleFetchError(err)
   } finally {
-    markingAllRentable.value = false
+    busy.value = null
+    tagged.value = await $fetch<TaggedAssetEntry[]>('/api/asset-registry/assets/tagged').catch(() => tagged.value)
   }
 }
-
-// --- Labels: print one type's waiting units ---
-
-const printingGroupId = ref<number | null>(null)
-
-async function printEntries(units: { assetId: number; assetTypeId: number; tagCode: string }[]) {
-  entries.value = await toSheetEntries(units)
-  await nextTick()
-  print()
-}
-
-async function printGroupSheet(assetTypeId: number) {
-  errorCode.value = null
-  errorMessage.value = null
-  printingGroupId.value = assetTypeId
-  try {
-    await printEntries(pending.value.filter((p) => p.assetTypeId === assetTypeId))
-  } finally {
-    printingGroupId.value = null
-  }
-}
-
-// --- Cancel a registration made by mistake (never-activated units only) ---
 
 const cancelTarget = ref<{ assetIds: number[]; body: string } | null>(null)
-const cancelling = ref(false)
 
-function askCancelOne(entry: PendingActivationEntry) {
-  cancelTarget.value = {
-    assetIds: [entry.assetId],
-    body: sk.adminAssetRegistry.cancelConfirmOne.replace('{tag}', entry.tagCode),
-  }
-}
-
-function askCancelGroup(group: { name: string; entries: PendingActivationEntry[] }) {
-  const ids = group.entries.filter((e) => e.neverActivated).map((e) => e.assetId)
+function askCancel(entries: PendingActivationEntry[], name: string) {
+  const ids = entries.filter((e) => e.neverActivated).map((e) => e.assetId)
   cancelTarget.value = {
     assetIds: ids,
-    body: sk.adminAssetRegistry.cancelConfirmGroup
-      .replace('{count}', String(ids.length))
-      .replace('{name}', group.name),
+    body:
+      ids.length === 1
+        ? sk.adminAssetRegistry.cancelConfirmOne.replace('{tag}', entries.find((e) => e.assetId === ids[0])!.tagCode)
+        : sk.adminAssetRegistry.cancelConfirmGroup.replace('{count}', String(ids.length)).replace('{name}', name),
   }
 }
 
 async function confirmCancel() {
   if (!cancelTarget.value) return
-  errorCode.value = null
-  errorMessage.value = null
-  cancelling.value = true
+  clearErrors()
+  busy.value = 'cancel'
   try {
     for (const assetId of cancelTarget.value.assetIds) {
       await $fetch(`/api/asset-registry/assets/${assetId}/cancel-registration`, { method: 'POST' })
       pending.value = pending.value.filter((p) => p.assetId !== assetId)
-    }
-    cancelTarget.value = null
-  } catch (err: unknown) {
-    cancelTarget.value = null
-    await handleFetchError(err)
-  } finally {
-    cancelling.value = false
-  }
-}
-
-// --- Reprint: any tagged unit's label again, same code (FR-26) ---
-
-const tagged = ref<TaggedAssetEntry[] | null>(null)
-const reprintTypeId = ref<number | null>(null)
-const reprintSelected = ref<number[]>([])
-const reprinting = ref(false)
-
-// ALL_TYPES lists every tagged unit at once: the first labels for a whole
-// catalog registered without printing them.
-const ALL_TYPES = -1
-const reprintUnits = computed(() => {
-  if (reprintTypeId.value === null) return []
-  const all = tagged.value ?? []
-  return reprintTypeId.value === ALL_TYPES ? all : all.filter((t) => t.assetTypeId === reprintTypeId.value)
-})
-
-async function loadTagged() {
-  try {
-    tagged.value = await $fetch<TaggedAssetEntry[]>('/api/asset-registry/assets/tagged')
-  } catch (err: unknown) {
-    await handleFetchError(err)
-  }
-}
-
-watch(reprintTypeId, async () => {
-  reprintSelected.value = []
-  if (tagged.value === null) await loadTagged()
-})
-
-function selectAllReprint() {
-  reprintSelected.value = reprintUnits.value.map((u) => u.assetId)
-}
-
-async function reprintSelectedLabels() {
-  errorCode.value = null
-  errorMessage.value = null
-  reprinting.value = true
-  try {
-    await printEntries(reprintUnits.value.filter((u) => reprintSelected.value.includes(u.assetId)))
-  } finally {
-    reprinting.value = false
-  }
-}
-
-async function markGroupRentable(assetTypeId: number) {
-  errorCode.value = null
-  errorMessage.value = null
-  markingGroupId.value = assetTypeId
-  try {
-    for (const entry of pending.value.filter((p) => p.assetTypeId === assetTypeId)) {
-      await $fetch(`/api/asset-registry/assets/${entry.assetId}/mark-rentable`, { method: 'POST' })
-      pending.value = pending.value.filter((p) => p.assetId !== entry.assetId)
+      tagged.value = tagged.value.filter((t) => t.assetId !== assetId)
     }
   } catch (err: unknown) {
     await handleFetchError(err)
   } finally {
-    markingGroupId.value = null
+    cancelTarget.value = null
+    busy.value = null
   }
 }
 
-await loadAssetTypes()
-await loadPending()
+await load()
 </script>
 
 <template>
-  <main class="admin-asset-registry">
-    <h1 class="no-print">{{ sk.adminAssetRegistry.title }}</h1>
-    <p class="no-print">{{ sk.adminAssetRegistry.intro }}</p>
-    <AppAlert class="no-print" :code="errorCode" :message="errorMessage" />
-
-    <section class="no-print admin-asset-registry__builder">
-      <h2>{{ sk.adminAssetRegistry.builderHeading }}</h2>
-      <EmptyState v-if="assetTypes.length === 0" :message="sk.adminAssetRegistry.noAssetTypes" />
-      <template v-else>
-        <div class="admin-asset-registry__builder-row">
-          <AppField :label="sk.adminAssetRegistry.assetTypeLabel">
-            <template #default="slotProps">
-              <select :id="slotProps.id" v-model.number="selectedAssetTypeId">
-                <option v-for="assetType in assetTypes" :key="assetType.id" :value="assetType.id">
-                  {{ assetType.name }}
-                </option>
-              </select>
-            </template>
-          </AppField>
-          <AppField :label="sk.adminAssetRegistry.quantityLabel">
-            <template #default="slotProps">
-              <input :id="slotProps.id" v-model="quantityInput" type="number" min="1" step="1" />
-            </template>
-          </AppField>
-          <AppButton variant="secondary" @click="addLine">{{ sk.adminAssetRegistry.addLineAction }}</AppButton>
+  <main class="registry">
+    <header class="registry__head no-print">
+      <h1 class="registry__title">{{ sk.adminAssetRegistry.title }}</h1>
+      <p class="registry__intro">{{ sk.adminAssetRegistry.intro }}</p>
+      <dl class="registry__summary">
+        <div class="registry__figure registry__figure--ok">
+          <dt>{{ sk.adminAssetRegistry.summaryRentable }}</dt>
+          <dd>{{ summary.rentable }}</dd>
         </div>
+        <div class="registry__figure">
+          <dt>{{ sk.adminAssetRegistry.summaryOut }}</dt>
+          <dd>{{ summary.out }}</dd>
+        </div>
+        <div class="registry__figure" :class="{ 'registry__figure--attention': summary.toLabel > 0 }">
+          <dt>{{ sk.adminAssetRegistry.summaryToLabel }}</dt>
+          <dd>{{ summary.toLabel }}</dd>
+        </div>
+        <div v-if="summary.offline > 0" class="registry__figure">
+          <dt>{{ sk.adminAssetRegistry.summaryOffline }}</dt>
+          <dd>{{ summary.offline }}</dd>
+        </div>
+      </dl>
+    </header>
 
-        <AppTable v-if="lines.length > 0">
-          <thead>
-            <tr>
-              <th>{{ sk.adminAssetRegistry.columnAssetType }}</th>
-              <th>{{ sk.adminAssetRegistry.columnQuantity }}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(line, index) in lines" :key="line.assetTypeId">
-              <td>{{ line.assetTypeName }}</td>
-              <td>{{ line.quantity }}</td>
-              <td>
-                <AppButton variant="quiet" @click="removeLine(index)">{{ sk.adminAssetRegistry.removeLineAction }}</AppButton>
-              </td>
-            </tr>
-          </tbody>
-        </AppTable>
-      </template>
+    <div class="registry__tabs no-print" role="tablist" :aria-label="sk.adminAssetRegistry.tabsLabel">
+      <button
+        v-for="item in (['units', 'add', 'labels'] as const)"
+        :key="item"
+        type="button"
+        role="tab"
+        class="registry__tab"
+        :aria-selected="tab === item"
+        @click="setTab(item)"
+      >
+        {{ sk.adminAssetRegistry.tabs[item] }}
+        <span v-if="item === 'labels' && toLabel.length > 0" class="registry__tab-badge">{{ toLabel.length }}</span>
+      </button>
+    </div>
 
-      <details>
-        <summary>{{ sk.adminAssetRegistry.advancedToggle }}</summary>
+    <AppAlert class="no-print" :code="errorCode" :message="errorMessage" />
+    <EmptyState v-if="assetTypes.length === 0" class="no-print" :message="sk.adminAssetRegistry.noAssetTypes" />
+
+    <!-- All units -->
+    <section v-else-if="tab === 'units'" class="registry__panel no-print" role="tabpanel">
+      <div class="registry__toolbar">
+        <AppField :label="sk.adminAssetRegistry.searchLabel">
+          <template #default="slotProps">
+            <input :id="slotProps.id" v-model="search" type="search" autocomplete="off" />
+          </template>
+        </AppField>
+        <AppButton
+          variant="secondary"
+          :disabled="tagged.length === 0 || busy !== null"
+          :pending="busy === 'print-all'"
+          @click="printUnits(tagged, 'print-all')"
+        >
+          {{ sk.adminAssetRegistry.printAllAction.replace('{count}', String(tagged.length)) }}
+        </AppButton>
+      </div>
+
+      <EmptyState v-if="typeRows.length === 0" :message="sk.adminAssetRegistry.noMatch" />
+      <ul v-else class="registry__types">
+        <li v-for="row in typeRows" :key="row.type.id" class="registry__type">
+          <div class="registry__type-row">
+            <span class="registry__thumb" aria-hidden="true">
+              <img
+                v-if="row.type.imageFile"
+                :src="`/catalog/${row.type.imageFile}`"
+                alt=""
+                width="96"
+                height="96"
+                loading="lazy"
+              />
+            </span>
+            <span class="registry__type-text">
+              <span class="registry__type-name">{{ row.type.name }}</span>
+              <span v-if="row.units.length === 0" class="registry__type-meta">{{ sk.adminAssetRegistry.noUnits }}</span>
+              <span v-else class="registry__type-meta">
+                {{ formatCount(row.units.length, sk.adminAssetRegistry.unitCount) }}:
+                <template v-for="([key, count], index) in row.states" :key="key">
+                  <span :class="`registry__state registry__state--${key}`">{{ count }} {{ stateLabel(key) }}</span
+                  ><template v-if="index < row.states.length - 1">, </template>
+                </template>
+              </span>
+            </span>
+            <AppButton v-if="row.units.length === 0" variant="quiet" @click="startAdding(row.type.id)">
+              {{ sk.adminAssetRegistry.addUnitsAction }}
+            </AppButton>
+            <button
+              v-else
+              type="button"
+              class="registry__toggle"
+              :aria-expanded="expandedTypeId === row.type.id"
+              :aria-label="sk.adminAssetRegistry.labelsToggleLabel.replace('{name}', row.type.name)"
+              @click="toggleType(row.type.id)"
+            >
+              {{ sk.adminAssetRegistry.labelsToggle }}
+              <span class="registry__chevron" aria-hidden="true" />
+            </button>
+          </div>
+
+          <div v-if="expandedTypeId === row.type.id" class="registry__labels">
+            <ul class="registry__units">
+              <li v-for="unit in row.units" :key="unit.assetId" class="registry__unit">
+                <label class="registry__unit-pick">
+                  <input v-model="selected" type="checkbox" :value="unit.assetId" />
+                  <TagCodePlate>{{ unit.tagCode }}</TagCodePlate>
+                  <span :class="`registry__state registry__state--${toLabelIds.has(unit.assetId) ? 'toLabel' : unit.status}`">
+                    {{ stateLabel(toLabelIds.has(unit.assetId) ? 'toLabel' : unit.status) }}
+                  </span>
+                </label>
+                <AppButton
+                  v-if="unit.status === 'unavailable' && !toLabelIds.has(unit.assetId)"
+                  variant="quiet"
+                  :aria-label="sk.adminAssetRegistry.makeRentableAgainLabel.replace('{tag}', unit.tagCode)"
+                  :disabled="busy !== null"
+                  :pending="busy === `again-${unit.assetId}`"
+                  @click="makeRentable([unit], `again-${unit.assetId}`)"
+                >
+                  {{ sk.adminAssetRegistry.makeRentableAgainAction }}
+                </AppButton>
+              </li>
+            </ul>
+            <div class="registry__actions">
+              <AppButton variant="quiet" @click="selectAll(row.units)">{{ sk.adminAssetRegistry.selectAll }}</AppButton>
+              <AppButton
+                variant="primary"
+                :disabled="selected.length === 0 || busy !== null"
+                :pending="busy === 'print-selected'"
+                @click="printUnits(row.units.filter((u) => selected.includes(u.assetId)), 'print-selected')"
+              >
+                {{ sk.adminAssetRegistry.printSelectedAction.replace('{count}', String(selected.length)) }}
+              </AppButton>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Add units -->
+    <section v-else-if="tab === 'add'" class="registry__panel no-print" role="tabpanel">
+      <div class="registry__card">
+        <h2 class="registry__card-title">{{ sk.adminAssetRegistry.addHeading }}</h2>
+        <p class="registry__muted">{{ sk.adminAssetRegistry.addIntro }}</p>
+
+        <div v-if="picked" class="registry__picked">
+          <span class="registry__thumb" aria-hidden="true">
+            <img v-if="picked.imageFile" :src="`/catalog/${picked.imageFile}`" alt="" width="96" height="96" />
+          </span>
+          <span class="registry__type-text">
+            <span class="registry__muted">{{ sk.adminAssetRegistry.pickedLabel }}</span>
+            <span class="registry__type-name">{{ picked.name }}</span>
+          </span>
+          <AppButton variant="quiet" @click="pickTypeId = null">{{ sk.adminAssetRegistry.changePickAction }}</AppButton>
+        </div>
+        <template v-else>
+          <AppField :label="sk.adminAssetRegistry.pickLabel">
+            <template #default="slotProps">
+              <input
+                :id="slotProps.id"
+                v-model="pickQuery"
+                type="search"
+                autocomplete="off"
+                :placeholder="sk.adminAssetRegistry.pickPlaceholder"
+              />
+            </template>
+          </AppField>
+          <ul v-if="pickMatches.length > 0" class="registry__matches">
+            <li v-for="type in pickMatches" :key="type.id">
+              <button type="button" class="registry__match" @click="pick(type.id)">
+                <span class="registry__thumb registry__thumb--small" aria-hidden="true">
+                  <img v-if="type.imageFile" :src="`/catalog/${type.imageFile}`" alt="" width="64" height="64" />
+                </span>
+                {{ type.name }}
+              </button>
+            </li>
+          </ul>
+          <p v-else-if="pickQuery.trim()" class="registry__muted">{{ sk.adminAssetRegistry.pickNoMatch }}</p>
+        </template>
+
+        <div class="registry__add-row">
+          <div class="registry__quantity">
+            <span class="registry__quantity-label">{{ sk.adminAssetRegistry.quantityLabel }}</span>
+            <QuantityStepper
+              v-model="quantity"
+              :max="200"
+              :decrease-label="sk.adminAssetRegistry.quantityDecrease"
+              :increase-label="sk.adminAssetRegistry.quantityIncrease"
+            />
+          </div>
+          <AppButton variant="secondary" :disabled="pickTypeId === null" @click="addLine">
+            {{ sk.adminAssetRegistry.addLineAction }}
+          </AppButton>
+        </div>
+      </div>
+
+      <div class="registry__card">
+        <h2 class="registry__card-title">{{ sk.adminAssetRegistry.linesHeading }}</h2>
+        <p v-if="lines.length === 0" class="registry__muted">{{ sk.adminAssetRegistry.linesEmpty }}</p>
+        <ul v-else class="registry__lines">
+          <li v-for="(line, index) in lines" :key="line.assetTypeId" class="registry__line">
+            <span class="registry__type-name">{{ assetTypeName(line.assetTypeId) }}</span>
+            <QuantityStepper
+              v-model="line.quantity"
+              :max="200"
+              :decrease-label="sk.adminAssetRegistry.quantityDecrease"
+              :increase-label="sk.adminAssetRegistry.quantityIncrease"
+            />
+            <button
+              type="button"
+              class="registry__remove"
+              :aria-label="sk.adminAssetRegistry.removeLineLabel.replace('{name}', assetTypeName(line.assetTypeId))"
+              @click="lines.splice(index, 1)"
+            >
+              <span aria-hidden="true">{{ sk.adminAssetRegistry.removeLineGlyph }}</span>
+            </button>
+          </li>
+        </ul>
+        <AppButton
+          variant="primary"
+          size="counter"
+          class="registry__submit"
+          :disabled="lines.length === 0 || busy !== null"
+          :pending="busy === 'register'"
+          @click="registerLines"
+        >
+          {{
+            busy === 'register'
+              ? sk.adminAssetRegistry.submitting
+              : sk.adminAssetRegistry.submitAction.replace(
+                  '{count}',
+                  formatCount(linesTotal, sk.adminAssetRegistry.unitCount),
+                )
+          }}
+        </AppButton>
+      </div>
+
+      <details class="registry__csv">
+        <summary>{{ sk.adminAssetRegistry.csvToggle }}</summary>
+        <p class="registry__muted">{{ sk.adminAssetRegistry.csvHelp }}</p>
         <AppField :label="sk.adminAssetRegistry.csvFileLabel">
           <template #default="slotProps">
             <input :id="slotProps.id" type="file" accept=".csv,text/csv" @change="onFileChange" />
@@ -447,145 +574,121 @@ await loadPending()
         </AppField>
         <AppField :label="sk.adminAssetRegistry.csvTextareaLabel">
           <template #default="slotProps">
-            <textarea :id="slotProps.id" v-model="csv" rows="6" placeholder="assetTypeId,quantity&#10;1,50&#10;2,20"></textarea>
+            <textarea :id="slotProps.id" v-model="csv" rows="5"></textarea>
           </template>
         </AppField>
+        <AppButton variant="secondary" :disabled="busy !== null" :pending="busy === 'register'" @click="register(csv)">
+          {{ sk.adminAssetRegistry.csvSubmitAction }}
+        </AppButton>
       </details>
-
-      <AppButton variant="primary" size="counter" :pending="submitting" @click="submit">
-        {{ submitting ? sk.adminAssetRegistry.submitting : sk.adminAssetRegistry.submitAction }}
-      </AppButton>
     </section>
 
-    <section v-if="pending.length > 0" class="no-print">
-      <h2>{{ sk.adminAssetRegistry.pendingHeading }}</h2>
-      <p>{{ sk.adminAssetRegistry.pendingIntro }}</p>
-      <div class="admin-asset-registry__pending-actions">
-        <AppButton
-          variant="secondary"
-          :disabled="markingAny && !markingAllRentable"
-          :pending="markingAllRentable"
-          @click="markAllRentable"
-        >
-          {{ markingAllRentable ? sk.adminAssetRegistry.markingRentable : sk.adminAssetRegistry.markAllRentableAction }}
-        </AppButton>
-        <AppButton variant="secondary" :pending="preparingPendingSheet" @click="printPendingSheet">
-          {{ preparingPendingSheet ? sk.adminAssetRegistry.preparingSheet : sk.adminAssetRegistry.printPendingAction }}
-        </AppButton>
+    <!-- To label -->
+    <section v-else class="registry__panel no-print" role="tabpanel">
+      <p v-if="registeredCount !== null && toLabel.length > 0" class="registry__notice" role="status">
+        {{
+          sk.adminAssetRegistry.registeredNotice.replace(
+            '{count}',
+            formatCount(registeredCount, sk.adminAssetRegistry.unitCount),
+          )
+        }}
+      </p>
+
+      <ol v-if="toLabel.length > 0" class="registry__steps" :aria-label="sk.adminAssetRegistry.stepsHeading">
+        <li v-for="(step, index) in sk.adminAssetRegistry.steps" :key="index">{{ step }}</li>
+      </ol>
+
+      <div v-if="toLabel.length === 0" class="registry__card registry__empty">
+        <p>{{ sk.adminAssetRegistry.toLabelEmpty }}</p>
+        <AppButton variant="secondary" @click="setTab('add')">{{ sk.adminAssetRegistry.addUnitsAction }}</AppButton>
       </div>
-      <div class="admin-asset-registry__groups">
-        <article v-for="group in pendingGroups" :key="group.assetTypeId" class="admin-asset-registry__group">
-          <header class="admin-asset-registry__group-head">
-            <h3 class="admin-asset-registry__group-name">
-              {{ group.name }}
-              <span class="admin-asset-registry__group-count">
-                {{ sk.adminAssetRegistry.groupCount.replace('{count}', String(group.entries.length)) }}
-              </span>
-            </h3>
-            <span class="admin-asset-registry__group-actions">
-            <AppButton
-              variant="quiet"
-              :pending="printingGroupId === group.assetTypeId"
-              @click="printGroupSheet(group.assetTypeId)"
-            >
-              {{ sk.adminAssetRegistry.printGroupAction }}
-            </AppButton>
-            <AppButton
-              v-if="group.entries.some((e) => e.neverActivated)"
-              variant="quiet"
-              class="admin-asset-registry__cancel"
-              :disabled="markingAny || cancelling"
-              @click="askCancelGroup(group)"
-            >
-              {{
-                sk.adminAssetRegistry.cancelGroupAction.replace(
-                  '{count}',
-                  String(group.entries.filter((e) => e.neverActivated).length),
-                )
-              }}
-            </AppButton>
-            <AppButton
-              variant="secondary"
-              :disabled="markingAny && markingGroupId !== group.assetTypeId"
-              :pending="markingGroupId === group.assetTypeId"
-              @click="markGroupRentable(group.assetTypeId)"
-            >
-              {{
-                markingGroupId === group.assetTypeId
-                  ? sk.adminAssetRegistry.markingRentable
-                  : sk.adminAssetRegistry.markGroupAction.replace('{count}', String(group.entries.length))
-              }}
-            </AppButton>
+      <template v-else>
+        <div class="registry__actions registry__actions--top">
+          <AppButton
+            variant="primary"
+            :disabled="busy !== null"
+            :pending="busy === 'print-labels'"
+            @click="printUnits(toLabel, 'print-labels')"
+          >
+            {{ sk.adminAssetRegistry.printAllToLabelAction.replace('{count}', String(toLabel.length)) }}
+          </AppButton>
+          <AppButton
+            variant="secondary"
+            :disabled="busy !== null"
+            :pending="busy === 'stuck-all'"
+            @click="makeRentable(toLabel, 'stuck-all')"
+          >
+            {{ sk.adminAssetRegistry.stuckAllAction.replace('{count}', String(toLabel.length)) }}
+          </AppButton>
+        </div>
+
+        <article v-for="group in toLabelGroups" :key="group.assetTypeId" class="registry__card registry__group">
+          <header class="registry__group-head">
+            <span class="registry__thumb" aria-hidden="true">
+              <img
+                v-if="typeById.get(group.assetTypeId)?.imageFile"
+                :src="`/catalog/${typeById.get(group.assetTypeId)!.imageFile}`"
+                alt=""
+                width="96"
+                height="96"
+              />
             </span>
+            <h2 class="registry__card-title">
+              {{ group.name }}
+              <span class="registry__muted">· {{ formatCount(group.entries.length, sk.adminAssetRegistry.unitCount) }}</span>
+            </h2>
           </header>
-          <ul class="admin-asset-registry__units">
-            <li v-for="entry in group.entries" :key="entry.assetId" class="admin-asset-registry__unit">
+          <ul class="registry__units">
+            <li v-for="entry in group.entries" :key="entry.assetId" class="registry__unit">
               <TagCodePlate>{{ entry.tagCode }}</TagCodePlate>
               <AppButton
                 variant="quiet"
-                :aria-label="sk.adminAssetRegistry.markOneLabel.replace('{tag}', entry.tagCode)"
-                :disabled="markingAny && markingRentableAssetId !== entry.assetId"
-                :pending="markingRentableAssetId === entry.assetId"
-                @click="markRentable(entry.assetId)"
+                :aria-label="sk.adminAssetRegistry.stuckOneLabel.replace('{tag}', entry.tagCode)"
+                :disabled="busy !== null"
+                :pending="busy === `stuck-${entry.assetId}`"
+                @click="makeRentable([entry], `stuck-${entry.assetId}`)"
               >
-                {{ sk.adminAssetRegistry.markOneAction }}
+                {{ sk.adminAssetRegistry.stuckOneAction }}
               </AppButton>
               <AppButton
-                v-if="entry.neverActivated"
                 variant="quiet"
-                class="admin-asset-registry__cancel"
+                class="registry__danger"
                 :aria-label="sk.adminAssetRegistry.cancelOneLabel.replace('{tag}', entry.tagCode)"
-                :disabled="markingAny || cancelling"
-                @click="askCancelOne(entry)"
+                :disabled="busy !== null"
+                @click="askCancel([entry], group.name)"
               >
                 {{ sk.adminAssetRegistry.cancelOneAction }}
               </AppButton>
             </li>
           </ul>
-        </article>
-      </div>
-    </section>
-    <EmptyState v-else class="no-print" :message="sk.adminAssetRegistry.pendingEmpty" />
-
-    <section class="no-print admin-asset-registry__reprint">
-      <h2>{{ sk.adminAssetRegistry.reprintHeading }}</h2>
-      <p>{{ sk.adminAssetRegistry.reprintIntro }}</p>
-      <AppField :label="sk.adminAssetRegistry.reprintTypeLabel">
-        <template #default="slotProps">
-          <select :id="slotProps.id" v-model.number="reprintTypeId">
-            <option :value="null">{{ sk.adminAssetRegistry.reprintChoose }}</option>
-            <option :value="ALL_TYPES">{{ sk.adminAssetRegistry.reprintAllTypes }}</option>
-            <option v-for="assetType in assetTypes" :key="assetType.id" :value="assetType.id">
-              {{ assetType.name }}
-            </option>
-          </select>
-        </template>
-      </AppField>
-      <template v-if="reprintTypeId !== null && tagged !== null">
-        <EmptyState v-if="reprintUnits.length === 0" :message="sk.adminAssetRegistry.reprintEmpty" />
-        <template v-else>
-          <ul class="admin-asset-registry__units admin-asset-registry__reprint-units">
-            <li v-for="unit in reprintUnits" :key="unit.assetId">
-              <label class="admin-asset-registry__reprint-unit">
-                <input v-model="reprintSelected" type="checkbox" :value="unit.assetId" />
-                <TagCodePlate>{{ unit.tagCode }}</TagCodePlate>
-                <span v-if="reprintTypeId === ALL_TYPES" class="admin-asset-registry__unit-type">{{ assetTypeName(unit.assetTypeId) }}</span>
-                <span class="admin-asset-registry__unit-status">{{ sk.adminAssetRegistry.assetStatus[unit.status] }}</span>
-              </label>
-            </li>
-          </ul>
-          <div class="admin-asset-registry__pending-actions">
-            <AppButton variant="quiet" @click="selectAllReprint">{{ sk.adminAssetRegistry.reprintSelectAll }}</AppButton>
+          <div class="registry__actions">
+            <AppButton
+              variant="secondary"
+              :disabled="busy !== null"
+              :pending="busy === `print-${group.assetTypeId}`"
+              @click="printUnits(group.entries, `print-${group.assetTypeId}`)"
+            >
+              {{ sk.adminAssetRegistry.printGroupAction }}
+            </AppButton>
             <AppButton
               variant="primary"
-              :pending="reprinting"
-              :disabled="reprintSelected.length === 0"
-              @click="reprintSelectedLabels"
+              :disabled="busy !== null"
+              :pending="busy === `stuck-group-${group.assetTypeId}`"
+              @click="makeRentable(group.entries, `stuck-group-${group.assetTypeId}`)"
             >
-              {{ sk.adminAssetRegistry.reprintAction.replace('{count}', String(reprintSelected.length)) }}
+              {{ sk.adminAssetRegistry.stuckGroupAction.replace('{count}', String(group.entries.length)) }}
+            </AppButton>
+            <AppButton
+              v-if="group.entries.length > 1"
+              variant="quiet"
+              class="registry__danger"
+              :disabled="busy !== null"
+              @click="askCancel(group.entries, group.name)"
+            >
+              {{ sk.adminAssetRegistry.cancelGroupAction.replace('{count}', String(group.entries.length)) }}
             </AppButton>
           </div>
-        </template>
+        </article>
       </template>
     </section>
 
@@ -594,185 +697,563 @@ await loadPending()
       :title-text="sk.adminAssetRegistry.cancelConfirmTitle"
       :body-text="cancelTarget?.body ?? ''"
       :confirm-label="sk.adminAssetRegistry.cancelConfirmAction"
-      :pending="cancelling"
+      :pending="busy === 'cancel'"
       @confirm="confirmCancel"
       @close="cancelTarget = null"
     />
 
-    <section v-if="entries.length > 0" class="admin-asset-registry__sheets">
-      <h2 class="no-print">{{ sk.adminAssetRegistry.resultHeading }}</h2>
-      <p class="no-print">
-        {{ sk.adminAssetRegistry.resultCount.replace('{count}', String(entries.length)) }}
-        {{ sk.adminAssetRegistry.printHint }}
-      </p>
-      <p class="no-print">
-        <AppButton variant="primary" @click="print">{{ sk.adminAssetRegistry.printAction }}</AppButton>
-      </p>
-
-      <AssetTagSheet :entries="entries" />
+    <!-- Only the sheets print; on screen they stay out of the way. -->
+    <section v-if="sheetEntries.length > 0" class="registry__sheets">
+      <AssetTagSheet :entries="sheetEntries" />
     </section>
   </main>
 </template>
 
 <style scoped>
-.admin-asset-registry {
-  max-width: 900px;
+.registry {
+  box-sizing: border-box;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: var(--ht-space-5);
+  padding: var(--ht-space-5) var(--ht-space-4) var(--ht-space-7);
   display: flex;
   flex-direction: column;
-  gap: var(--ht-space-6);
+  gap: var(--ht-space-4);
 }
 
-.admin-asset-registry__builder {
+.registry__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+}
+
+.registry__title,
+.registry__intro {
+  margin: 0;
+}
+
+.registry__intro,
+.registry__muted {
+  color: var(--ht-ink-muted);
+}
+
+.registry__muted {
+  margin: 0;
+  font-size: var(--ht-text-2);
+  font-weight: 400;
+}
+
+/* --- Summary figures --- */
+
+.registry__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--ht-space-2);
+  margin: var(--ht-space-2) 0 0;
+}
+
+.registry__figure {
+  display: flex;
+  flex-direction: column-reverse;
+  padding: var(--ht-space-3);
+  border: var(--ht-line-width) solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
+}
+
+.registry__figure dt {
+  font-size: var(--ht-text-2);
+  color: var(--ht-ink-muted);
+}
+
+.registry__figure dd {
+  margin: 0;
+  font-family: var(--ht-font-condensed);
+  font-size: var(--ht-text-5);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.registry__figure--ok dd {
+  color: var(--ht-ok);
+}
+
+.registry__figure--attention {
+  border-color: var(--ht-signal);
+  box-shadow: inset 0 calc(var(--ht-space-1) * -1) 0 var(--ht-signal);
+}
+
+/* --- Tabs --- */
+
+.registry__tabs {
+  display: flex;
+  gap: var(--ht-space-1);
+  border-bottom: var(--ht-line-width) solid var(--ht-line);
+  overflow-x: auto;
+}
+
+.registry__tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ht-space-2);
+  min-height: var(--ht-hit-min);
+  padding: 0 var(--ht-space-4);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: var(--ht-ink-muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.registry__tab[aria-selected='true'] {
+  color: var(--ht-ink);
+  border-bottom-color: var(--ht-signal);
+}
+
+.registry__tab-badge {
+  min-width: var(--ht-space-5);
+  padding: 0 var(--ht-space-1);
+  border-radius: var(--ht-radius-pill);
+  background: var(--ht-signal);
+  color: var(--ht-on-signal);
+  font-size: var(--ht-text-1);
+  font-weight: 700;
+  text-align: center;
+}
+
+.registry__panel {
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-3);
 }
 
-/* Wraps on a phone, where the type's long names would otherwise push the
- * row past the screen. */
-.admin-asset-registry__builder-row {
+.registry__toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0 var(--ht-space-3);
 }
 
-.admin-asset-registry__builder-row > :first-child {
+.registry__toolbar > :first-child {
   flex: 1 1 260px;
-  min-width: 0;
 }
 
-.admin-asset-registry__builder-row select {
-  width: 100%;
-  min-width: 0;
-}
-
-.admin-asset-registry__builder-row > :nth-child(2) {
-  flex: 0 1 140px;
-}
-
-.admin-asset-registry__builder-row > .app-button {
+.registry__toolbar > .app-button {
   margin-bottom: var(--ht-space-4);
 }
 
-.admin-asset-registry__groups {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ht-space-3);
-  margin-top: var(--ht-space-3);
-}
+/* --- Rows of tools --- */
 
-.admin-asset-registry__group {
-  padding: var(--ht-space-3) var(--ht-space-4);
-  border: 1px solid var(--ht-line);
+.registry__types {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: var(--ht-line-width) solid var(--ht-line);
   border-radius: var(--ht-radius-card);
   background: var(--ht-surface);
 }
 
-.admin-asset-registry__group-head {
-  display: flex;
-  flex-wrap: wrap;
+.registry__type + .registry__type {
+  border-top: var(--ht-line-width) solid var(--ht-line);
+}
+
+.registry__type-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--ht-space-2);
+  gap: var(--ht-space-3);
+  padding: var(--ht-space-2) var(--ht-space-3);
 }
 
-.admin-asset-registry__group-name {
-  margin: 0;
-  font-size: var(--ht-text-3);
+.registry__thumb {
+  flex: none;
+  width: var(--ht-space-7);
+  height: var(--ht-space-7);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ht-space-1);
+  border-radius: var(--ht-radius-plate);
+  background: var(--ht-surface-sunk);
 }
 
-.admin-asset-registry__group-count {
-  margin-left: var(--ht-space-1);
+.registry__thumb--small {
+  width: var(--ht-space-6);
+  height: var(--ht-space-6);
+}
+
+.registry__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.registry__type-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.registry__type-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.registry__type-meta {
+  font-size: var(--ht-text-2);
   color: var(--ht-ink-muted);
-  font-weight: 400;
 }
 
-.admin-asset-registry__units {
-  list-style: none;
-  margin: var(--ht-space-2) 0 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ht-space-1) var(--ht-space-3);
+.registry__state {
+  white-space: nowrap;
 }
 
-.admin-asset-registry__unit {
+.registry__state--rentable {
+  color: var(--ht-ok);
+  font-weight: 600;
+}
+
+.registry__state--toLabel {
+  color: var(--ht-signal-deep);
+  font-weight: 600;
+}
+
+.registry__toggle {
   display: inline-flex;
   align-items: center;
-  gap: var(--ht-space-1);
+  gap: var(--ht-space-2);
+  min-height: var(--ht-hit-min);
+  padding: 0 var(--ht-space-3);
+  border: var(--ht-line-width) solid var(--ht-line-strong);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
+  color: var(--ht-ink);
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.admin-asset-registry__group-actions {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--ht-space-1);
+.registry__toggle[aria-expanded='true'] {
+  border-color: var(--ht-ink);
 }
 
-.admin-asset-registry__cancel {
-  color: var(--ht-danger);
+/* A drawn chevron: down when closed, up when open. */
+.registry__chevron {
+  width: var(--ht-space-2);
+  height: var(--ht-space-2);
+  border: solid currentcolor;
+  border-width: 0 calc(var(--ht-space-1) / 2) calc(var(--ht-space-1) / 2) 0;
+  transform: translateY(-25%) rotate(45deg);
 }
 
-.admin-asset-registry__reprint {
+.registry__toggle[aria-expanded='true'] .registry__chevron {
+  transform: translateY(25%) rotate(-135deg);
+}
+
+.registry__labels {
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-2);
+  padding: var(--ht-space-2) var(--ht-space-3) var(--ht-space-3);
+  background: var(--ht-surface-sunk);
 }
 
-.admin-asset-registry__reprint p {
+.registry__units {
+  list-style: none;
   margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ht-space-2);
 }
 
-.admin-asset-registry__reprint-units {
-  margin: 0;
+.registry__unit {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ht-space-1);
+  padding-right: var(--ht-space-1);
+  border: var(--ht-line-width) solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
 }
 
-.admin-asset-registry__reprint-unit {
+.registry__unit-pick {
   display: inline-flex;
   align-items: center;
   gap: var(--ht-space-2);
   min-height: var(--ht-hit-min);
   padding: 0 var(--ht-space-2);
-  border: 1px solid var(--ht-line);
-  border-radius: var(--ht-radius-card);
-  background: var(--ht-surface);
+  font-size: var(--ht-text-2);
   cursor: pointer;
 }
 
-.admin-asset-registry__reprint-unit input {
+.registry__unit-pick input {
   width: var(--ht-space-5);
   height: var(--ht-space-5);
   margin: 0;
 }
 
-.admin-asset-registry__unit-type {
-  font-size: var(--ht-text-2);
+.registry__group .registry__unit {
+  padding-left: var(--ht-space-2);
 }
 
-.admin-asset-registry__unit-status {
-  font-size: var(--ht-text-2);
-  color: var(--ht-ink-muted);
-}
-
-@media (max-width: 599px) {
-  .admin-asset-registry {
-    padding: var(--ht-space-4);
-  }
-}
-
-.admin-asset-registry__pending-actions {
+.registry__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--ht-space-3);
+  align-items: center;
+  gap: var(--ht-space-2);
 }
 
-.admin-asset-registry__sheets {
+.registry__danger {
+  color: var(--ht-danger);
+}
+
+/* --- Cards (add, to label) --- */
+
+.registry__card {
   display: flex;
   flex-direction: column;
   gap: var(--ht-space-3);
+  padding: var(--ht-space-4);
+  border: var(--ht-line-width) solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
+}
+
+.registry__card :deep(.app-field) {
+  margin-bottom: 0;
+}
+
+.registry__card-title {
+  margin: 0;
+  font-size: var(--ht-text-4);
+}
+
+.registry__picked {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--ht-space-3);
+  padding: var(--ht-space-2) var(--ht-space-3);
+  border: 2px solid var(--ht-signal);
+  border-radius: var(--ht-radius-card);
+}
+
+.registry__matches {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: var(--ht-line-width) solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  overflow: hidden;
+}
+
+.registry__matches li + li {
+  border-top: var(--ht-line-width) solid var(--ht-line);
+}
+
+.registry__match {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--ht-space-3);
+  min-height: var(--ht-hit-min);
+  padding: var(--ht-space-1) var(--ht-space-3);
+  border: 0;
+  background: var(--ht-surface);
+  color: var(--ht-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.registry__match:hover {
+  background: var(--ht-surface-sunk);
+}
+
+.registry__add-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--ht-space-3);
+}
+
+.registry__quantity {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-1);
+}
+
+.registry__quantity-label {
+  font-family: var(--ht-font-condensed);
+  font-weight: 600;
+  font-size: var(--ht-text-1);
+  text-transform: uppercase;
+  letter-spacing: var(--ht-tracking-wide);
+  color: var(--ht-ink-muted);
+}
+
+.registry__lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.registry__line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--ht-space-3);
+  padding: var(--ht-space-2) 0;
+}
+
+.registry__line + .registry__line {
+  border-top: var(--ht-line-width) solid var(--ht-line);
+}
+
+.registry__remove {
+  width: var(--ht-hit-min);
+  height: var(--ht-hit-min);
+  border: 0;
+  border-radius: var(--ht-radius-card);
+  background: transparent;
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-5);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.registry__remove:hover {
+  background: var(--ht-surface-sunk);
+  color: var(--ht-danger);
+}
+
+.registry__submit {
+  width: 100%;
+}
+
+.registry__csv {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+  padding: var(--ht-space-3) var(--ht-space-4);
+  border: var(--ht-line-width) dashed var(--ht-line-strong);
+  border-radius: var(--ht-radius-card);
+}
+
+.registry__csv summary {
+  min-height: var(--ht-hit-min);
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --- To label --- */
+
+.registry__notice {
+  margin: 0;
+  padding: var(--ht-space-3) var(--ht-space-4);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-ok);
+  color: var(--ht-on-brand);
+  font-weight: 600;
+}
+
+.registry__steps {
+  counter-reset: step;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--ht-space-2);
+}
+
+.registry__steps li {
+  counter-increment: step;
+  position: relative;
+  padding: var(--ht-space-3) var(--ht-space-3) var(--ht-space-3) calc(var(--ht-space-6) + var(--ht-space-3));
+  border: var(--ht-line-width) solid var(--ht-line);
+  border-radius: var(--ht-radius-card);
+  background: var(--ht-surface);
+  font-size: var(--ht-text-2);
+}
+
+.registry__steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: var(--ht-space-3);
+  top: var(--ht-space-3);
+  width: var(--ht-space-5);
+  height: var(--ht-space-5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--ht-ink);
+  color: var(--ht-signal);
+  font-weight: 700;
+  font-size: var(--ht-text-1);
+}
+
+.registry__empty {
+  align-items: flex-start;
+}
+
+.registry__empty p {
+  margin: 0;
+}
+
+.registry__group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ht-space-3);
+}
+
+@media (max-width: 599px) {
+  /* The figures stay one compact row on a phone. */
+  .registry__summary {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  }
+
+  .registry__figure {
+    padding: var(--ht-space-2);
+  }
+
+  .registry__figure dt {
+    font-size: var(--ht-text-1);
+    line-height: 1.25;
+  }
+
+  .registry__figure dd {
+    font-size: var(--ht-text-4);
+  }
+
+  .registry__type-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .registry__type-row > :last-child {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+
+  .registry__line {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .registry__line > .registry__type-name {
+    grid-column: 1 / -1;
+  }
+}
+
+/* --- Print: only the sheets, edge to edge (the @page margins in print.css
+ * place the grid, so the page must add none of its own). --- */
+.registry__sheets {
+  display: none;
 }
 
 @media print {
@@ -780,9 +1261,11 @@ await loadPending()
     display: none;
   }
 
-  /* Only the sheets print, edge to edge: the @page margins in print.css
-   * place the grid, so the page must add none of its own. */
-  .admin-asset-registry {
+  .registry__sheets {
+    display: block;
+  }
+
+  .registry {
     max-width: none;
     margin: 0;
     padding: 0;
