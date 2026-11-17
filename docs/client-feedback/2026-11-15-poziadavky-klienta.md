@@ -12,9 +12,9 @@ Odhad: **S** = dni · **M** = 1–2 týždne · **L** = 2–4 týždne · **XL**
 
 | # | Požiadavka | Náročnosť | Mení architektonické rozhodnutie? | Blokuje to niečo mimo vývoja? |
 |---|---|---|---|---|
-| 1 | Prenájom na hodiny + 10 min tolerancia | **XL** | Áno — A-04, D-12, D-09 | Cenník po hodinách |
+| 1 | Prenájom na hodiny (v rámci dňa) + 10 min tolerancia ✅ | **L** | Áno — nahrádza D-12, A-04, D-09 (ADR D-67) | Hodinové sadzby |
 | 2 | Platba na mieste (eKasa) + zľava za online ✅ | **L** | Áno — atestácia platby, D-15 (c), ADR D-65 | Výška zľavy; zákaz po NoShow čaká na OQ #27 |
-| 3 | Dovoz náradia (paušál + €/km) | **L** | Áno — A-01, Logistics & Delivery | Cenník, kto vozí |
+| 3 | Dovoz a odvoz (zóna = paušál, mimo = paušál + km ručne) ✅ | **M–L** | Áno — ruší A-01, ADR D-66 | Paušál, sadzba za km, zoznam obcí |
 | 4 | Stripe účet pre spoločnosť | **S** | Nie (Stripe účet Tenanta, Part 4) | Dokumenty firmy, KYC |
 | 5 | Štatistiky v admine ✅ | **M** | Áno — Utilisation & Reporting je `[Future]` (krátke ADR, read-only) | Nie |
 | 6 | AI odporúčanie náradia podľa popisu problému ✅ | **M** | Nový dodávateľ + záznam otázok (ADR D-64) | Spracovateľská zmluva, Súkromie |
@@ -50,21 +50,47 @@ Odhad: **S** = dni · **M** = 1–2 týždne · **L** = 2–4 týždne · **XL**
 - Pozor: **poplatky za oneskorenie sú dnes vedome nerozhodnuté** (Part 1,
   D-17). Ak „po tolerancii“ znamená aj doúčtovanie, je to nová politika.
 
-**Otázky na klienta**
-- Ktoré náradie sa bude dať požičať na hodiny? (Všetko, alebo len ručné
-  elektrické náradie?)
-- Hodinová sadzba pre každé náradie zvlášť, alebo % z dennej?
-- Strop: od koľkých hodín sa účtuje denná sadzba namiesto hodinovej?
-- Otváracie hodiny — prenájom len v rámci nich? Čo cez noc?
-- Koľko času treba medzi dvoma hodinovými prenájmami toho istého kusu
-  (kontrola, fotky, nabitie batérie)?
-- Platí 10 min tolerancia aj pre denné prenájmy?
-- Po tolerancii: len upozornenie, alebo aj doúčtovanie ďalšej hodiny?
-  Ak doúčtovanie — kartou dodatočne, alebo hotovosťou na pulte?
-- Záloha pri hodinovom prenájme rovnaká ako pri dennom?
+### ✅ Prediskutované 17. 11. 2026 — dohodnuté (s otvorenými bodmi)
 
-**Náročnosť: XL.** Odporúčam robiť až po spustení pilotu na dňoch
-a s vlastným ADR, ktoré nahradí D-12 / A-04 / D-09.
+**Rozhodnutia, ktoré zjednodušujú zásah**
+1. **Hodinový prenájom len v rámci jedného dňa a otváracích hodín.**
+   Nikdy cez polnoc ani cez zatváraciu hodinu; cez noc = denný prenájom.
+   Dni ostávajú základom, hodiny sú intervaly v rámci dňa → odpadá
+   letný/zimný čas a väčšina prerábky kalendára.
+2. **Otváracie hodiny** — týždenný rozvrh v admine, ľahko upraviteľný
+   (Tenant setting). Predbežne: **Po–Pi 7:00–17:00, So 8:00–12:00,
+   Ne zatvorené** — klient upraví v admine.
+3. **Ktoré náradie:** to, ktoré má vyplnenú **hodinovú sadzbu** (samostatná
+   suma pri AssetType, nastavuje Operator). Žiadny prepínač
+   denné/hodinové — žiadne `rentalGranularity` (D-12, banned term).
+4. **Strop:** ak hodiny vyjdú drahšie ako denná sadzba, účtuje sa denná.
+5. **Prestávka 30 min** medzi hodinovými prenájmami toho istého typu
+   (kontrola, fotky, nabitie) — hodnota v admine.
+6. **Online:** deň + začiatok (po 30 min) + počet hodín; ponúkajú sa len
+   časy s voľným kusom. Kus vonku na celý deň sa na hodiny neponúkne.
+   Kapacita stále podľa poolu (D-38).
+7. **Účtovanie:** od **rezervovaného začiatku**. Vrátenie = rezervovaný
+   koniec + **10 min tolerancia**; potom každá začatá hodina navyše
+   (12:08 → nič, 12:15 → +1 h). Upozornenie na pulte = odvodený fakt
+   (FR-28, D-17), nie uložený stav.
+8. **Doplatok** vyráta systém, pracovník ho prijme na mieste (mechanizmus
+   z bodu 2). **Nestrháva sa zo zálohy** — zrážka zo zálohy len pri
+   poškodení s párovými ConditionReports (FR-20).
+
+9. **Denný prenájom bez zmeny:** vracia sa kedykoľvek v posledný deň do
+   konca otváracích hodín; 10 min tolerancia sa týka len hodinových.
+10. **Záloha** pri hodinovom prenájme je rovnaká ako pri dennom (hodnota
+    pri AssetType, žiadne nové pravidlo).
+
+**Otvorené u klienta:** hodinové sadzby pre jednotlivé AssetTypes.
+
+**Architektúra:** ADR nahradí D-12 (RentalPeriod dostane časové
+intervaly v rámci dňa), A-04 (minimum = 1 deň) a pre hodinové prenájmy
+D-09. D-08 a D-33 (overbooking, súbežnosť) sa musia rozšíriť na
+intervaly a znova otestovať. Navrhnuté **D-67**.
+
+**Náročnosť: L** (vďaka obmedzeniu na jeden deň, inak XL). Robiť až
+po spustení pilotu na dňoch.
 
 ---
 
@@ -136,28 +162,48 @@ mieste je atestácia v Handover & Possession ako záloha → ADR (navrhnuté
 - Doplnková služba: dovoz náradia do blízkeho okolia.
 - V definovanej oblasti **paušálna suma**, mimo nej **suma za km**.
 
-**Vzťah k architektúre**
-- Pilot predpokladá jedno výdajné miesto a žiadny dovoz (A-01).
-  Logistics & Delivery je v Part 1 vedené ako `[Future]` kontext a
-  doručovanie je výslovne medzi non-goals pilotu. Treba ADR.
-- Odovzdanie sa dnes deje **na pulte**: overenie totožnosti, fotky stavu,
-  hotovostná záloha, sken QR. Pri dovoze sa to deje **u zákazníka** —
-  PWA na telefóne to zvládne, ale treba vyriešiť zálohu v teréne
-  a kto má telefón (per-Operator PIN už máme).
-- Výpočet km: vzdušná vzdialenosť je zadarmo, cestná vyžaduje mapové
-  API (nový dodávateľ, náklady, adresa zákazníka = ďalší osobný údaj
-  s retenciou — súvisí s IR-07 / OQ #27).
+### ✅ Prediskutované 17. 11. 2026 — dohodnuté
 
-**Otázky na klienta**
-- Ako je definovaná oblasť paušálu? (Polomer X km od prevádzky,
-  zoznam obcí/PSČ?)
-- Výška paušálu a sadzba za km. Počíta sa km tam aj späť?
-- Zahŕňa to aj **odvoz** po skončení prenájmu?
-- Kto vozí a kedy — časové okná? Kapacitné obmedzenie (jedno auto)?
-- Platí sa doprava online spolu s nájomným?
+**Rozsah**
+- **Dovoz aj odvoz**, ako samostatné možnosti (len dovoz / len odvoz /
+  oboje). Doviezť sa dá **všetko** náradie, bez minimálnej sumy.
+- Dovoz v prvý deň RentalPeriod, odvoz v posledný (dni, D-09 bez zmeny).
+  Zákazník vyberie dopoludnia / popoludní, presný čas dohodne vodič
+  telefonicky.
+- **Bez denného limitu dovozov** — na začiatku sa nepočíta s častým
+  využitím. Limit doplniť, keď bude treba.
 
-**Náročnosť: L.** Základná verzia (paušál podľa zoznamu obcí, adresa,
-termín) je výrazne lacnejšia ako plne automatický výpočet km.
+**Cena — bez mapových služieb**
+- Operator v admine spravuje **zoznam obcí v zóne**. Zákazník vyberie
+  obec zo zoznamu a dopíše ulicu → **paušál**, cena hneď v checkoute.
+- **Mimo zóny (možnosť c):** zákazník zaškrtne „Chcem dovoz mimo zóny —
+  zavolajte mi“ a napíše obec/adresu. Rezervácia sa dokončí normálne;
+  pracovník zavolá, dohodne cenu a zapíše dovoz. Cena = **paušál + km ×
+  sadzba**, km zadá pracovník (systém vyráta sumu). Paušál a sadzba sú
+  hodnoty v admine.
+- Žiadne automatické km z adresy, žiadny externý dodávateľ, adresa
+  neodchádza tretej strane.
+
+**Odovzdanie u zákazníka**
+- Vodič je Operator so svojím PIN-om a robí na telefóne (PWA) to isté
+  čo na pulte: doklad, fotky stavu, sken AssetTag, záloha, prípadne
+  platba na mieste. Pri odvoze fotky stavu u zákazníka → FR-20 párové
+  ConditionReports platia bez výnimky.
+
+**Platba**
+- Doprava v zóne sa platí spolu s nájomným (online alebo na mieste).
+  Zľava za online platbu sa týka len nájomného.
+- Doprava mimo zóny (cena známa až po telefonáte) — **platí sa na mieste
+  vodičovi, aj v hotovosti**; vodič ju zaznamená rovnako ako platbu na
+  mieste z bodu 2 (PIN, suma, forma). Pokladničný doklad z eKasy je
+  na strane klienta (overiť s účtovníkom, ako ho vydať v teréne).
+
+**Architektúra:** ruší A-01 (jedno výdajné miesto bez dovozu); otvára
+Logistics & Delivery v minimálnom rozsahu — pojmy **Delivery**
+a **Collection** (Part 1), nie „Order“ / „Fulfilled“ → ADR (navrhnuté
+**D-66**). Adresa zákazníka = ďalší osobný údaj pod OQ #27.
+
+**Náročnosť: M–L.**
 
 ---
 
