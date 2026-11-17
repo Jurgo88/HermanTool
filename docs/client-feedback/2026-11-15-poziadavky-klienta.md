@@ -17,7 +17,7 @@ Odhad: **S** = dni · **M** = 1–2 týždne · **L** = 2–4 týždne · **XL**
 | 3 | Dovoz náradia (paušál + €/km) | **L** | Áno — A-01, Logistics & Delivery | Cenník, kto vozí |
 | 4 | Stripe účet pre spoločnosť | **S** | Nie (Stripe účet Tenanta, Part 4) | Dokumenty firmy, KYC |
 | 5 | Štatistiky v admine ✅ | **M** | Áno — Utilisation & Reporting je `[Future]` (krátke ADR, read-only) | Nie |
-| 6 | AI odporúčanie náradia podľa popisu problému | **M** | Nový dodávateľ (ADR) | Spracovateľská zmluva |
+| 6 | AI odporúčanie náradia podľa popisu problému ✅ | **M** | Nový dodávateľ + záznam otázok (ADR D-64) | Spracovateľská zmluva, Súkromie |
 | 7 | Kompatibilné náradie k rezervácii jedným klikom ✅ | **M** | Nový pojem CompatibleAssetType (ADR), invarianty bez zmeny | Nie |
 
 ---
@@ -213,23 +213,53 @@ prehľadov bez vlastného agregátu. Všetky dotazy Tenant-scoped (FR-33).
 - Zákazník napíše svoj problém („potrebujem vyvŕtať dieru do betónu
   na poličku“) a systém mu odporučí náradie z ponuky.
 
-**Vzťah k architektúre**
-- Nový externý dodávateľ (LLM API, napr. Claude) → ADR + zápis do
-  zoznamu spracovateľov (súvisí s OQ #4).
-- Volanie výhradne zo servera (Nitro route), kľúč nikdy v prehliadači (D-25).
-- Model dostane popis problému + katalóg (názvy, PowerSource, UseArea,
-  špecifikácie z D-55) a smie vrátiť **iba ID existujúcich publikovaných
-  typov náradia** — server odpoveď overí, nič si nevymyslí.
-- Voľný text od zákazníka môže obsahovať osobné údaje → neukladať,
-  neposielať nič navyše, uviesť v informácii o spracúvaní.
-- Ochrana proti zneužitiu (rate limit), strop mesačných nákladov.
-- Vie nadväzovať na existujúce filtre (D-54) — AI len predvyplní filter
-  a vysvetlí prečo.
+### ✅ Prediskutované 17. 11. 2026 — dohodnuté
 
-**Otázky na klienta**
-- Má odporúčanie ukázať aj dostupnosť na konkrétny termín?
-- Má poradiť aj s príslušenstvom a postupom („budete potrebovať aj…“)?
-- Akceptovateľný mesačný náklad (rádovo jednotky až desiatky € pri pilote)?
+**Rozsah**
+- Pole nad katalógom (S-01) „Opíšte, čo potrebujete urobiť“; bežné filtre
+  (D-54) ostávajú vedľa.
+- Výsledok: 1–3 typy náradia + jedna veta zdôvodnenia, prípadne
+  bezpečnostná poznámka. **Žiadny postup práce** (riziko zodpovednosti).
+- Klik vedie na S-02; dostupnosť sa v AI výsledku neukazuje (D-58).
+- Model smie vrátiť iba ID publikovaných AssetTypes; server to overí.
+  Ak nevie poradiť → „S týmto vám poradíme osobne“ + kontakt.
+- Volanie iba zo servera, kľúč nikdy v prehliadači (D-25).
+
+**Limity**
+- Na návštevníka: **10 otázok / hodinu, 30 / deň**. Návštevník nie je
+  Customer (Part 2), preto kľúčom je hash IP s denne meneným kľúčom,
+  zahodený po 24 h — IP sa neukladá v čitateľnej podobe.
+- Max. dĺžka otázky **500 znakov**.
+- **Mesačný strop 10 €** pre Tenanta, meniteľný v admine. Každé volanie
+  zapíše spotrebu tokenov; po dosiahnutí stropu sa pole do konca mesiaca
+  skryje a ostanú filtre.
+- Ochrana proti robotom (napr. Turnstile) až keď bude treba.
+
+**Ukladanie otázok**
+- Text otázky + odporúčané AssetTypes + čas. Bez IP, bez väzby na Customer.
+- Pred uložením sa automaticky odstránia e-maily a telefónne čísla.
+- **Retencia 90 dní**, oprávnený záujem — zaznamenať ako D-61
+  a doplniť stránku Súkromie.
+- V štatistikách (bod 5): „Čo ľudia hľadali“, zvlášť otázky bez nájdeného
+  náradia (chýbajúca ponuka).
+
+**Koľko otázok pokryje 10 €** (ceny Anthropic API k 3. 11. 2026, v USD;
+odhad ~4 000 vstupných tokenov — katalóg ~44 typov + inštrukcie —
+a ~500 výstupných vrátane premýšľania na otázku):
+
+| Model | Cena / otázka | Otázok za ~10 € |
+|---|---|---|
+| Claude Haiku 5.5 | ~0,0007 $ | **~15 000** |
+| Claude Sonnet 5.5 | ~0,013 $ | ~800 |
+| Claude Opus 5.5 | ~0,026 $ | ~400 |
+
+Navrhnutý **Haiku 5.5** (výber z ~44 položiek je jednoduchá úloha);
+pred spustením overiť na ~30 vzorových slovenských otázkach, pri slabej
+kvalite prejsť na Sonnet 5.5. Presné čísla po prvom meraní reálnej spotreby.
+
+**Architektúra:** nový dodávateľ + záznam návštevníckych otázok
+(odchýlka od Part 2 „Visitor nezanecháva záznam“) → ADR (navrhnuté
+**D-64**), spracovateľská zmluva (OQ #4).
 
 **Náročnosť: M.**
 
