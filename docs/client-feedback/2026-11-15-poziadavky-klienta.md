@@ -13,7 +13,7 @@ Odhad: **S** = dni · **M** = 1–2 týždne · **L** = 2–4 týždne · **XL**
 | # | Požiadavka | Náročnosť | Mení architektonické rozhodnutie? | Blokuje to niečo mimo vývoja? |
 |---|---|---|---|---|
 | 1 | Prenájom na hodiny + 10 min tolerancia | **XL** | Áno — A-04, D-12, D-09 | Cenník po hodinách |
-| 2 | Platba v hotovosti na mieste s príplatkom | **L** | Áno — Payments, D-14 | Účtovník / právnik (eKasa, príplatok) |
+| 2 | Platba na mieste (eKasa) + zľava za online ✅ | **L** | Áno — atestácia platby, D-15 (c), ADR D-65 | Výška zľavy; zákaz po NoShow čaká na OQ #27 |
 | 3 | Dovoz náradia (paušál + €/km) | **L** | Áno — A-01, Logistics & Delivery | Cenník, kto vozí |
 | 4 | Stripe účet pre spoločnosť | **S** | Nie (Stripe účet Tenanta, Part 4) | Dokumenty firmy, KYC |
 | 5 | Štatistiky v admine ✅ | **M** | Áno — Utilisation & Reporting je `[Future]` (krátke ADR, read-only) | Nie |
@@ -74,36 +74,59 @@ a s vlastným ADR, ktoré nahradí D-12 / A-04 / D-09.
 - Možnosť zaplatiť nájomné hotovosťou pri prevzatí.
 - S príplatkom, aby ľudia uprednostnili kartu. (Klient to ešte chce doladiť.)
 
-**Vzťah k architektúre**
-- Dnes Payments = **iba online platba nájomného cez Stripe**. Hotovosť
-  existuje len pri zálohe a systém ju iba zaznamenáva (P6, D-07).
-- Rezervácia sa dnes potvrdí až po zaplatení. Pri hotovosti by vznikla
-  **potvrdená, ale nezaplatená** rezervácia, ktorá blokuje kapacitu —
-  riziko NoShow bez akejkoľvek straty pre zákazníka. Treba pravidlo
-  (napr. expirácia, limit, len pre overených zákazníkov).
-- **Doklad totožnosti (D-14):** fotka dokladu sa nahráva až po platbe,
-  lebo pred platbou nie je právny základ ju držať. Pri hotovosti sa
-  tento okamih posúva — buď sa doklad overí až na pulte, alebo treba
-  nový právny základ. Súvisí s rozhodnutím D-61 / retenciou.
-- Pomerne čisté riešenie: rovnaký vzor ako záloha — systém zaznamená
-  „Operator potvrdil prijatie hotovosti“ (atestácia s PIN, D-16, F8),
-  nepredstiera, že platbu spracoval.
+### ✅ Prediskutované 17. 11. 2026 — dohodnuté (okrem bodov blokovaných právnikom)
 
-**Na preverenie mimo vývoja (účtovník / právnik)**
-- **eKasa:** prijímanie hotovosti za služby na Slovensku vyžaduje
-  registračnú pokladnicu eKasa. Má ju klient? Systém by doklad z eKasy
-  nevydával, len evidoval.
-- **Príplatok za hotovosť:** overiť, či je to prípustné a ako to uviesť
-  v predzmluvných informáciách (súvisí s OQ #1 — obchodné podmienky).
-  Alternatíva, ktorá býva bezpečnejšia: **zľava pri online platbe kartou**.
+**Zmena zadania: „platba na mieste“, nie „hotovosť s príplatkom“**
+- Zákazník si pri rezervácii vyberie **online vopred** (Stripe) alebo
+  **na mieste**. Na mieste platí cez klientovu **eKasu** — hotovosť,
+  karta na termináli alebo QR kód. Klient eKasu má; systém doklad
+  nevydáva, iba zaznamenáva.
+- **Namiesto príplatku zľava za platbu online vopred** — % z nájomného,
+  výšku dohodne klient. Jedna hodnota v admine (Tenant setting), nie
+  cenníkový systém (Pricing & Promotions ostáva `[Future]`). Len nájomné,
+  nie záloha. Zobrazenie: „25 €/deň · pri platbe online 22,50 €“; konečná
+  suma vypočítaná na serveri a viditeľná pred odoslaním. Karta na termináli
+  na pulte zľavu nemá.
 
-**Otázky na klienta**
-- Výška príplatku — pevná suma alebo %?
-- Môže si hotovosťou zarezervovať ktokoľvek, alebo len vracajúci sa zákazník?
-- Čo ak zákazník s hotovostnou rezerváciou nepríde?
-- Doúčtovanie (napr. hodiny po tolerancii) — tiež hotovosťou?
+**Rozhodnutia**
+1. **Zaznamenanie platby:** pracovník na pulte potvrdí s PIN-om (D-16,
+   F8) prijatie nájomného — suma s menou (D-21) a forma (hotovosť /
+   karta / QR). Systém peniaze nespracúva (P6, rovnaký vzor ako záloha D-07).
+2. **HandoverOut odmietne** skupinu, ktorej nájomné nie je zaplatené
+   online ani potvrdené na mieste (rovnaký vzor ako súhlas s podmienkami, D-35).
+3. **Limit: max. 1 aktívna rezervácia s platbou na mieste na kontakt** —
+   zhoda na normalizovanom e-maile **alebo** telefóne. Bez kont (D-14).
+4. **Potvrdenie e-mailom:** rezervácia na mieste sa potvrdí až po kliknutí
+   na odkaz v e-maile (Resend, D-28); dovtedy drží kapacitu len ako dnešná
+   pending rezervácia (`pending_expires_at`). SMS overenie — pozri nižšie.
+5. **Doklad totožnosti** pri platbe na mieste fotí **pracovník na pulte**
+   pri prevzatí (D-15 možnosť (c)); online sa pri nej nič nenahráva.
+6. NoShow uvoľní zvyšok obdobia; pripomienkový e-mail deň vopred.
 
-**Náročnosť: L** + rozhodnutia účtovníka/právnika pred začatím.
+**⚠️ Blokované na OQ #27 (retencia údajov zákazníka, IR-07)**
+- **Zákaz platby na mieste po NoShow** — systém si musí kontakt pamätať
+  aj po skončení rezervácie.
+- **Klient chce uchovávať kontakty všetkých, ktorí si niečo požičali** —
+  kvôli dodatočným reklamáciám/nárokom a štatistikám. Toto je **vstup
+  pre právnika**, nie hotové rozhodnutie: GDPR vyžaduje konkrétnu dobu
+  a právny základ (P7), „navždy“ nie je možné. Návrh na posúdenie:
+  kontakt držať po dobu premlčania možných nárokov (oprávnený záujem —
+  obrana právnych nárokov), potom **anonymizovať**; štatistiky pracujú
+  s anonymizovanými dátami a osobné údaje nepotrebujú. Marketing by
+  vyžadoval samostatný súhlas.
+
+**SMS overenie (voliteľné, neskôr):** nie je zadarmo — platí sa za každú
+SMS (rádovo centy). Pri pilotnom objeme by to boli jednotky € mesačne,
+ale je to nový dodávateľ (ADR, spracovateľská zmluva). Zatiaľ len e-mail;
+rozhodnúť po pilote podľa toho, či sa limit obchádza.
+
+**Architektúra:** Payments zostáva „online platba nájomného“; platba na
+mieste je atestácia v Handover & Possession ako záloha → ADR (navrhnuté
+**D-65**). Zľava za online = jedna politika Tenanta, nie pricing engine.
+
+**Otvorené u klienta:** výška zľavy v %.
+
+**Náročnosť: L.**
 
 ---
 
@@ -194,6 +217,30 @@ termín) je výrazne lacnejšia ako plne automatický výpočet km.
 - Peniaze vždy s menou (D-21), formátovanie cez app/utils/format.ts.
 - Dátumové výpočty (obdobia, vyťaženosť) na serveri v Availability &
   Reservation, nie v UI.
+
+**Zákazníci — doplnené 17. 11. 2026**
+
+Klient chce vidieť štatistiky aj po zákazníkoch (kto si požičiava
+pravidelne), aby mu mohol ponúknuť zľavu alebo odpustiť zálohu.
+
+- **Súhlas s ponukami — hneď.** Nezaškrtnuté políčko v checkoute
+  „Chcem dostávať ponuky a zľavy“. Uloží sa súhlas s časom a verziou
+  textu; odvolanie odkazom v každom e-maile. Bez súhlasu žiadne
+  marketingové e-maily (či stačí pri existujúcich zákazníkoch možnosť
+  odhlásenia, posúdi právnik).
+- **História zákazníka v admine — po odpovedi na OQ #27.** Zoskupenie
+  podľa normalizovaného e-mailu/telefónu (záznam Customer je dnes na
+  každú rezerváciu, D-14 sa nemení): počet prenájmov, útrata, posledná
+  návšteva, NoShow, poškodenia. Nový účel spracúvania → otázka pre
+  právnika; „nie CRM“ (Part 1) → zapísať v ADR.
+- **Odpustenie/zníženie zálohy — neskôr, ručne.** Pracovník pri
+  HandoverOut s PIN-om a dôvodom; automatické pravidlá až podľa skúseností.
+  Riziko: bez zálohy niet z čoho strhnúť pri poškodení.
+- **Zľava pre stáleho zákazníka** — ručne na pulte vs. automaticky
+  (kód v e-maile): **otvorené**.
+- **Prihlásení zákazníci (kontá) — v budúcnosti áno.** Zatiaľ ostáva
+  rezervácia bez registrácie (D-14), lebo je jednoduchšia pre zákazníka.
+  Kontá budú vyžadovať nové rozhodnutie nahrádzajúce D-14.
 
 **Neskoršia fáza:** návratnosť kusu (tržba vs. kúpna cena, servisné
 náklady) — vyžaduje evidenciu nákupných cien a nákladov, nový údaj
@@ -328,7 +375,9 @@ blok na S-02, serverový dotaz „najbližšie termíny voľné pre oba typy“
 ## Čo treba od klienta pred ďalším krokom
 
 - Odpovede na otázky pri jednotlivých bodoch.
-- Rozhovor s účtovníkom: eKasa, príplatok za hotovosť.
+- Výška zľavy za platbu online (%).
 - Rozhovor s právnikom (už prebieha pre OQ #1 / #27): storno podmienky,
-  príplatok, adresa pri dovoze, AI a voľný text zákazníka.
+  **doba uchovávania kontaktov zákazníkov** (reklamácie, NoShow,
+  štatistiky → potom anonymizácia), adresa pri dovoze, AI otázky
+  návštevníkov (90 dní).
 - Hodinové sadzby, paušál a sadzba za km pre dovoz.
