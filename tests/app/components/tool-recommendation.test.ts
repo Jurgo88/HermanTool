@@ -37,6 +37,22 @@ describe('ToolRecommendation (S-01, D-64)', () => {
     expect(view.find('a[href="/naradie/31"]').exists()).toBe(true)
   })
 
+  it('sends the question on Enter, but Shift+Enter does not send', async () => {
+    let calls = 0
+    reply = () => {
+      calls++
+      return { matched: false, safetyNote: null, recommendations: [] }
+    }
+    const view = await mountSuspended(ToolRecommendation)
+    const textarea = view.find('textarea')
+    await textarea.setValue('Vyvŕtať dieru do betónu')
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: true })
+    expect(calls).toBe(0)
+    await textarea.trigger('keydown', { key: 'Enter' })
+    await vi.waitFor(() => expect(view.text()).toContain(sk.toolRecommendation.noMatch))
+    expect(calls).toBe(1)
+  })
+
   it('offers personal advice when nothing fits', async () => {
     const view = await askWith(() => ({ matched: false, safetyNote: null, recommendations: [] }))
     await vi.waitFor(() => expect(view.text()).toContain(sk.toolRecommendation.noMatch))

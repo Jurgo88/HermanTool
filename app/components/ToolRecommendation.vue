@@ -65,6 +65,13 @@ async function ask() {
   }
 }
 
+// Enter sends, Shift+Enter keeps a new line; never mid-composition (IME).
+function onEnter(event: KeyboardEvent) {
+  if (event.isComposing) return
+  event.preventDefault()
+  void ask()
+}
+
 function askAgain() {
   result.value = null
   state.value = 'idle'
@@ -90,6 +97,7 @@ function askAgain() {
             rows="2"
             :aria-describedby="slotProps.ariaDescribedby"
             :disabled="state === 'pending'"
+            @keydown.enter.exact="onEnter"
           />
         </template>
       </AppField>
