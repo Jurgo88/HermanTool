@@ -24,13 +24,19 @@ NORMATIVE. Read it before implementing anything non-trivial.
   Catalog data under review: `docs/catalog-source/pilot-catalog.csv`
 - Part 4 §16.5 — launch questions answered: IdentityEvidence retention
   365 days, legitimate interest (D-61, resolves OQ #2)
+- Part 4 §16.6 — client feedback 15 Nov 2026: CompatibleAssetType,
+  statistics, AI recommendation, OnSitePayment, Delivery/Collection,
+  hourly rental (D-62…D-67). Discussion in
+  `docs/client-feedback/2026-11-15-poziadavky-klienta.md`
 
 ## Precedence when instructions conflict
 1. Part 4 §16.2 implementation-review decisions (D-38…D-42)
 2. Part 4 §16.3 interface-design decisions (D-43…D-53) — for
    presentation/interaction questions only; never overrides an FR/NFR
-3. Part 4 §16.4 catalog decisions (D-54…D-60) — scope additions;
-   never relax an invariant (D-08, D-38, FR-20, FR-33)
+3. Part 4 §16.4 catalog decisions (D-54…D-60) and §16.6 client-feedback
+   decisions (D-62…D-67) — scope additions; never relax an invariant
+   (D-08, D-38, FR-20, FR-33). §16.6 explicitly supersedes A-01 (D-66),
+   A-04 and D-12 (D-67), and D-09 for hourly Reservations only (D-67)
 4. Part 4 §16 reconciliation decisions (D-10, D-33…D-37)
 5. Part 3 FR/NFR requirements
 6. Part 2 workflows and event catalogue
@@ -169,6 +175,10 @@ on 2026-10-03 — most items closed since the review; IR-02 closed on
 - Customer-record retention period + basis (OQ #27, IR-07)
 - Pilot day rates and deposits — imported values are provisional
   tiers (OQ #29, D-60); never treat them as the Tenant's price list
+- Online-payment discount percentage (OQ #31, D-65) — the setting stays
+  empty, and no discount applies, until the Tenant sets it
+- Delivery/Collection flat fee, per-km rate and zone (OQ #32, D-66)
+- Hourly rates and opening hours (OQ #33, D-67)
 
 ## Working style
 - Cite a governing identifier (FR-XX, D-XX, W-XX) in every commit 

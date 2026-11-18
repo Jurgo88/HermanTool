@@ -6,7 +6,7 @@
 | **Status** | Draft — authoritative for technology selection and risk |
 | **Scope** | Sections 13–16 and the Open Questions appendix. Section 17 (Independent Review) is Part 5. Section 16.2 reconciles the 04 August 2026 implementation review (`docs/reviews/implementation-review-2026-08-04.md`, findings `IR-01`…`IR-13`). |
 | **Depends on** | Parts 1, 2 and 3, all **frozen**. Their identifiers are referenced, never restated or renumbered. Section 16 reconciles Part 5's independent review; because Parts 1–3 are frozen, its corrections are expressed here as new decisions and flagged supersessions rather than as edits to those parts. |
-| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-42`; in the §16.3 interface-design pass, `D-43`…`D-53`; in the §16.4 catalog pass, `D-54`…`D-60`; in §16.5, `D-61`. Risks `R-01`…`R-17`. Ubiquitous Language: none before §16.4, which adds **PowerSource**, **UseArea** and **Accessory**. |
+| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-42`; in the §16.3 interface-design pass, `D-43`…`D-53`; in the §16.4 catalog pass, `D-54`…`D-60`; in §16.5, `D-61`; in the §16.6 client-feedback pass, `D-62`…`D-67`. Risks `R-01`…`R-17`. Ubiquitous Language: none before §16.4, which adds **PowerSource**, **UseArea** and **Accessory**. |
 | **Prices verified** | 18 July 2026, against vendor pricing pages. Every number below has a date on it because every number below will move. |
 
 ### Flags: two contradictions and two defects
@@ -337,6 +337,12 @@ The map. Every decision from D-01, with its owning part and status. Reasoning is
 | **D-59** | **Rent Star is the public surface's identity: blue tokens and a header gradient on the public surface only. Not per-Tenant branding.** | P4 §16.4 | accepted — resolves `UI-OQ-3` |
 | **D-60** | **The pilot catalog is bootstrapped by one attributed, name-idempotent import from a reviewed CSV, at provisional tiered prices.** | P4 §16.4 | accepted — **prices provisional (OQ #29)** |
 | **D-61** | **IdentityEvidence is kept 365 days, on the Tenant's legitimate interest (GDPR Art. 6(1)(f)), counted as D-36 counts it.** | P4 §16.5 | accepted — resolves OQ #2, IR-02 |
+| **D-62** | **CompatibleAssetType: a symmetric, Operator-maintained suggestion link between standalone AssetTypes; added on the same RentalPeriod, never required at checkout.** | P4 §16.6 | accepted — D-57 unchanged |
+| **D-63** | **Utilisation & Reporting opens as read-only statistics (`S-25`) over existing data: no aggregate, no stored derived facts, pool-based utilisation, attested money on its own line.** | P4 §16.6 | accepted |
+| **D-64** | **AI tool recommendation on `S-01`: server-side, published ids only, visitor limits, monthly cap, 90-day question log as a bounded exception to Part 2.** | P4 §16.6 | accepted — processor agreement (OQ #4) |
+| **D-65** | **OnSitePayment is a PIN-gated Operator attestation in Handover & Possession; HandoverOut refuses an unpaid group; one Tenant discount for paying online.** | P4 §16.6 | accepted — **discount value open (OQ #31)**; NoShow ban blocked on OQ #27 |
+| **D-66** | **Delivery and Collection: Operator-maintained DeliveryZone with a flat fee, outside it flat fee + Operator-entered km; no maps provider.** | P4 §16.6 | accepted — supersedes A-01; **fee values open (OQ #32)** |
+| **D-67** | **Hourly rental inside one day and opening hours, with a buffer, a day-rate cap and a 10-minute return tolerance.** | P4 §16.6 | accepted in principle — supersedes A-04, D-12 (and D-09 for hourly); build after pilot launch; rates open (OQ #33) |
 
 ### Long-term implications and migration difficulty — D-24 to D-32
 
@@ -756,6 +762,133 @@ FR-02 is met by `S-01` and `S-02` together: availability and DepositObligation a
 - The legitimate-interest balancing test, and whether Act No. 18/2018 Coll. permits copying an official document on this basis, are for the Tenant's counsel to confirm in writing (lawyer brief §3). If counsel requires consent instead, the upload flow must record it, and this decision is superseded.
 - The privacy notice must state the window and the basis.
 
+## 16.6 Client feedback decisions (15–18 November 2026)
+
+On 15 November 2026 the pilot Tenant asked for seven changes. Each was discussed with the owner between 16 and 18 November and the agreed option is recorded here: `docs/client-feedback/2026-11-15-poziadavky-klienta.md` holds the discussion, and issues #210, #211, #214–#218 hold the build scope. As in §16.4, Parts 1–3 stay frozen. These are new decisions with explicit supersessions, not edits.
+
+Three of them supersede an assumption or a decision of Part 1. D-66 supersedes **A-01**. D-67 supersedes **A-04** and **D-12**, and supersedes **D-09** for hourly Reservations only. None of them relaxes an invariant: D-08, D-33, D-38, FR-20 and FR-33 hold without exception in every decision below. Where a decision opens a `[Future]` subdomain of Part 1 §3, it opens it in the narrowest form named, and the rest stays `[Future]`.
+
+**Not recorded as an ADR:** the optional marketing consent at checkout (#216). It adds no Ubiquitous Language term and no boundary. It reuses D-35's pattern (given yes/no, timestamp, text version), it is withdrawable by a tokenised link with no login (D-14 unchanged), and its retention is with the lawyer alongside OQ #27. The Tenant's Stripe live account (client item 4) is configuration of the existing Part 4 decision and needs no ADR either.
+
+### Ubiquitous Language additions
+
+| Term | Meaning | Owned by |
+|---|---|---|
+| **CompatibleAssetType** | A symmetric "compatible with" link between two AssetTypes that are each rentable on their own: a surface-cleaner attachment and the pressure washer it fits. It is a suggestion shown on `S-02`, never a requirement. UI copy: „Hodí sa k tomu“. Tenant-scoped, Operator-maintained. | Catalog (the link); Availability & Reservation (the joint-availability query) |
+| **OnSitePayment** | The Operator's PIN-gated attestation that the rental fee of a ReservationGroup was received at the counter through the Tenant's own eKasa: amount with currency and method (cash, card terminal, QR). The platform never moves this money (P6). | Handover & Possession |
+| **Delivery** | Taking a ReservationGroup's Assets to the Customer on the first day of its RentalPeriod. | Logistics & Delivery |
+| **Collection** | Fetching them back from the Customer on the last day of its RentalPeriod. | Logistics & Delivery |
+| **DeliveryZone** | The Operator-maintained list of municipalities inside which Delivery and Collection carry a flat fee. | Logistics & Delivery |
+
+**Naming guard.** A CompatibleAssetType is not a *related product*, *option*, *variant*, *extra* or *upsell*, and never an Accessory (D-57 is unchanged). Delivery and Collection are never an *Order*, *Shipment* or *Fulfilment*, and a completed Delivery is never *Fulfilled*. OnSitePayment is not a Payment: Payments remains the context that confirms online money (D-07, D-26).
+
+### D-62 — CompatibleAssetType: a symmetric suggestion link between standalone AssetTypes
+
+**Considered:** (a) reuse D-57's Accessory link; (b) a separate, symmetric Catalog link that only suggests; (c) "others also rent…" derived from rental history.
+
+**Trade-offs:** (a) would make the washer unlistable in `S-01` and make checkout refuse the attachment without it, which is exactly wrong: the Customer may own a washer. (c) is meaningless at pilot volume and is a Utilisation & Reporting feature, not a Catalog fact.
+
+**Recommended: (b).**
+- **Link:** one row per unordered pair, stored in canonical order so a pair exists once. No self-link. Both AssetTypes belong to the same Tenant (FR-33). Writes carry Operator attribution (FR-34) and are made in `S-19`.
+- **Public read:** an AssetType's compatible AssetTypes are listed on its `S-02` page, published ones only, from either side of the link.
+- **Adding:** „Pridať na rovnaký termín“ adds one more Reservation to the same draft, with the same RentalPeriod (D-13: the group carries no RentalPeriod of its own). It goes through the ordinary hold path, so D-08, D-33 and D-38 apply unchanged.
+- **Unavailable:** when the compatible AssetType has no capacity for the chosen RentalPeriod, `S-02` says so and offers the nearest RentalPeriods of the same length in which **both** AssetTypes have capacity. The Customer may move the whole selection. Adding it on a different RentalPeriod is not offered. The search is date arithmetic and therefore lives in Availability & Reservation (D-12, superseded only for intra-day intervals by D-67).
+- **Checkout:** never requires the compatible AssetType. This is the contrast with D-57 and is tested as such.
+
+**Why:** it gives the Customer the suggestion the owner wants with no new invariant, because a CompatibleAssetType is an ordinary AssetType.
+
+### D-63 — Utilisation & Reporting opens as read-only statistics, with no aggregate and no stored derived facts
+
+**Considered:** (a) keep reporting `[Future]` and let the owner export raw tables; (b) read-only statistics computed on request from data the platform already holds; (c) a reporting store with nightly aggregates.
+
+**Recommended: (b).** A new admin screen, **`S-25` Štatistiky**:
+- **Overview:** revenue this month against last month; utilisation; Reservations this month; out now and Overdue now; deposits currently held.
+- **Per AssetType, for a month, a year or a custom range:** rentals, rented days, utilisation, revenue, and **unmet demand**: the days on which the AssetType had no capacity left.
+- **CSV export** for the accountant: UTF-8 with a byte-order mark for Excel, and money as an amount column plus a currency column (D-21).
+
+Rules:
+- **Utilisation** is rented days divided by available days. The denominator is the D-38 pool (Rentable, InPossession and UnderInspection) times the days in the range. It is never the count of Assets that are Rentable today.
+- **Overdue and NoShow** are computed exactly as the counter computes them (FR-28) and get the derived treatment (D-47). Nothing is stored.
+- **Revenue** is confirmed online Payments. Money the platform only attests (deposits, and OnSitePayment under D-65) is shown on its own line, never summed into confirmed revenue (P6). Sums never mix currencies.
+- **Period arithmetic** is done by Availability & Reservation's RentalPeriod (D-12). The statistics module asks; it does not subtract dates.
+- Every query is Tenant-scoped (FR-33). Nothing is written.
+
+**Out of scope:** asset payback or ROI, which needs purchase prices and costs the platform does not hold; per-Customer history, which is a new processing purpose and waits for OQ #27.
+
+**Why:** the owner's questions are all answerable from Reservations, RentalAgreements, Payments and DepositObligations. A store of aggregates would be a second copy of facts that P1 says are derived.
+
+### D-64 — AI tool recommendation on `S-01`: a new processor and a deliberate, bounded Visitor record
+
+**Considered:** (a) no recommendation; filters only (D-54); (b) a server-side call to a language model that returns at most three published AssetType ids, with visitor limits, a monthly spend cap and a 90-day question log.
+
+**Recommended: (b).**
+- **Scope:** the Visitor describes the job; the result is 1–3 AssetTypes with a one-sentence reason and an optional safety note. **No how-to instructions.** No availability in the result (D-58). Cards link to `S-02`.
+- **Validation:** the server drops any id that is not a published AssetType of the Tenant. No match yields „S týmto vám poradíme osobne“ and the Tenant's contact.
+- **Boundary:** the call is made from a Nitro route only. The API key never reaches the browser (D-25).
+- **Processor:** Anthropic, added to the processor list (OQ #4). Model id is configuration; `claude-haiku-5-5` proposed, to be validated on about 30 sample Slovak questions before launch.
+- **Limits:** per visitor 10 an hour and 30 a day, keyed by an HMAC of the IP under a daily-rotated secret that is discarded after 24 hours. No raw IP is stored. Input is at most 500 characters. A monthly cap per Tenant (default 10 €, editable) is checked **before** any call; every call records token usage and cost with currency (D-21).
+- **Question log — an exception to Part 2's "a Visitor leaves no record":** question text with e-mail addresses and phone numbers stripped, recommended ids, timestamp and Tenant. No IP and no link to a Customer. Retained **90 days** on the Tenant's legitimate interest in improving its offer; purged by a scheduled job recorded in the job-run ledger (D-41, FR-40). It feeds a „Čo ľudia hľadali“ section of `S-25`.
+
+**Why:** the recommendation is useful only if it is cheap, bounded and cannot invent a tool. The exception to Part 2 is stated here so that it is a decision, not a drift.
+
+### D-65 — OnSitePayment: an Operator attestation in Handover & Possession, with a discount for paying online
+
+**Considered:** (a) online prepayment only, as built; (b) pay on site through the Tenant's eKasa, recorded as an attestation, with a surcharge for paying on site; (c) the same, with a percentage discount for paying online instead of a surcharge.
+
+**Recommended: (c).** The Customer chooses at checkout (`S-03`): **online now** (Stripe, unchanged) or **on site** at pickup.
+- **Attestation, not a Payment.** The Operator records an OnSitePayment, PIN-gated (D-16, D-48, F8): amount with currency (D-21) and method (cash, card terminal, QR), attributed (FR-34) and correctable under P1 by a new record, never an edit. It sits next to the deposit attestation (D-07) in Handover & Possession. Payments stays the context of confirmed online money.
+- **HandoverOut guard.** HandoverOut refuses a ReservationGroup whose rental fee is neither confirmed online nor attested on site, by the same pattern as D-35's terms check.
+- **Discount for paying online.** One Tenant setting: a percentage applied to the rental fee only, never to the deposit or to a Delivery fee (D-66). The server computes every amount; the browser shows what the server returned. **The value is not decided (OQ #31).** Until the Tenant sets it, the setting is empty and no discount applies. It is not a pricing engine: Pricing & Promotions stays `[Future]`.
+- **Limit.** At most one active on-site ReservationGroup per contact, matched on normalised e-mail **or** normalised phone (+421…). There are no accounts (D-14).
+- **Confirmation by e-mail.** An on-site ReservationGroup is confirmed only when the Customer follows a single-use, expiring link sent by e-mail (D-28); the token is stored hashed. Until then its Reservations are `pending` with `pending_expires_at`, exactly like an unpaid online checkout, so an unconfirmed group releases capacity by the existing expiry sweep (D-08, D-33, D-38 unchanged).
+- **IdentityEvidence** on this path is captured by the Operator at the counter, D-15 option (c). Nothing is uploaded online.
+
+**Blocked, and not built under this decision:**
+- refusing on-site payment after a NoShow, which needs the contact kept after the rental ends (OQ #27, IR-07);
+- cancellation or refund on either path (OQ #1);
+- SMS verification, deferred until the pilot shows the limit is being circumvented.
+
+**Why:** it lets Customers who will not pay a stranger online still rent, without the platform ever touching cash, and without a second money path to reconcile.
+
+### D-66 — Delivery and Collection: a minimal Logistics & Delivery context (supersedes A-01)
+
+**Considered:** (a) keep A-01: one pickup location, no delivery; (b) Delivery and Collection priced by an Operator-maintained zone with a flat fee, and outside it by kilometres the Operator enters after a phone call; (c) automatic distance pricing through a maps provider.
+
+**Trade-offs:** (c) adds a processor that receives every Customer address, for a service the owner expects to be used rarely. (b) costs a municipality list and two money settings.
+
+**Recommended: (b).** A-01 is superseded. Logistics & Delivery opens with only Delivery, Collection and DeliveryZone; depots stay `[Future]`.
+- **Dependency direction:** downstream of Availability & Reservation. A Delivery or Collection belongs to one ReservationGroup and never holds capacity of its own.
+- **Choice:** Delivery and Collection are independent (either, both or neither). Every AssetType may be delivered. Delivery happens on the RentalPeriod's first day and Collection on its last (D-09 unchanged). The Customer picks morning or afternoon; the exact time is agreed by phone. No daily capacity limit for now.
+- **Inside the zone:** the Customer picks a municipality from the DeliveryZone and enters a street. The **flat fee** per Delivery and per Collection is priced at checkout and paid with the rental fee, online or on site. D-65's discount never applies to it.
+- **Outside the zone:** the Customer ticks „Chcem dovoz mimo zóny — zavolajte mi“ and writes the place. The group completes as an ordinary pickup. After the call, the Operator records the Delivery or Collection with the kilometres; the server computes **flat fee + km × rate**. The fee is paid to the driver on site and attested exactly like an OnSitePayment (PIN, amount, method). The eKasa receipt in the field is the Tenant's responsibility; the platform issues none.
+- **Settings:** the flat fee and the per-km rate are Tenant settings, money with currency (D-21). **Their values are not decided (OQ #32)**; until set, the zone offers no Delivery.
+- **Fees are computed server-side only**; a client-sent fee is ignored (D-25).
+- **Handover at the Customer:** the driver is an Operator with their own PIN and runs the normal HandoverOut and HandoverIn on the phone: IdentityEvidence, condition photographs, AssetTag scan, deposit. Collection photographs are taken at the Customer, so FR-19 and FR-20 pairing hold without exception.
+- **No maps, no geocoding, no routing provider.** The address never leaves the platform. It is personal data whose retention is under OQ #27.
+
+**Why:** it is the narrowest Delivery the owner asked for, and it adds no processor and no invariant.
+
+### D-67 — Hourly rental inside one day and opening hours (supersedes A-04 and D-12; D-09 for hourly Reservations)
+
+**Decided in principle; build after the pilot launches on days.** This answers OQ #13.
+
+**Considered:** (a) keep day granularity; (b) intervals on a continuous timeline, across days; (c) intervals that never leave one day and never leave the Tenant's opening hours, with days remaining the backbone.
+
+**Trade-offs:** (b) is an XL change: daylight-saving time, cross-midnight turnover and a rewrite of the day calendar. (c) keeps the day calendar and adds intervals inside a day.
+
+**Recommended: (c).**
+- **RentalPeriod** gains an intra-day form: one day, a start and an end, on 30-minute steps, inside that day's opening hours. It never crosses midnight or closing time; overnight is a day rental. RentalDay generalises to RentalUnit as D-12 foresaw. Date and time arithmetic stays in Availability & Reservation only.
+- **Opening hours** are a weekly Tenant setting, editable in admin. The provisional schedule (Mon–Fri 7:00–17:00, Sat 8:00–12:00, Sun closed) is the client's statement and is confirmed in admin, not hard-coded.
+- **Which AssetTypes:** those with an hourly rate set, money with currency (D-21). There is no granularity flag; `rentalGranularity` stays banned.
+- **Price cap:** when the hours cost more than the day rate, the day rate is charged. **Deposit** equals the AssetType's day deposit.
+- **Buffer:** 30 minutes between hourly Reservations on the same AssetType, as a Tenant setting. D-09 still governs day Reservations: a day return consumes the day.
+- **Capacity** is still the D-38 pool. D-08 and D-33 extend to overlapping intervals including the buffer, with the concurrency proof test extended to intervals. An hourly Reservation never reduces capacity outside its own interval and buffer.
+- **Late return:** charging runs from the reserved start. Return is late after the reserved end plus a **10-minute tolerance**; after that every started hour is added. The counter warning is a derived fact (FR-28, D-17), never a stored state. The surcharge is computed by the server and taken through an OnSitePayment (D-65). **It is never deducted from the deposit**: deductions stay damage-only with paired ConditionReports (FR-20). The tolerance applies to hourly rentals only; a day rental may come back any time on its last day until closing.
+
+**Open:** hourly rates per AssetType (OQ #33) — provisional values are never the Tenant's price list (OQ #29).
+
+**Why:** confining an interval to one day keeps the change inside one context, as D-12's discipline intended, and keeps the size at L rather than XL.
+
 ## Appendix — Open Questions
 
 The pre-build checklist. Everything still open across Parts 1–4, flattest form, with where the context lives.
@@ -784,6 +917,9 @@ The pre-build checklist. Everything still open across Parts 1–4, flattest form
 | 24 | Does an Asset marked Unavailable leave the pool for all future days, or only until a recorded return-to-service date? Affects Unavailable only, never the handover path. | D-38 · IR-01 |
 | 25 | The Operator access-token lifetime — i.e. the revocation lag D-39 accepts in exchange for removing a remote auth call from the scan path. | D-39 · NFR-09 · IR-09 |
 | 26 | Maximum accepted photograph size for presigned uploads, for both buckets. | D-40 · R-10 · IR-10 |
+| 31 | The percentage discount for paying online. Until the Tenant sets it, no discount applies. | D-65 · client feedback §2 |
+| 32 | The Delivery/Collection flat fee, the per-km rate and the DeliveryZone municipalities. Until set, no Delivery is offered. | D-66 · client feedback §3 |
+| 33 | Hourly rates per AssetType and confirmation of the opening hours. Provisional values are never the Tenant's price list. | D-67 · OQ #29 |
 
 ### Deferred design work — decided in principle, not designed
 
@@ -791,7 +927,7 @@ The pre-build checklist. Everything still open across Parts 1–4, flattest form
 |---|---|---|
 | 11 | W11 cancellation and refund workflow. | Unblocked by #1 |
 | 12 | Dispute management. | D-05's split: settlement stops being simultaneous with return |
-| 13 | Hourly rental granularity. | D-12 · A-04 · a Tenant needing intra-day turnover |
+| 13 | ~~Hourly rental granularity.~~ — **decided in principle 2026-11-18 (D-67):** intra-day intervals inside opening hours; build after the pilot launches on days. | D-12 · A-04 · D-67 |
 | 14 | Card pre-authorisation deposits, and hold expiry against an Overdue Possession. | D-07 · A-06 — the one genuinely new policy question |
 | 15 | Automated identity verification. | D-15 — would move IdentityVerified online |
 | 16 | Integration events, schemas, versioning. | D-19 — the API consumer exists |
