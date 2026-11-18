@@ -51,6 +51,8 @@ const CONTEXT_ALLOWED_IMPORTS = {
   'availability-reservation': ['catalog', 'asset-registry', 'payments'],
   'handover-possession': ['availability-reservation', 'asset-registry', 'customer-identity-compliance'],
   notification: ['handover-possession', 'availability-reservation'],
+  // D-63: read-only statistics; asks A&R for period arithmetic (D-12).
+  'utilisation-reporting': ['availability-reservation'],
 }
 
 const CONTEXT_NAMES = Object.keys(CONTEXT_ALLOWED_IMPORTS)
