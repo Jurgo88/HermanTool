@@ -1,4 +1,5 @@
-# Pickup reminder dispatch (FR-41; issue #36). Scheduling by GitHub
+# Pickup reminder dispatch (FR-41; issue #36). Reminds Reservations that
+# start TOMORROW (D-68). Scheduling by GitHub
 # Actions calling an authenticated Nitro endpoint — same mechanism as
 # .github/workflows/dispatch-return-reminders.yml, reused rather than
 # reinvented.

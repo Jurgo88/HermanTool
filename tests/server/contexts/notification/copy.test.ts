@@ -46,6 +46,10 @@ describe('Customer email copy (#189, D-20)', () => {
     }
   })
 
+  it('says the Reservation starts tomorrow in the pickup reminder (D-68)', () => {
+    expect(pickupReminderText({ customerName: 'A', assetTypeName: 'Píla', period: 'x' }).body).toContain('zajtra')
+  })
+
   it('names the tool in each reminder', () => {
     expect(pickupReminderText({ customerName: 'A', assetTypeName: 'Píla', period: 'x' }).body).toContain('Píla')
     expect(returnReminderText({ customerName: 'A', assetTypeName: 'Píla', dueDay: 'x' }).body).toContain('Píla')

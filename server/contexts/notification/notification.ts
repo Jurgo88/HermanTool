@@ -182,10 +182,9 @@ export async function dispatchReturnReminder(
   return sendAndRecord(deps, { tenantId, customerId, kind: 'return_reminder', referenceId: reservationId, to, subject, body })
 }
 
-// FR-41: "Pickup reminder by email." Sent exactly on the Reservation's
-// own RentalPeriod start day (OQ #7's timing value — not launch-blocking,
-// same pragmatic pilot-scale constant discipline as return_reminder's
-// own "exactly on end day" choice) for symmetry and simplicity, not a
+// FR-41: "Pickup reminder by email." Sent on the day before the
+// Reservation's RentalPeriod starts (D-68 — the caller,
+// server/utils/pickup-reminder-dispatch.ts, picks the day); not a
 // preference/configuration surface (issue #36's own scope note).
 export async function dispatchPickupReminder(
   deps: NotificationDeps,
