@@ -8,6 +8,7 @@
 // group, the Customer and the e-mails.
 export type {
   Delivery,
+  DeliveryFeeCorrection,
   DeliveryFeePayment,
   DeliveryFeePaymentMethod,
   DeliveryLeg,
@@ -19,6 +20,7 @@ export type {
 export {
   DeliveryAddressRequiredError,
   DeliveryFeeAlreadyAttestedError,
+  DeliveryFeeCorrectionError,
   DeliveryNotFoundError,
   DeliveryNotOfferedError,
   DuplicateDeliveryLegError,
@@ -34,6 +36,7 @@ export {
   MAX_DISTANCE_KM,
   addZoneMunicipality,
   attestDeliveryFeePayment,
+  currentDeliveryFeePayment,
   inZoneFeeTotal,
   isDeliveryOffered,
   priceOutsideZone,

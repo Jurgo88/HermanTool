@@ -56,6 +56,17 @@ export interface DeliveryFeePayment {
   method: DeliveryFeePaymentMethod
   operatorId: string
   attestedAt: Date
+  // P1/D-10 (#237): a correction names the attestation it supersedes.
+  supersedesId: number | null
+  correctionReason: string | null
+}
+
+// What a correction changes: the method, and optionally the km — the
+// amount is still the server's price (D-25), never typed in.
+export interface DeliveryFeeCorrection {
+  supersedesId: number
+  reason: string
+  distanceKm?: number
 }
 
 export class LogisticsDeliveryError extends Error {
@@ -115,6 +126,14 @@ export class MunicipalityNameTakenError extends LogisticsDeliveryError {
 
 export class DeliveryFeeAlreadyAttestedError extends LogisticsDeliveryError {
   constructor(deliveryId: number) {
-    super(`The fee for Delivery ${deliveryId} is already attested.`)
+    super(
+      `The fee for Delivery ${deliveryId} is already attested; correct it with a new attestation that supersedes it.`,
+    )
+  }
+}
+
+export class DeliveryFeeCorrectionError extends LogisticsDeliveryError {
+  constructor(detail: string) {
+    super(`Delivery fee correction refused: ${detail}.`)
   }
 }

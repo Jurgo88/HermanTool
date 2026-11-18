@@ -241,7 +241,10 @@ export const sk = {
       // D-66.
       DeliveryNotOfferedError: 'Dovoz sa neponúka — najprv nastavte paušál a obce v zóne.',
       OutsideZonePricingError: 'Cenu mimo zóny sa nepodarilo vypočítať. Skontrolujte km a sadzbu za km.',
-      DeliveryFeeAlreadyAttestedError: 'Platba za túto dopravu je už potvrdená.',
+      DeliveryFeeAlreadyAttestedError:
+        'Platba za túto dopravu je už potvrdená. Ak je v nej chyba, použite Opraviť.',
+      DeliveryFeeCorrectionError:
+        'Opravu sa nepodarilo uložiť. Uveďte dôvod a skúste to znova — opraviť sa dá len platný záznam.',
       MunicipalityNameTakenError: 'Táto obec už v zóne je.',
       MunicipalityNameRequiredError: 'Zadajte názov obce.',
       MunicipalityNotInZoneError: 'Táto obec v zóne nie je.',
@@ -1091,6 +1094,15 @@ export const sk = {
     methodLabel: 'Forma platby vodičovi',
     attestFeeAction: 'Potvrdiť prijatie {amount}',
     feeAttested: 'Platba za dopravu je potvrdená.',
+    // #237 (P1): a correction is a new attestation; the original stays.
+    feePaid: 'Prijaté {amount} ({method}), {time}.',
+    feeCorrectedNote: 'Opravený záznam — pôvodný ostáva v histórii.',
+    correctAction: 'Opraviť',
+    correctionHint:
+      'Pôvodný záznam sa nemení, pribudne nový s dôvodom. Ak zmeníte km, cena sa prepočíta.',
+    correctionReasonLabel: 'Dôvod opravy',
+    correctionSubmitAction: 'Uložiť opravu',
+    correctionCancelAction: 'Zrušiť',
     handoverNote:
       'Odovzdanie u zákazníka prebieha ako na pulte: doklad, fotky stavu, sken štítku, záloha. Pokladničný doklad vystavte v eKase.',
   },

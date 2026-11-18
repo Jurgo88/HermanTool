@@ -9,7 +9,11 @@
 // active Reservations.
 import type postgres from 'postgres'
 import type { MonetaryAmount, TenantId } from '../contexts/_shared'
-import type { DeliveryLeg, TimeWindow } from '../contexts/logistics-delivery'
+import type {
+  DeliveryFeePaymentMethod,
+  DeliveryLeg,
+  TimeWindow,
+} from '../contexts/logistics-delivery'
 
 export interface ScheduledLeg {
   deliveryId: number
@@ -23,6 +27,15 @@ export interface ScheduledLeg {
   fee: MonetaryAmount | null
   distanceKm: number | null
   feeAttested: boolean
+  // #237: the attestation in force (none superseding it), for S-29 to show
+  // and correct. `corrected` = it supersedes an earlier one.
+  feePayment: {
+    id: number
+    amount: MonetaryAmount
+    method: DeliveryFeePaymentMethod
+    attestedAt: Date
+    corrected: boolean
+  } | null
   customerName: string | null
   customerPhone: string | null
 }
@@ -47,6 +60,12 @@ export async function listScheduledLegs(
       fee_currency: MonetaryAmount['currency']
       distance_km: number | null
       fee_attested: boolean
+      payment_id: number | null
+      payment_amount_cents: number | null
+      payment_currency: MonetaryAmount['currency'] | null
+      payment_method: DeliveryFeePaymentMethod | null
+      payment_attested_at: Date | null
+      payment_corrected: boolean | null
       customer_name: string | null
       customer_phone: string | null
     }[]
@@ -63,9 +82,22 @@ export async function listScheduledLegs(
       d.time_window, d.outside_zone, m.name as municipality, d.address,
       d.fee_cents, d.fee_currency, d.distance_km,
       exists (select 1 from delivery_fee_payments p where p.tenant_id = d.tenant_id and p.delivery_id = d.id) as fee_attested,
+      cur.id as payment_id, cur.amount_cents as payment_amount_cents,
+      cur.currency as payment_currency, cur.method as payment_method,
+      cur.attested_at as payment_attested_at, cur.supersedes_id is not null as payment_corrected,
       c.name as customer_name, c.phone as customer_phone
     from deliveries d
     join spans s on s.reservation_group_id = d.reservation_group_id
+    left join lateral (
+      select p.* from delivery_fee_payments p
+      where p.tenant_id = d.tenant_id and p.delivery_id = d.id
+        and not exists (
+          select 1 from delivery_fee_payments x
+          where x.tenant_id = p.tenant_id and x.supersedes_id = p.id
+        )
+      order by p.id desc
+      limit 1
+    ) cur on true
     left join delivery_zone_municipalities m on m.tenant_id = d.tenant_id and m.id = d.municipality_id
     left join customers c on c.tenant_id = d.tenant_id and c.reservation_group_id = d.reservation_group_id
     where d.tenant_id = ${params.tenantId}
@@ -85,6 +117,16 @@ export async function listScheduledLegs(
     fee: r.fee_cents === null ? null : { amount: r.fee_cents, currency: r.fee_currency },
     distanceKm: r.distance_km,
     feeAttested: r.fee_attested,
+    feePayment:
+      r.payment_id === null
+        ? null
+        : {
+            id: r.payment_id,
+            amount: { amount: r.payment_amount_cents!, currency: r.payment_currency! },
+            method: r.payment_method!,
+            attestedAt: r.payment_attested_at!,
+            corrected: r.payment_corrected === true,
+          },
     customerName: r.customer_name,
     customerPhone: r.customer_phone,
   }))

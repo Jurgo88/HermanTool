@@ -5,6 +5,7 @@ import { useRuntimeConfig } from '#imports'
 import {
   DeliveryAddressRequiredError,
   DeliveryFeeAlreadyAttestedError,
+  DeliveryFeeCorrectionError,
   DeliveryNotFoundError,
   DeliveryNotOfferedError,
   DuplicateDeliveryLegError,
@@ -38,6 +39,7 @@ export function translateLogisticsDeliveryError(err: unknown): never {
   if (
     err instanceof DeliveryNotOfferedError ||
     err instanceof DeliveryFeeAlreadyAttestedError ||
+    err instanceof DeliveryFeeCorrectionError ||
     err instanceof MunicipalityNameTakenError
   ) {
     throw reply(409, err)
