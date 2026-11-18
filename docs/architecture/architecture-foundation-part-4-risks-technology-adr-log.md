@@ -832,6 +832,12 @@ Rules:
 
 **Why:** the recommendation is useful only if it is cheap, bounded and cannot invent a tool. The exception to Part 2 is stated here so that it is a decision, not a drift.
 
+**As built (#214, 20 November 2026):**
+- A context of its own, `tool-recommendation`, imports no other context. The composition root passes in the published catalog (Catalog) and the Tenant's time zone (Availability & Reservation). The provider is reached by plain HTTP from one gateway file, with no SDK dependency. The catalog is the cached system-prompt prefix; the answer is structured output, and the server still validates every id.
+- The provider bills in US dollars, which `MonetaryAmount` (EUR only, D-21) does not carry. The usage ledger therefore records the cost in micro-dollars with its own `USD` currency tag. The cap check counts one dollar as one euro. No rate is invented, and while the dollar is weaker than the euro the cap trips early, never late (OQ #34).
+- The visitor key's secret rotates at UTC midnight, so the hourly and daily windows both reset then. A refused attempt still counts towards the limit. Concurrent calls can overshoot the cap by one call's cost (a fraction of a cent).
+- The model is still unvalidated: `scripts/evaluate-tool-recommendation.ts` runs the 30 sample questions against the paid API and has not been run. Until a key is set, S-01 shows only the filters.
+
 ### D-65 — OnSitePayment: an Operator attestation in Handover & Possession, with a discount for paying online
 
 **Considered:** (a) online prepayment only, as built; (b) pay on site through the Tenant's eKasa, recorded as an attestation, with a surcharge for paying on site; (c) the same, with a percentage discount for paying online instead of a surcharge.
@@ -941,6 +947,7 @@ The pre-build checklist. Everything still open across Parts 1–4, flattest form
 | 31 | The percentage discount for paying online. Until the Tenant sets it, no discount applies. | D-65 · client feedback §2 |
 | 32 | The Delivery/Collection flat fee, the per-km rate and the DeliveryZone municipalities. Until set, no Delivery is offered. | D-66 · client feedback §3 |
 | 33 | Hourly rates per AssetType and confirmation of the opening hours. Provisional values are never the Tenant's price list. | D-67 · OQ #29 |
+| 34 | The exchange rate for the AI recommendation's monthly cap. The provider bills in USD and the cap is in €; until a rate (or a USD cap) is decided, one dollar is counted as one euro. | D-64 · #214 |
 
 ### Deferred design work — decided in principle, not designed
 

@@ -22,6 +22,8 @@ export type JobName =
   | 'database_backup'
   | 'unconfirmed_identity_evidence_sweep'
   | 'unconfirmed_condition_report_sweep'
+  // D-64 (#214), migration 20261120090000.
+  | 'tool_recommendation_purge'
 
 export type JobOutcome = 'success' | 'failure'
 

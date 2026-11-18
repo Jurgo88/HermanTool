@@ -18,6 +18,8 @@ definePageMeta({ layout: 'public' })
       <p>{{ sk.draft.privacyDeliveryBody }}</p>
       <h2>{{ sk.draft.privacyMarketingHeading }}</h2>
       <p>{{ sk.draft.privacyMarketingBody }}</p>
+      <h2>{{ sk.draft.privacyRecommendationHeading }}</h2>
+      <p>{{ sk.draft.privacyRecommendationBody }}</p>
     </DraftNotice>
     <NuxtLink to="/"><AppButton variant="secondary">{{ sk.legalPrivacy.backToCatalogAction }}</AppButton></NuxtLink>
   </main>

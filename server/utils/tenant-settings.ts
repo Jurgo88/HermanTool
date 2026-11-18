@@ -8,12 +8,17 @@
 import type postgres from 'postgres'
 import { createMonetaryAmount, type MonetaryAmount, type TenantId } from '../contexts/_shared'
 import { assertValidOnlineDiscount } from '../contexts/payments'
+import { DEFAULT_MONTHLY_CAP, assertValidRecommendationCap } from '../contexts/tool-recommendation'
 
 export interface TenantSettings {
   onlinePaymentDiscountBasisPoints: number | null
   // D-66 (OQ #32): null until the Tenant sets them.
   deliveryFlatFee: MonetaryAmount | null
   deliveryPerKmRate: MonetaryAmount | null
+  // D-64: the monthly cap for AI recommendations. Null in the database
+  // means the owner's default (10 €) applies; this field is the cap in force.
+  recommendationMonthlyCap: MonetaryAmount
+  recommendationCapIsDefault: boolean
   updatedAt: Date | null
 }
 
@@ -27,11 +32,13 @@ export async function getTenantSettings(
       delivery_flat_fee_cents: number | null
       delivery_per_km_cents: number | null
       delivery_fee_currency: MonetaryAmount['currency']
+      recommendation_monthly_cap_cents: number | null
+      recommendation_cap_currency: MonetaryAmount['currency']
       updated_at: Date
     }[]
   >`
     select online_payment_discount_basis_points, delivery_flat_fee_cents, delivery_per_km_cents,
-      delivery_fee_currency, updated_at
+      delivery_fee_currency, recommendation_monthly_cap_cents, recommendation_cap_currency, updated_at
     from tenant_settings
     where tenant_id = ${tenantId}
   `
@@ -44,6 +51,12 @@ export async function getTenantSettings(
     onlinePaymentDiscountBasisPoints: row?.online_payment_discount_basis_points ?? null,
     deliveryFlatFee: money(row?.delivery_flat_fee_cents),
     deliveryPerKmRate: money(row?.delivery_per_km_cents),
+    recommendationMonthlyCap:
+      row?.recommendation_monthly_cap_cents === null || row?.recommendation_monthly_cap_cents === undefined
+        ? DEFAULT_MONTHLY_CAP
+        : createMonetaryAmount(row.recommendation_monthly_cap_cents, row.recommendation_cap_currency),
+    recommendationCapIsDefault:
+      row?.recommendation_monthly_cap_cents === null || row?.recommendation_monthly_cap_cents === undefined,
     updatedAt: row?.updated_at ?? null,
   }
 }
@@ -87,6 +100,24 @@ export async function setDeliveryFees(
     on conflict (tenant_id) do update set
       delivery_flat_fee_cents = excluded.delivery_flat_fee_cents,
       delivery_per_km_cents = excluded.delivery_per_km_cents,
+      updated_by_operator_id = excluded.updated_by_operator_id,
+      updated_at = now()
+  `
+  return getTenantSettings(sql, params.tenantId)
+}
+
+// D-64: the monthly cap for AI recommendations, in euro cents. Null returns
+// to the owner's default (10 €); 0 switches the recommendation off.
+export async function setRecommendationMonthlyCap(
+  sql: postgres.Sql,
+  params: { tenantId: TenantId; cents: number | null; operatorId: string },
+): Promise<TenantSettings> {
+  assertValidRecommendationCap(params.cents)
+  await sql`
+    insert into tenant_settings (tenant_id, recommendation_monthly_cap_cents, updated_by_operator_id, updated_at)
+    values (${params.tenantId}, ${params.cents}, ${params.operatorId}, now())
+    on conflict (tenant_id) do update set
+      recommendation_monthly_cap_cents = excluded.recommendation_monthly_cap_cents,
       updated_by_operator_id = excluded.updated_by_operator_id,
       updated_at = now()
   `

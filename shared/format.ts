@@ -30,6 +30,17 @@ function parseRentalDay(isoDay: string): Date {
   return new Date(`${isoDay}T00:00:00.000Z`)
 }
 
+// D-64: what the AI provider bills, in millionths of its currency (USD).
+// Shown with up to four decimals: a month of questions is often cents.
+export function formatProviderCost({ microUnits, currency }: { microUnits: number; currency: string }): string {
+  return new Intl.NumberFormat(LOCALE, {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  }).format(microUnits / 1_000_000)
+}
+
 export function formatDay(isoDay: string): string {
   return new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(
     parseRentalDay(isoDay),

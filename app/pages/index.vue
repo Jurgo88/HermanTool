@@ -33,6 +33,11 @@ const {
 const { data: classification } = await useFetch<ClassificationView>(
   '/api/public/catalog-classification',
 )
+// D-64 (#214): the AI recommendation shows only when the server says so —
+// configured and under this month's cap. Otherwise only the filters.
+const { data: recommendationStatus } = await useFetch<{ available: boolean }>(
+  '/api/public/tool-recommendation/status',
+)
 
 const selection = ref<ClassificationSelection>({ powerSourceIds: [], useAreaIds: [] })
 
@@ -52,6 +57,8 @@ function clearSelection() {
       <h1 class="catalog__title">{{ sk.publicCatalog.title }}</h1>
       <p class="catalog__lead">{{ sk.publicCatalog.lead }}</p>
     </header>
+
+    <ToolRecommendation v-if="recommendationStatus?.available" />
 
     <div v-if="classification" class="catalog__filters">
       <ClassificationFilter
