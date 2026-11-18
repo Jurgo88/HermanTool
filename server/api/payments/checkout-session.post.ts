@@ -14,7 +14,8 @@ import { createAvailabilityReservationDeps } from '../../utils/availability-rese
 import { createCatalogDeps } from '../../utils/catalog-deps'
 import { requireCheckoutGroupCookie } from '../../utils/checkout-session'
 import { createPaymentsDeps, getAppBaseUrl } from '../../utils/payments-deps'
-import { quoteReservationLines } from '../../utils/reservation-quote'
+import { createPostgresLogisticsDeliveryRepository } from '../../contexts/logistics-delivery'
+import { computeGroupCharges } from '../../utils/group-charges'
 import { getSeededTenantId } from '../../utils/tenant'
 import { getTenantSettings } from '../../utils/tenant-settings'
 
@@ -52,18 +53,20 @@ export default defineEventHandler(async (event) => {
 
     const reservations = await availability.repo.listReservationsForGroup(tenantId, body.reservationGroupId)
     // One Reservation is one unit (FR-06). Same computation as the S-03
-    // quote (#164), so the page and the charge cannot disagree.
-    const quote = await quoteReservationLines(
-      reservations.map((reservation) => ({
-        assetTypeId: reservation.assetTypeId,
-        period: reservation.period,
-        quantity: 1,
-      })),
-      (assetTypeId) => catalog.repo.getAssetType(tenantId, assetTypeId),
-      { onlineDiscountBasisPoints: onlinePaymentDiscountBasisPoints },
-    )
-    // D-65: paying online is the discounted fee, the same number S-03 showed.
-    const amount = quote.onlineRentalFeeTotal
+    // quote (#164), so the page and the charge cannot disagree. D-65: the
+    // rental fee less the online discount; D-66: plus in-zone Delivery /
+    // Collection fees, never discounted.
+    const deliveries = await createPostgresLogisticsDeliveryRepository(
+      availability.sql,
+    ).listDeliveriesForGroup(tenantId, body.reservationGroupId)
+    const charges = await computeGroupCharges({
+      tenantId,
+      reservations,
+      catalogRepo: catalog.repo,
+      deliveries,
+      onlineDiscountBasisPoints: onlinePaymentDiscountBasisPoints,
+    })
+    const amount = charges.onlineTotal
 
     const appBaseUrl = getAppBaseUrl(event)
     const { redirectUrl } = await startPayment(payments.repo, payments.gateway, {

@@ -18,6 +18,10 @@ import { formatCount, formatMoney, formatTime } from '~/utils/format'
 import { orderForDisplay, toCheckoutLines, toQuoteLines } from '~/utils/reservation-draft'
 import { getErrorCode } from '~/utils/error-code'
 import { MARKETING_CONSENT_TEXT_VERSION } from '#shared/marketing-consent'
+import type {
+  DeliveryRequestView,
+  DeliveryZoneView,
+} from '~/components/DeliveryCollectionChoice.vue'
 
 definePageMeta({ layout: 'public', hero: true })
 
@@ -52,6 +56,10 @@ interface ReservationQuote {
   onlineRentalFeeTotal: Money
   onlineDiscount: Money
   depositTotal: Money
+  // D-66: in-zone Delivery/Collection fees and the totals with them.
+  deliveryFeeTotal?: Money
+  onlineTotal?: Money
+  onSiteTotal?: Money
 }
 
 // #164: the fee and the deposit come from the server — the same
@@ -59,6 +67,28 @@ interface ReservationQuote {
 // (D-51) and cannot show a different total from the one charged.
 const quote = ref<ReservationQuote | null>(null)
 const quoteStatus = ref<'idle' | 'loading' | 'loaded' | 'error'>('idle')
+
+// D-66: Delivery and Collection. Offered only when the server says so;
+// only complete legs go to the quote, which prices them.
+const deliveryZone = ref<DeliveryZoneView>({ offered: false, flatFee: null, municipalities: [] })
+const deliveryRequests = ref<DeliveryRequestView[]>([])
+const completeDeliveryRequests = computed(() =>
+  deliveryRequests.value.filter(
+    (r) => r.address.trim() !== '' && (r.outsideZone || r.municipalityId !== null),
+  ),
+)
+const deliveryIncomplete = computed(
+  () => completeDeliveryRequests.value.length !== deliveryRequests.value.length,
+)
+const anyOutsideZone = computed(() => deliveryRequests.value.some((r) => r.outsideZone))
+
+onMounted(async () => {
+  try {
+    deliveryZone.value = await $fetch<DeliveryZoneView>('/api/public/delivery-zone')
+  } catch {
+    // Not offered when the zone cannot be read; a pickup still works.
+  }
+})
 
 async function loadQuote() {
   if (draftLines.value.length === 0) {
@@ -70,7 +100,7 @@ async function loadQuote() {
   try {
     quote.value = await $fetch<ReservationQuote>('/api/public/reservation-quote', {
       method: 'POST',
-      body: { lines: toQuoteLines(draftLines.value) },
+      body: { lines: toQuoteLines(draftLines.value), deliveries: completeDeliveryRequests.value },
     })
     quoteStatus.value = 'loaded'
   } catch {
@@ -80,6 +110,7 @@ async function loadQuote() {
 }
 
 watch(draftLines, loadQuote, { immediate: true, deep: true })
+watch(completeDeliveryRequests, loadQuote, { deep: true })
 
 // #190: a group this browser left unpaid. Still payable: offer to finish it
 // (paying here instead would hold the same tools twice). Paid: the draft is
@@ -155,22 +186,25 @@ const error = ref<string | null>(null)
 const paying = ref(false)
 const reservationGroupId = ref<number | null>(null)
 
-watch([draftLines, customerName, customerEmail, customerPhone, paymentMethod], () => {
+watch([draftLines, customerName, customerEmail, customerPhone, paymentMethod, deliveryRequests], () => {
   if (!paying.value) reservationGroupId.value = null
 }, { deep: true })
 
 const payLabel = computed(() => {
   if (paymentMethod.value === 'on_site') return sk.checkout.reserveOnSiteAction
   return quote.value
-    ? sk.checkout.payAction.replace('{amount}', formatMoney(quote.value.onlineRentalFeeTotal))
+    ? sk.checkout.payAction.replace(
+        '{amount}',
+        formatMoney(quote.value.onlineTotal ?? quote.value.onlineRentalFeeTotal),
+      )
     : sk.checkout.payActionNoAmount
 })
 
 const dueNow = computed(() =>
   quote.value
     ? paymentMethod.value === 'online'
-      ? quote.value.onlineRentalFeeTotal
-      : quote.value.rentalFeeTotal
+      ? (quote.value.onlineTotal ?? quote.value.onlineRentalFeeTotal)
+      : (quote.value.onSiteTotal ?? quote.value.rentalFeeTotal)
     : null,
 )
 
@@ -195,6 +229,10 @@ async function pay() {
     error.value = sk.checkout.linesInPastError
     return
   }
+  if (deliveryIncomplete.value) {
+    error.value = sk.deliveryChoice.incompleteError
+    return
+  }
 
   paying.value = true
   try {
@@ -210,6 +248,7 @@ async function pay() {
           },
           paymentMethod: paymentMethod.value,
           marketingConsent: marketingConsent.value,
+          deliveries: completeDeliveryRequests.value,
           marketingConsentVersion: MARKETING_CONSENT_TEXT_VERSION,
         },
       })
@@ -418,6 +457,22 @@ async function pay() {
 
         <!-- D-07/FR-21: two separate sums. The card pays the rental only; the
           deposit is cash at the counter and is as prominent as the card sum. -->
+        <DeliveryCollectionChoice
+          v-model="deliveryRequests"
+          :zone="deliveryZone"
+          :disabled="paying"
+          :show-errors="attempted"
+        />
+        <p
+          v-if="quote?.deliveryFeeTotal && quote.deliveryFeeTotal.amount > 0"
+          class="checkout__note"
+        >
+          {{
+            sk.deliveryChoice.feeIncluded.replace('{amount}', formatMoney(quote.deliveryFeeTotal))
+          }}
+        </p>
+        <p v-if="anyOutsideZone" class="checkout__note">{{ sk.deliveryChoice.outsideZoneNote }}</p>
+
         <fieldset v-if="quote" class="checkout__methods" :disabled="paying">
           <legend class="checkout__methods-legend">{{ sk.checkout.paymentMethodLegend }}</legend>
           <label class="checkout__method">

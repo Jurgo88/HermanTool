@@ -53,6 +53,8 @@ const CONTEXT_ALLOWED_IMPORTS = {
   notification: ['handover-possession', 'availability-reservation'],
   // D-63: read-only statistics; asks A&R for period arithmetic (D-12).
   'utilisation-reporting': ['availability-reservation'],
+  // D-66: downstream of A&R; imports no context today.
+  'logistics-delivery': [],
 }
 
 const CONTEXT_NAMES = Object.keys(CONTEXT_ALLOWED_IMPORTS)

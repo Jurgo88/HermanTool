@@ -204,6 +204,10 @@ export const sk = {
     privacyPageBody:
       'Toto je dočasný text — konečné znenie zásad ochrany súkromia, vrátane doby uchovávania dokladov totožnosti a údajov zákazníka, ešte čaká na právne schválenie.',
     // #216: legal text pending with OQ #27 — kept in the draft slot (D-52).
+    // D-66: address processing for Delivery/Collection — retention under OQ #27.
+    privacyDeliveryHeading: 'Adresa pri dovoze a odvoze',
+    privacyDeliveryBody:
+      'Ak si objednáte dovoz alebo odvoz, adresu použijeme len na doručenie a vyzdvihnutie náradia. Neposielame ju žiadnej mapovej ani inej službe tretej strany. Doba jej uchovávania ešte čaká na právne posúdenie.',
     privacyMarketingHeading: 'Ponuky a zľavy e-mailom',
     privacyMarketingBody:
       'Ak v rezervácii zaškrtnete súhlas, budeme vám posielať ponuky a zľavy na váš e-mail. Súhlas je dobrovoľný, zaznamenáme si jeho čas a znenie textu, ktorému ste ho dali, a môžete ho kedykoľvek odvolať odkazom v e-maile. Doba uchovávania záznamu o súhlase ešte čaká na právne posúdenie.',
@@ -227,6 +231,14 @@ export const sk = {
       OnSitePaymentAlreadyAttestedError: 'Platba na mieste je už potvrdená.',
       OnSitePaymentNotExpectedError: 'Táto rezervácia je zaplatená online, na mieste sa nič neplatí.',
       OnSitePaymentCorrectionError: 'Opravu platby sa nepodarilo uložiť. Uveďte dôvod a skúste to znova.',
+      // D-66.
+      DeliveryNotOfferedError: 'Dovoz sa neponúka — najprv nastavte paušál a obce v zóne.',
+      OutsideZonePricingError: 'Cenu mimo zóny sa nepodarilo vypočítať. Skontrolujte km a sadzbu za km.',
+      DeliveryFeeAlreadyAttestedError: 'Platba za túto dopravu je už potvrdená.',
+      MunicipalityNameTakenError: 'Táto obec už v zóne je.',
+      MunicipalityNameRequiredError: 'Zadajte názov obce.',
+      MunicipalityNotInZoneError: 'Táto obec v zóne nie je.',
+      DeliveryNotFoundError: 'Tento dovoz sa nenašiel.',
       AssetTypeNotFoundError: 'Tento typ náradia neexistuje.',
       AssetNotFoundError: 'Tento kus náradia neexistuje.',
       AssetTypeNameRequiredError: 'Zadajte názov typu náradia.',
@@ -308,6 +320,11 @@ export const sk = {
         'Tento odkaz už neplatí alebo bol použitý. Ak ste rezerváciu už potvrdili, potvrdenie máte v e-maile.',
       ReservationGroupReacquireFailedError:
         'Termín sa medzitým obsadil, rezerváciu sa už nedá potvrdiť. Vyberte si, prosím, náradie znova.',
+      // D-66.
+      DeliveryNotOfferedError: 'Dovoz momentálne neponúkame. Náradie si môžete vyzdvihnúť u nás.',
+      MunicipalityNotInZoneError:
+        'Vybraná obec nie je v našej oblasti. Zvoľte „dovoz mimo zóny“ a zavoláme vám.',
+      DeliveryAddressRequiredError: 'Doplňte, prosím, adresu pre dovoz alebo odvoz.',
       // #216.
       MarketingUnsubscribeLinkInvalidError: 'Tento odkaz na odhlásenie neplatí.',
       MarketingConsentVersionMismatchError:
@@ -339,6 +356,7 @@ export const sk = {
     catalogLink: 'Katalóg',
     statisticsLink: 'Štatistiky',
     settingsLink: 'Nastavenia',
+    deliveryLink: 'Dovoz',
     assetRegistryLink: 'Kusy a štítky',
     statusLink: 'Stav systému',
     pinLink: 'Môj PIN',
@@ -998,6 +1016,54 @@ export const sk = {
     title: 'Nedostavili sa',
     note: 'Rezervované dni sa touto akciou neuvoľňujú. Kontaktujte zákazníka.',
     empty: 'Žiadne nedostavenia.',
+  },
+  // S-03 (D-66): Delivery and Collection.
+  deliveryChoice: {
+    heading: 'Dovoz a odvoz',
+    flatFeeNote: 'V našej oblasti {amount} za dovoz a {amount} za odvoz. Mimo nej vám cenu povieme telefonicky.',
+    legs: { delivery: 'Dovoz k vám v prvý deň prenájmu', collection: 'Odvoz od vás v posledný deň prenájmu' },
+    windowLabel: 'Kedy',
+    windows: { morning: 'Dopoludnia', afternoon: 'Popoludní' },
+    outsideZoneLabel: 'Chcem dovoz mimo zóny — zavolajte mi',
+    outsideZoneHint: 'Napíšte obec a adresu. Cenu dohodneme telefonicky, zaplatíte ju vodičovi.',
+    municipalityLabel: 'Obec',
+    municipalityPlaceholder: '— vyberte obec —',
+    streetLabel: 'Ulica a číslo',
+    placeLabel: 'Obec a adresa',
+    incompleteError: 'Doplňte, prosím, adresu pre dovoz alebo odvoz.',
+    feeIncluded: 'Doprava v cene: {amount}. Zľava za platbu online sa na dopravu nevzťahuje.',
+    outsideZoneNote:
+      'Dovoz mimo zóny: rezervácia sa dokončí normálne, zavoláme vám a dohodneme cenu. Platí sa vodičovi.',
+  },
+  // S-29 (D-66): the Operator's Delivery and Collection surface.
+  adminDelivery: {
+    title: 'Dovoz a odvoz',
+    loadError: 'Údaje o dovoze sa nepodarilo načítať.',
+    feesHeading: 'Ceny dopravy',
+    offeredNote: 'Dovoz a odvoz sa zákazníkom ponúka, keď je v zóne aspoň jedna obec.',
+    notOfferedNote: 'Kým nevyplníte paušál, dovoz a odvoz sa zákazníkom neponúka.',
+    flatFeeLabel: 'Paušál za dovoz alebo odvoz (€)',
+    perKmLabel: 'Sadzba za km mimo zóny (€)',
+    saveAction: 'Uložiť ceny',
+    zoneHeading: 'Obce v zóne',
+    zoneEmpty: 'Zóna je zatiaľ prázdna.',
+    municipalityLabel: 'Nová obec',
+    addAction: 'Pridať obec',
+    removeAction: 'Odobrať',
+    scheduleHeading: 'Najbližšie dovozy a odvozy',
+    scheduleEmpty: 'Na najbližšie dva týždne nie je naplánovaný žiadny dovoz ani odvoz.',
+    legs: { delivery: 'Dovoz', collection: 'Odvoz' },
+    windows: { morning: 'dopoludnia', afternoon: 'popoludní' },
+    inZoneFee: 'V zóne, {amount} — zaplatené spolu s nájomným.',
+    outsideUnpriced: 'Mimo zóny — zavolajte zákazníkovi a zadajte km.',
+    outsidePriced: 'Mimo zóny — {km} km, {amount}. Platí sa vodičovi.',
+    kmLabel: 'Vzdialenosť (km)',
+    priceAction: 'Vypočítať cenu',
+    methodLabel: 'Forma platby vodičovi',
+    attestFeeAction: 'Potvrdiť prijatie {amount}',
+    feeAttested: 'Platba za dopravu je potvrdená.',
+    handoverNote:
+      'Odovzdanie u zákazníka prebieha ako na pulte: doklad, fotky stavu, sken štítku, záloha. Pokladničný doklad vystavte v eKase.',
   },
   // S-28 (#216): withdrawing marketing consent, no login.
   marketingUnsubscribe: {

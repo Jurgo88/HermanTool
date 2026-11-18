@@ -17,8 +17,16 @@ import {
   translateCustomerIdentityComplianceError,
 } from '../../utils/customer-identity-compliance-deps'
 import { MARKETING_CONSENT_TEXT_VERSION } from '#shared/marketing-consent'
+import {
+  LogisticsDeliveryError,
+  createPostgresLogisticsDeliveryRepository,
+  quoteDeliveryRequests,
+  recordDeliveries,
+} from '../../contexts/logistics-delivery'
 import { listActiveOnSiteContacts } from '../../utils/on-site-payment'
+import { deliverySettingsOf, getTenantSettings } from '../../utils/tenant-settings'
 import { getSeededTenantId } from '../../utils/tenant'
+import { translateLogisticsDeliveryError } from '../../utils/logistics-delivery-deps'
 
 // W1, FR-06, D-14: entry point of the checkout flow — public, no
 // Operator/Customer session (D-14: Customer has no account). Issues the
@@ -54,6 +62,15 @@ export default defineEventHandler(async (event) => {
         await listActiveOnSiteContacts(availability.sql, tenantId),
       )
     }
+    // D-66: Delivery/Collection validated and priced BEFORE anything is
+    // held — a municipality outside the zone never gets the flat fee.
+    const logistics = createPostgresLogisticsDeliveryRepository(availability.sql)
+    const quotedDeliveries = await quoteDeliveryRequests(logistics, {
+      tenantId,
+      settings: deliverySettingsOf(await getTenantSettings(availability.sql, tenantId)),
+      requests: body.deliveries,
+    })
+
     const { group, reservations } = await checkoutReservationGroup(availability.repo, {
       tenantId,
       lines: body.lines,
@@ -63,6 +80,12 @@ export default defineEventHandler(async (event) => {
       tenantId,
       reservationGroupId: group.id,
       ...body.customer,
+    })
+
+    await recordDeliveries(logistics, {
+      tenantId,
+      reservationGroupId: group.id,
+      quoted: quotedDeliveries,
     })
 
     // #216: recorded with the Customer, only on an explicit yes, with the
@@ -79,6 +102,7 @@ export default defineEventHandler(async (event) => {
     issueCheckoutGroupCookie(event, group.id)
     return { reservationGroupId: group.id, reservations, customer: { id: customer.id } }
   } catch (err) {
+    if (err instanceof LogisticsDeliveryError) translateLogisticsDeliveryError(err)
     if (err instanceof CustomerIdentityComplianceError) translateCustomerIdentityComplianceError(err)
     translateAvailabilityReservationError(err)
   } finally {

@@ -21,6 +21,15 @@ const customerDetailsSchema = z.object({
   phone: z.string(),
 })
 
+// D-66: one leg of Delivery/Collection as the Customer asks for it.
+export const deliveryRequestSchema = z.object({
+  leg: z.enum(['delivery', 'collection']),
+  timeWindow: z.enum(['morning', 'afternoon']),
+  outsideZone: z.boolean(),
+  municipalityId: z.number().int().positive().nullable(),
+  address: z.string().max(300),
+})
+
 // FR-06: a checkout covering n AssetTypes produces one ReservationGroup
 // and n Reservations. Deeper validation (real calendar dates, endDay not
 // before startDay, capacity) is the domain layer's job (D-25) — this only
@@ -41,6 +50,9 @@ export const checkoutReservationGroupBodySchema = z.object({
   // missing field records nothing (never consent).
   marketingConsent: z.boolean().optional(),
   marketingConsentVersion: z.string().max(100).optional(),
+  // D-66: Delivery and/or Collection; fees are computed on the server and
+  // a client-sent fee is never read (there is no field for one).
+  deliveries: z.array(deliveryRequestSchema).max(2).default([]),
 })
 
 // D-35: termsVersion is an opaque, non-empty identifier — see

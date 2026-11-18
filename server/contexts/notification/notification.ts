@@ -103,6 +103,14 @@ export async function dispatchReservationConfirmation(
     accessLinkUrl: string
     // D-65: set when the rental fee is paid at pickup.
     onSiteRentalFee?: MonetaryAmount | null
+    // D-66: the group's Delivery / Collection legs.
+    deliveries?: {
+      leg: 'delivery' | 'collection'
+      timeWindow: 'morning' | 'afternoon'
+      place: string
+      fee: MonetaryAmount | null
+      outsideZone: boolean
+    }[]
   },
 ): Promise<NotificationDispatch | null> {
   const { tenantId, customerId, reservationGroupId, to, customerName, accessLinkUrl } = params
@@ -117,6 +125,7 @@ export async function dispatchReservationConfirmation(
     termsVersion: params.termsVersion,
     accessLinkUrl,
     onSiteRentalFee: params.onSiteRentalFee ? formatMoney(params.onSiteRentalFee) : null,
+    deliveries: params.deliveries?.map((d) => ({ ...d, fee: d.fee ? formatMoney(d.fee) : null })),
   })
   return sendAndRecord(deps, { tenantId, customerId, kind: 'confirmation', referenceId: reservationGroupId, to, subject, body })
 }
