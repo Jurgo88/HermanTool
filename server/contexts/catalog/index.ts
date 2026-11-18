@@ -25,6 +25,8 @@ export {
   InvalidImageFileError,
   AccessoryChainError,
   AccessoryOfItselfError,
+  CompatibleWithAccessoryError,
+  CompatibleWithItselfError,
 } from './types'
 
 export type {
@@ -41,6 +43,7 @@ export {
   listBrowsableAssetTypes,
   getPublishedAssetType,
   listPublishedAccessoriesOf,
+  listPublishedCompatibleOf,
   createAssetType,
   updateAssetType,
   publishAssetType,

@@ -29,6 +29,8 @@ const assetTypeContentSchema = z.object({
     .nullable()
     .optional(),
   principalIds: z.array(idSchema).optional(),
+  // D-62: the whole set of CompatibleAssetTypes, from this side.
+  compatibleIds: z.array(idSchema).optional(),
 })
 
 export const createAssetTypeBodySchema = assetTypeContentSchema.extend({

@@ -13,6 +13,8 @@ import {
   AssetTypeNameRequiredError,
   AssetTypeNotFoundError,
   ClassificationInUseError,
+  CompatibleWithAccessoryError,
+  CompatibleWithItselfError,
   ClassificationLabelRequiredError,
   ClassificationLabelTakenError,
   ClassificationSequenceMismatchError,
@@ -69,7 +71,9 @@ export function translateCatalogError(err: unknown): never {
     err instanceof InvalidSpecificationError ||
     err instanceof InvalidImageFileError ||
     err instanceof AccessoryChainError ||
-    err instanceof AccessoryOfItselfError
+    err instanceof AccessoryOfItselfError ||
+    err instanceof CompatibleWithAccessoryError ||
+    err instanceof CompatibleWithItselfError
   ) {
     throw createError({ statusCode: 400, statusMessage: err.message, data: { code: err.constructor.name } })
   }

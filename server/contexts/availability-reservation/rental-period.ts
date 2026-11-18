@@ -69,6 +69,21 @@ export function rentalPeriodLengthInDays(period: RentalPeriod): number {
   return eachDayOfPeriod(period).length
 }
 
+// The RentalDay `days` after `day` (before it, when negative). Used to
+// move a RentalPeriod as a whole (D-62's nearest joint periods) without
+// any caller subtracting dates itself.
+export function addRentalDays(day: string, days: number): string {
+  const date = parseDay(day)
+  if (!date) throw new InvalidRentalPeriodError({ startDay: day, endDay: day })
+  return formatRentalDay(new Date(date.getTime() + days * MS_PER_DAY))
+}
+
+// The same-length RentalPeriod starting `days` later (earlier when negative).
+export function shiftRentalPeriod(period: RentalPeriod, days: number): RentalPeriod {
+  validateRentalPeriod(period)
+  return { startDay: addRentalDays(period.startDay, days), endDay: addRentalDays(period.endDay, days) }
+}
+
 // A-04: one local timezone for the pilot Tenant. RentalDays are its
 // calendar days, so "today" is the local date, never the UTC one.
 const TENANT_TIME_ZONE = 'Europe/Bratislava'

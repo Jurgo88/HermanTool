@@ -15,6 +15,8 @@ import {
   AccessoryOfItselfError,
   AssetTypeNameRequiredError,
   AssetTypeNotFoundError,
+  CompatibleWithAccessoryError,
+  CompatibleWithItselfError,
   InvalidImageFileError,
   InvalidSpecificationError,
   type AssetType,
@@ -91,6 +93,28 @@ async function validateContent(
     result.principalIds = unique
   }
 
+  if (content.compatibleIds !== undefined) {
+    const unique = [...new Set(content.compatibleIds)]
+    if (selfId !== undefined && unique.includes(selfId)) throw new CompatibleWithItselfError(selfId)
+    if (unique.length > 0) {
+      // The AssetType itself must not be, or be becoming, an Accessory.
+      const ownPrincipals =
+        result.principalIds ??
+        (selfId !== undefined ? (await requireAssetType(repo, tenantId, selfId)).principalIds : [])
+      if (ownPrincipals.length > 0) throw new CompatibleWithAccessoryError(selfId ?? 0)
+    }
+    for (const otherId of unique) {
+      const other = await requireAssetType(repo, tenantId, otherId)
+      if (other.principalIds.length > 0) throw new CompatibleWithAccessoryError(otherId)
+    }
+    result.compatibleIds = unique
+  } else if (selfId !== undefined && result.principalIds && result.principalIds.length > 0) {
+    // Becoming an Accessory while still linked as compatible would leave a
+    // suggestion pointing at something S-01 no longer lists.
+    const self = await requireAssetType(repo, tenantId, selfId)
+    if (self.compatibleIds.length > 0) throw new CompatibleWithAccessoryError(selfId)
+  }
+
   return result
 }
 
@@ -142,6 +166,23 @@ export async function listPublishedAccessoriesOf(
   const ids = await repo.listAccessoryIdsOf(params.tenantId, params.principalId)
   const accessories = await Promise.all(ids.map((id) => repo.getAssetType(params.tenantId, id)))
   return accessories.filter((a): a is AssetType => a !== null && a.published)
+}
+
+// S-02 (D-62): the published CompatibleAssetTypes suggested on an
+// AssetType's page, from either side of the link. An unpublished one, or
+// one that has since become an Accessory, is never suggested.
+export async function listPublishedCompatibleOf(
+  repo: CatalogRepository,
+  params: { tenantId: TenantId; assetTypeId: number },
+): Promise<AssetType[]> {
+  const self = await repo.getAssetType(params.tenantId, params.assetTypeId)
+  if (!self) return []
+  const others = await Promise.all(
+    self.compatibleIds.map((id) => repo.getAssetType(params.tenantId, id)),
+  )
+  return others.filter(
+    (a): a is AssetType => a !== null && a.published && a.principalIds.length === 0,
+  )
 }
 
 export async function createAssetType(

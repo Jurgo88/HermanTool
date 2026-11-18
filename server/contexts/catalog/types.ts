@@ -27,6 +27,9 @@ export interface AssetType {
   // D-57: the AssetTypes this one is an Accessory of. Non-empty means it
   // is an Accessory: never listed on its own, offered on its principals.
   principalIds: number[]
+  // D-62: the AssetTypes linked to this one as compatible, from either
+  // side of the symmetric link. A suggestion on S-02, never a rule.
+  compatibleIds: number[]
   createdByOperatorId: string | null
   updatedByOperatorId: string | null
   updatedAt: Date
@@ -138,6 +141,20 @@ export class InvalidImageFileError extends CatalogError {
 export class AccessoryChainError extends CatalogError {
   constructor(assetTypeId: number) {
     super(`AssetType ${assetTypeId} would make an Accessory chain; Accessories are one level deep.`)
+  }
+}
+
+// D-62: a CompatibleAssetType is rentable on its own and listed in S-01;
+// an Accessory is neither (D-57), so the two links never meet.
+export class CompatibleWithAccessoryError extends CatalogError {
+  constructor(assetTypeId: number) {
+    super(`AssetType ${assetTypeId} is an Accessory and cannot take part in a compatibility link.`)
+  }
+}
+
+export class CompatibleWithItselfError extends CatalogError {
+  constructor(assetTypeId: number) {
+    super(`AssetType ${assetTypeId} cannot be compatible with itself.`)
   }
 }
 

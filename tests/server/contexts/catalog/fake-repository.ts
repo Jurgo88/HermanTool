@@ -17,6 +17,26 @@ export function createFakeCatalogRepository(): CatalogRepository & {
   removedEntries: () => StoredEntry[]
 } {
   const assetTypes: AssetType[] = []
+  // D-62: canonical pairs, lower id first, exactly like the table.
+  const compatibilities: { tenantId: string; a: number; b: number }[] = []
+  const compatibleOf = (tenantId: string, id: number) =>
+    compatibilities
+      .filter((c) => c.tenantId === tenantId && (c.a === id || c.b === id))
+      .map((c) => (c.a === id ? c.b : c.a))
+      .sort((x, y) => x - y)
+  const replaceCompatibilities = (tenantId: string, id: number, others: number[]) => {
+    for (let i = compatibilities.length - 1; i >= 0; i--) {
+      const c = compatibilities[i]!
+      if (c.tenantId === tenantId && (c.a === id || c.b === id)) compatibilities.splice(i, 1)
+    }
+    for (const other of others) {
+      const pair = { tenantId, a: Math.min(id, other), b: Math.max(id, other) }
+      const exists = compatibilities.some(
+        (c) => c.tenantId === tenantId && c.a === pair.a && c.b === pair.b,
+      )
+      if (!exists) compatibilities.push(pair)
+    }
+  }
   const entries: StoredEntry[] = []
   let nextId = 1
   let nextEntryId = 1
@@ -25,6 +45,7 @@ export function createFakeCatalogRepository(): CatalogRepository & {
     ...a,
     useAreaIds: [...a.useAreaIds],
     principalIds: [...a.principalIds],
+    compatibleIds: compatibleOf(a.tenantId, a.id),
     specifications: a.specifications.map((s) => ({ ...s })),
   })
   const toEntry = ({
@@ -66,11 +87,13 @@ export function createFakeCatalogRepository(): CatalogRepository & {
         handlingNotice: params.handlingNotice ?? '',
         imageFile: params.imageFile ?? null,
         principalIds: [...(params.principalIds ?? [])].sort((a, b) => a - b),
+        compatibleIds: [],
         createdByOperatorId: params.operatorId,
         updatedByOperatorId: params.operatorId,
         updatedAt: new Date(),
       }
       assetTypes.push(assetType)
+      if (params.compatibleIds) replaceCompatibilities(tenantId, assetType.id, params.compatibleIds)
       return copy(assetType)
     },
 
@@ -91,6 +114,9 @@ export function createFakeCatalogRepository(): CatalogRepository & {
       if (params.imageFile !== undefined) assetType.imageFile = params.imageFile
       if (params.principalIds !== undefined) {
         assetType.principalIds = [...params.principalIds].sort((a, b) => a - b)
+      }
+      if (params.compatibleIds !== undefined) {
+        replaceCompatibilities(tenantId, assetTypeId, params.compatibleIds)
       }
       assetType.updatedByOperatorId = params.operatorId
       assetType.updatedAt = new Date()

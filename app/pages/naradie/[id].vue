@@ -10,6 +10,7 @@
 import { sk } from '~/i18n/sk'
 import { formatCount, formatMoney, type MonetaryAmountView } from '~/utils/format'
 import type { CalendarMonth } from '~/components/AvailabilityCalendar.vue'
+import type { CompatibleAssetTypeView } from '~/components/CompatibleAssetTypes.vue'
 
 definePageMeta({ layout: 'public' })
 
@@ -32,6 +33,8 @@ interface AssetTypeDetailView {
   handlingNotice: string
   imageFile: string | null
   accessories: AccessoryView[]
+  // D-62: standalone AssetTypes suggested alongside this one.
+  compatible: CompatibleAssetTypeView[]
 }
 
 const route = useRoute()
@@ -226,6 +229,27 @@ function reserve() {
     })
   }
   added.value = true
+}
+
+// D-62: a CompatibleAssetType goes into the draft as its own line, one
+// unit, on exactly the period picked here.
+function addCompatible(entry: CompatibleAssetTypeView, period: { startDay: string; endDay: string }) {
+  addLine({
+    assetTypeId: entry.id,
+    assetTypeName: entry.name,
+    dayRate: entry.dayRate,
+    depositAmount: entry.depositAmount,
+    period: { ...period },
+    quantity: 1,
+    imageFile: entry.imageFile,
+  })
+}
+
+// D-62: a suggested joint period moves the whole selection.
+function movePeriod(period: { startDay: string; endDay: string }) {
+  added.value = false
+  startDay.value = period.startDay
+  endDay.value = period.endDay
 }
 
 function pickAnother() {
@@ -438,6 +462,16 @@ const hint = computed(() => {
               <p v-else class="detail__note">{{ sk.assetTypeDetail.paymentNote }}</p>
             </template>
           </div>
+
+          <CompatibleAssetTypes
+            :asset-type-id="assetType.id"
+            :suggestions="assetType.compatible ?? []"
+            :start-day="startDay"
+            :end-day="endDay"
+            :quantity="quantity"
+            @add="addCompatible"
+            @move-period="movePeriod"
+          />
         </div>
 
         <section

@@ -15,6 +15,7 @@ const assetType = {
   handlingNotice: '',
   imageFile: null,
   principalIds: [],
+  compatibleIds: [],
 }
 
 describe('AssetTypeEditor (S-19, FR-37)', () => {
