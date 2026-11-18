@@ -899,6 +899,13 @@ export const sk = {
     submitting: 'Ukladám…',
     requiredHint: 'Bez potvrdenej platby sa náradie vydať nedá.',
     attested: 'Prijaté {amount} ({method}), {time}.',
+    // #241 (P1): a correction is a new attestation; the original stays.
+    correctedNote: 'Opravený záznam — pôvodný ostáva v histórii.',
+    correctAction: 'Opraviť',
+    correctionHint: 'Pôvodný záznam sa nemení, pribudne nový s dôvodom a s vaším PIN-om.',
+    correctionReasonLabel: 'Dôvod opravy',
+    correctionSubmitAction: 'Uložiť opravu',
+    correctionCancelAction: 'Zrušiť',
   },
   adminCounter: {
     title: 'Pult',

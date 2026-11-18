@@ -4,7 +4,8 @@
   attestation. The amount due comes from the server (undiscounted); the
   platform moves no money and issues no receipt. Shows only what the
   server confirmed (§7.1). For a group paid online it says so and asks
-  for nothing. -->
+  for nothing. An attested payment can be corrected by a new attestation
+  that supersedes it, with a reason and the PIN (P1; #241). -->
 <script setup lang="ts">
 import { sk } from '~/i18n/sk'
 import { formatDateTime, formatMoney, type MonetaryAmountView } from '~/utils/format'
@@ -15,7 +16,13 @@ type Method = 'cash' | 'card_terminal' | 'qr'
 interface StatusView {
   paymentMethod: 'online' | 'on_site'
   rentalFeeDue: MonetaryAmountView | null
-  current: { id: number; amount: MonetaryAmountView; method: Method; attestedAt: string } | null
+  current: {
+    id: number
+    amount: MonetaryAmountView
+    method: Method
+    attestedAt: string
+    corrected: boolean
+  } | null
 }
 
 const props = defineProps<{ reservationGroupId: number }>()
@@ -27,6 +34,20 @@ const method = ref<Method>('cash')
 const showPin = ref(false)
 const submitting = ref(false)
 const error = ref<string | null>(null)
+
+// #241 (P1, D-10): correcting the attestation in force — a new one that
+// supersedes it, with a reason and the PIN. The amount stays the server's
+// due amount, exactly as for the first attestation.
+const correcting = ref(false)
+const correctionReason = ref('')
+
+function startCorrection() {
+  if (!status.value?.current) return
+  method.value = status.value.current.method
+  correctionReason.value = ''
+  error.value = null
+  correcting.value = true
+}
 
 async function load() {
   loadState.value = 'loading'
@@ -49,9 +70,19 @@ async function attest(pin: string) {
   try {
     await $fetch(`/api/handover/reservation-groups/${props.reservationGroupId}/on-site-payment`, {
       method: 'POST',
-      body: { amount: status.value.rentalFeeDue, method: method.value, pin },
+      body: {
+        amount: status.value.rentalFeeDue,
+        method: method.value,
+        pin,
+        ...(correcting.value && status.value.current
+          ? {
+              correction: { supersedesId: status.value.current.id, reason: correctionReason.value },
+            }
+          : {}),
+      },
     })
     showPin.value = false
+    correcting.value = false
     await load()
     emit('attested')
   } catch (err) {
@@ -79,14 +110,58 @@ async function attest(pin: string) {
       <p v-if="status.paymentMethod === 'online'" class="on-site-payment__done">
         {{ sk.onSitePayment.paidOnline }}
       </p>
-      <p v-else-if="status.current" class="on-site-payment__done" role="status">
-        {{
-          sk.onSitePayment.attested
-            .replace('{amount}', formatMoney(status.current.amount))
-            .replace('{method}', sk.onSitePayment.methods[status.current.method])
-            .replace('{time}', formatDateTime(status.current.attestedAt))
-        }}
-      </p>
+      <template v-else-if="status.current">
+        <p class="on-site-payment__done" role="status">
+          {{
+            sk.onSitePayment.attested
+              .replace('{amount}', formatMoney(status.current.amount))
+              .replace('{method}', sk.onSitePayment.methods[status.current.method])
+              .replace('{time}', formatDateTime(status.current.attestedAt))
+          }}
+        </p>
+        <p v-if="status.current.corrected" class="on-site-payment__hint">
+          {{ sk.onSitePayment.correctedNote }}
+        </p>
+        <AppButton v-if="!correcting" variant="quiet" @click="startCorrection">
+          {{ sk.onSitePayment.correctAction }}
+        </AppButton>
+        <form v-else class="on-site-payment__form" @submit.prevent="showPin = true">
+          <p class="on-site-payment__hint">{{ sk.onSitePayment.correctionHint }}</p>
+          <fieldset class="on-site-payment__methods">
+            <legend>{{ sk.onSitePayment.methodLegend }}</legend>
+            <label v-for="option in ['cash', 'card_terminal', 'qr'] as const" :key="option">
+              <input v-model="method" type="radio" :value="option" />
+              {{ sk.onSitePayment.methods[option] }}
+            </label>
+          </fieldset>
+          <AppField :label="sk.onSitePayment.correctionReasonLabel">
+            <template #default="slotProps">
+              <input
+                :id="slotProps.id"
+                v-model="correctionReason"
+                type="text"
+                maxlength="300"
+                required
+              />
+            </template>
+          </AppField>
+          <AppAlert :message="error" />
+          <div class="on-site-payment__actions">
+            <AppButton
+              type="submit"
+              variant="primary"
+              size="counter"
+              :disabled="!status.rentalFeeDue || !correctionReason.trim()"
+              :pending="submitting"
+            >
+              {{ sk.onSitePayment.correctionSubmitAction }}
+            </AppButton>
+            <AppButton variant="quiet" @click="correcting = false">
+              {{ sk.onSitePayment.correctionCancelAction }}
+            </AppButton>
+          </div>
+        </form>
+      </template>
       <form v-else class="on-site-payment__form" @submit.prevent="showPin = true">
         <p v-if="status.rentalFeeDue" class="on-site-payment__due">
           {{ sk.onSitePayment.due.replace('{amount}', formatMoney(status.rentalFeeDue)) }}
@@ -161,6 +236,12 @@ async function attest(pin: string) {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  gap: var(--ht-space-2);
+}
+
+.on-site-payment__actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--ht-space-2);
 }
 

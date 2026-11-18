@@ -66,6 +66,8 @@ export default defineEventHandler(async (event) => {
             amount: current.amount,
             method: current.method,
             attestedAt: current.attestedAt,
+            // #241: it supersedes an earlier attestation (P1).
+            corrected: current.supersedesId !== null,
           }
         : null,
     }
