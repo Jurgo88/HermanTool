@@ -811,6 +811,7 @@ Rules:
 - **Utilisation** is rented days divided by available days. The denominator is the D-38 pool (Rentable, InPossession and UnderInspection) times the days in the range. It is never the count of Assets that are Rentable today.
 - **Overdue and NoShow** are computed exactly as the counter computes them (FR-28) and get the derived treatment (D-47). Nothing is stored.
 - **Revenue** is confirmed online Payments. Money the platform only attests (deposits, and OnSitePayment under D-65) is shown on its own line, never summed into confirmed revenue (P6). Sums never mix currencies.
+- **Revenue per AssetType** splits a group's Payment in proportion to each line's day rate × days. The day rate is the one recorded on the Reservation at checkout, so a later rate change (OQ #29) does not re-split history. A Reservation created before it was recorded falls back to the current rate. It is never backfilled (decided 18 November 2026, #238).
 - **Period arithmetic** is done by Availability & Reservation's RentalPeriod (D-12). The statistics module asks; it does not subtract dates.
 - Every query is Tenant-scoped (FR-33). Nothing is written.
 

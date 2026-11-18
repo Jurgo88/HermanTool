@@ -143,6 +143,7 @@ export function createFakeAvailabilityReservationRepository(): FakeAvailabilityR
           pendingExpiresAt: params.pendingExpiresAt,
           createdAt: now,
           stateChangedAt: now,
+          dayRate: params.dayRate ?? null,
         }
         target.reservations.push(reservation)
         return { ...reservation }

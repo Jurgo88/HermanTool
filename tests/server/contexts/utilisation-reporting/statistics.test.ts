@@ -98,15 +98,16 @@ function fakeSource(): ReportingSource {
 
 async function reserve(
   tenantId: TenantId,
-  lines: { assetTypeId: number; startDay: string; endDay: string }[],
+  lines: { assetTypeId: number; startDay: string; endDay: string; dayRate?: MonetaryAmount }[],
 ) {
   repo.seedCapacity(DRILL, data.get(tenantId)!.pools.get(DRILL) ?? 0)
   repo.seedCapacity(SAW, data.get(tenantId)!.pools.get(SAW) ?? 0)
   const { group } = await checkoutReservationGroup(repo, {
     tenantId,
-    lines: lines.map(({ assetTypeId, startDay, endDay }) => ({
+    lines: lines.map(({ assetTypeId, startDay, endDay, dayRate }) => ({
       assetTypeId,
       period: { startDay, endDay },
+      ...(dayRate ? { dayRate } : {}),
     })),
   })
   await confirmReservationGroup(repo, { tenantId, reservationGroupId: group.id })
@@ -237,6 +238,70 @@ describe('getAssetTypeStatistics (S-25 detail)', () => {
     ])
     expect(assetTypes.find((a) => a.assetTypeId === SAW)!.revenue).toEqual([
       createMonetaryAmount(1000),
+    ])
+  })
+
+  it('shares by the day rate recorded at checkout, not the current one (#238)', async () => {
+    // At checkout the drill cost 5 € and the saw 5 €; today the drill is
+    // 15 € — the split must not move with it.
+    const groupId = await reserve(tenantA, [
+      {
+        assetTypeId: DRILL,
+        startDay: '2026-10-01',
+        endDay: '2026-10-02',
+        dayRate: createMonetaryAmount(500),
+      },
+      {
+        assetTypeId: SAW,
+        startDay: '2026-10-01',
+        endDay: '2026-10-02',
+        dayRate: createMonetaryAmount(500),
+      },
+    ])
+    data.get(tenantA)!.payments.push({
+      reservationGroupId: groupId,
+      amount: createMonetaryAmount(2000),
+      day: '2026-09-30',
+    })
+
+    const { assetTypes } = await getAssetTypeStatistics(fakeSource(), {
+      tenantId: tenantA,
+      range: { kind: 'custom', startDay: '2026-09-01', endDay: '2026-10-31' },
+    })
+    expect(assetTypes.find((a) => a.assetTypeId === DRILL)!.revenue).toEqual([
+      createMonetaryAmount(1000),
+    ])
+    expect(assetTypes.find((a) => a.assetTypeId === SAW)!.revenue).toEqual([
+      createMonetaryAmount(1000),
+    ])
+  })
+
+  it('falls back to the current rate only for a line with nothing recorded (#238)', async () => {
+    // Drill recorded at 5 €, saw from before recording → current 5 €.
+    const groupId = await reserve(tenantA, [
+      {
+        assetTypeId: DRILL,
+        startDay: '2026-10-01',
+        endDay: '2026-10-01',
+        dayRate: createMonetaryAmount(500),
+      },
+      { assetTypeId: SAW, startDay: '2026-10-01', endDay: '2026-10-01' },
+    ])
+    data.get(tenantA)!.payments.push({
+      reservationGroupId: groupId,
+      amount: createMonetaryAmount(900),
+      day: '2026-10-01',
+    })
+
+    const { assetTypes } = await getAssetTypeStatistics(fakeSource(), {
+      tenantId: tenantA,
+      range: { kind: 'month', month: '2026-10' },
+    })
+    expect(assetTypes.find((a) => a.assetTypeId === DRILL)!.revenue).toEqual([
+      createMonetaryAmount(450),
+    ])
+    expect(assetTypes.find((a) => a.assetTypeId === SAW)!.revenue).toEqual([
+      createMonetaryAmount(450),
     ])
   })
 

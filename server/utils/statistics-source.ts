@@ -21,6 +21,8 @@ interface ReservationRow {
   asset_type_id: number
   start_day: Date
   end_day: Date
+  day_rate_cents: number | null
+  day_rate_currency: MonetaryAmount['currency'] | null
 }
 
 const mapReservation = (row: ReservationRow): ReportedReservation => ({
@@ -28,6 +30,10 @@ const mapReservation = (row: ReservationRow): ReportedReservation => ({
   reservationGroupId: row.reservation_group_id,
   assetTypeId: row.asset_type_id,
   period: { startDay: formatDay(row.start_day), endDay: formatDay(row.end_day) },
+  dayRate:
+    row.day_rate_cents === null || row.day_rate_currency === null
+      ? null
+      : createMonetaryAmount(row.day_rate_cents, row.day_rate_currency),
 })
 
 export function createPostgresReportingSource(sql: postgres.Sql): ReportingSource {
@@ -52,7 +58,9 @@ export function createPostgresReportingSource(sql: postgres.Sql): ReportingSourc
 
     async listConfirmedReservationsOverlapping(tenantId, period) {
       const rows = await sql<ReservationRow[]>`
-        select id, reservation_group_id, asset_type_id, start_day, end_day from reservations
+        select id, reservation_group_id, asset_type_id, start_day, end_day,
+          day_rate_cents, day_rate_currency
+        from reservations
         where tenant_id = ${tenantId} and state = 'confirmed'
           and start_day <= ${period.endDay}::date and end_day >= ${period.startDay}::date
         order by id
@@ -63,7 +71,9 @@ export function createPostgresReportingSource(sql: postgres.Sql): ReportingSourc
     async listConfirmedReservationsOfGroups(tenantId, reservationGroupIds) {
       if (reservationGroupIds.length === 0) return []
       const rows = await sql<ReservationRow[]>`
-        select id, reservation_group_id, asset_type_id, start_day, end_day from reservations
+        select id, reservation_group_id, asset_type_id, start_day, end_day,
+          day_rate_cents, day_rate_currency
+        from reservations
         where tenant_id = ${tenantId} and state = 'confirmed'
           and reservation_group_id in ${sql(reservationGroupIds)}
         order by id

@@ -27,6 +27,7 @@ import { listActiveOnSiteContacts } from '../../utils/on-site-payment'
 import { deliverySettingsOf, getTenantSettings } from '../../utils/tenant-settings'
 import { getSeededTenantId } from '../../utils/tenant'
 import { translateLogisticsDeliveryError } from '../../utils/logistics-delivery-deps'
+import { createCatalogDeps } from '../../utils/catalog-deps'
 
 // W1, FR-06, D-14: entry point of the checkout flow — public, no
 // Operator/Customer session (D-14: Customer has no account). Issues the
@@ -51,6 +52,7 @@ export default defineEventHandler(async (event) => {
   const body = await readValidatedBody(event, checkoutReservationGroupBodySchema.parse)
   const availability = createAvailabilityReservationDeps(event)
   const customerIdentity = createCustomerIdentityComplianceDeps(event)
+  const catalog = createCatalogDeps(event)
 
   try {
     const tenantId = await getSeededTenantId(availability.sql)
@@ -71,9 +73,21 @@ export default defineEventHandler(async (event) => {
       requests: body.deliveries,
     })
 
+    // D-63 (#238): each line records the day rate in force now, so S-25's
+    // revenue split survives a later change of rates (OQ #29). Read from
+    // Catalog here, at the root (D-02); A&R only stores it.
+    const assetTypeIds = [...new Set(body.lines.map((line) => line.assetTypeId))]
+    const dayRates = new Map(
+      await Promise.all(
+        assetTypeIds.map(
+          async (id) => [id, (await catalog.repo.getAssetType(tenantId, id))?.dayRate] as const,
+        ),
+      ),
+    )
+
     const { group, reservations } = await checkoutReservationGroup(availability.repo, {
       tenantId,
-      lines: body.lines,
+      lines: body.lines.map((line) => ({ ...line, dayRate: dayRates.get(line.assetTypeId) })),
       paymentMethod: body.paymentMethod,
     })
     const customer = await createCustomer(customerIdentity.repo, {
@@ -106,6 +120,6 @@ export default defineEventHandler(async (event) => {
     if (err instanceof CustomerIdentityComplianceError) translateCustomerIdentityComplianceError(err)
     translateAvailabilityReservationError(err)
   } finally {
-    await Promise.all([availability.close(), customerIdentity.close()])
+    await Promise.all([availability.close(), customerIdentity.close(), catalog.close()])
   }
 })

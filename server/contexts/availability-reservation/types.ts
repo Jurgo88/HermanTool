@@ -1,7 +1,7 @@
 // Domain types for Availability & Reservation [MVP · CORE] (Part 1 §4,
 // §5, §6; D-04, D-08, D-13, D-18). See ./index.ts for the context's
 // boundary and citations.
-import type { TenantId } from '../_shared'
+import type { MonetaryAmount, TenantId } from '../_shared'
 import type { RentalPeriod } from './rental-period'
 
 export type { RentalPeriod } from './rental-period'
@@ -49,6 +49,11 @@ export interface Reservation {
   pendingExpiresAt: Date
   createdAt: Date
   stateChangedAt: Date
+  // D-63, D-21 (#238): the day rate in force at checkout, recorded as a
+  // fact for reporting. This context never computes or reads a price —
+  // the composition root hands it over from Catalog. Null for rows
+  // created before it was recorded.
+  dayRate: MonetaryAmount | null
 }
 
 export class AvailabilityReservationError extends Error {

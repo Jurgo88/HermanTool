@@ -16,7 +16,7 @@
 // matters — when a NEW attempt is contended by a stale hold — and
 // releases it before retrying once. D-37's payment-after-expiry
 // re-acquire (confirmReservationGroup, below) reuses the identical path.
-import type { TenantId } from '../_shared'
+import type { MonetaryAmount, TenantId } from '../_shared'
 import type { AvailabilityReservationRepository, CapacitySource } from './repository'
 import { eachDayOfPeriod, validateRentalPeriod, type RentalPeriod } from './rental-period'
 import {
@@ -47,6 +47,10 @@ export const PENDING_EXPIRY_MINUTES = 30
 export interface ReservationLine {
   assetTypeId: number
   period: RentalPeriod
+  // D-63 (#238): the day rate in force at checkout, handed over by the
+  // composition root from Catalog and recorded as given. Never used for
+  // capacity or for any decision here.
+  dayRate?: MonetaryAmount
 }
 
 // Test-only instrumentation seam (OQ #23). No-op in production. Exists
@@ -173,6 +177,7 @@ export async function checkoutReservationGroup(
           assetTypeId: line.assetTypeId,
           period: line.period,
           pendingExpiresAt,
+          dayRate: line.dayRate ?? null,
         }),
       )
     }
