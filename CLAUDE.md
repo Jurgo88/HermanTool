@@ -28,13 +28,15 @@ NORMATIVE. Read it before implementing anything non-trivial.
   statistics, AI recommendation, OnSitePayment, Delivery/Collection,
   hourly rental (D-62…D-67). Discussion in
   `docs/client-feedback/2026-11-15-poziadavky-klienta.md`
+- Part 4 §16.7 — pickup reminder the day before the start (D-68,
+  answers OQ #7 for FR-41); D-17 stands for NoShow
 
 ## Precedence when instructions conflict
 1. Part 4 §16.2 implementation-review decisions (D-38…D-42)
 2. Part 4 §16.3 interface-design decisions (D-43…D-53) — for
    presentation/interaction questions only; never overrides an FR/NFR
-3. Part 4 §16.4 catalog decisions (D-54…D-60) and §16.6 client-feedback
-   decisions (D-62…D-67) — scope additions; never relax an invariant
+3. Part 4 §16.4 catalog decisions (D-54…D-60) and §16.6–§16.7 client-feedback
+   decisions (D-62…D-68) — scope additions; never relax an invariant
    (D-08, D-38, FR-20, FR-33). §16.6 explicitly supersedes A-01 (D-66),
    A-04 and D-12 (D-67), and D-09 for hourly Reservations only (D-67)
 4. Part 4 §16 reconciliation decisions (D-10, D-33…D-37)

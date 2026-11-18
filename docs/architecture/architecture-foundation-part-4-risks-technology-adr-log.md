@@ -6,7 +6,7 @@
 | **Status** | Draft — authoritative for technology selection and risk |
 | **Scope** | Sections 13–16 and the Open Questions appendix. Section 17 (Independent Review) is Part 5. Section 16.2 reconciles the 04 August 2026 implementation review (`docs/reviews/implementation-review-2026-08-04.md`, findings `IR-01`…`IR-13`). |
 | **Depends on** | Parts 1, 2 and 3, all **frozen**. Their identifiers are referenced, never restated or renumbered. Section 16 reconciles Part 5's independent review; because Parts 1–3 are frozen, its corrections are expressed here as new decisions and flagged supersessions rather than as edits to those parts. |
-| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-42`; in the §16.3 interface-design pass, `D-43`…`D-53`; in the §16.4 catalog pass, `D-54`…`D-60`; in §16.5, `D-61`; in the §16.6 client-feedback pass, `D-62`…`D-67`. Risks `R-01`…`R-17`. Ubiquitous Language: none before §16.4, which adds **PowerSource**, **UseArea** and **Accessory**. |
+| **Adds** | Decisions `D-24`…`D-32` (technology); in the §16 reconciliation pass, `D-10` and `D-33`…`D-37`; in the §16.2 implementation-review pass, `D-38`…`D-42`; in the §16.3 interface-design pass, `D-43`…`D-53`; in the §16.4 catalog pass, `D-54`…`D-60`; in §16.5, `D-61`; in the §16.6 client-feedback pass, `D-62`…`D-67`; in §16.7, `D-68`. Risks `R-01`…`R-17`. Ubiquitous Language: none before §16.4, which adds **PowerSource**, **UseArea** and **Accessory**. |
 | **Prices verified** | 18 July 2026, against vendor pricing pages. Every number below has a date on it because every number below will move. |
 
 ### Flags: two contradictions and two defects
@@ -343,6 +343,7 @@ The map. Every decision from D-01, with its owning part and status. Reasoning is
 | **D-65** | **OnSitePayment is a PIN-gated Operator attestation in Handover & Possession; HandoverOut refuses an unpaid group; one Tenant discount for paying online.** | P4 §16.6 | accepted — **discount value open (OQ #31)**; NoShow ban blocked on OQ #27 |
 | **D-66** | **Delivery and Collection: Operator-maintained DeliveryZone with a flat fee, outside it flat fee + Operator-entered km; no maps provider.** | P4 §16.6 | accepted — supersedes A-01; **fee values open (OQ #32)** |
 | **D-67** | **Hourly rental inside one day and opening hours, with a buffer, a day-rate cap and a 10-minute return tolerance.** | P4 §16.6 | accepted in principle — supersedes A-04, D-12 (and D-09 for hourly); build after pilot launch; rates open (OQ #33) |
+| **D-68** | **The pickup reminder is sent on the day before the RentalPeriod starts, for every ReservationGroup; the return and Overdue reminders are unchanged; D-17 stands (a NoShow releases nothing automatically).** | P4 §16.7 | accepted — answers OQ #7 for the pickup reminder |
 
 ### Long-term implications and migration difficulty — D-24 to D-32
 
@@ -889,6 +890,26 @@ Rules:
 
 **Why:** confining an interval to one day keeps the change inside one context, as D-12's discipline intended, and keeps the size at L rather than XL.
 
+## 16.7 Pickup reminder timing (18 November 2026)
+
+### D-68 — The pickup reminder goes out the day before the RentalPeriod starts (answers OQ #7 for FR-41)
+
+**Decided by the Tenant on 18 November 2026,** as decision 7 of the on-site payment discussion (#215, client feedback §2). The second half of that decision, "a NoShow releases the remainder of the period", is **not** taken: see below.
+
+**Considered:** (a) keep the pilot constant, a reminder on the morning of the start day (#36); (b) the day before, for every ReservationGroup; (c) the day before only for groups paid on site (D-65), where a Customer who forgets costs the Tenant a held unit and no money has changed hands.
+
+**Trade-offs:** (a) reaches a Customer who has already planned the day, often too late to arrange transport or to say they will not come. (c) makes the schedule depend on the payment method, which Notification must not know about (D-28: Notification stays dumb), and a Customer who paid online forgets just as easily.
+
+**Recommended: (b).**
+- **Timing:** the scheduled run on day *D* reminds every Confirmed Reservation whose RentalPeriod starts on *D* + 1 and is not yet handed out. The lead is one constant, `PICKUP_REMINDER_LEAD_DAYS = 1`, in the composition root; the day arithmetic is Availability & Reservation's `addRentalDays` (D-12). It is still not a Customer preference (FR-41, A-08), and it stays a constant rather than a Tenant setting until a second Tenant needs another value (P3 §12(e)).
+- **Late bookings get no reminder.** A Reservation confirmed after the run on the day before, or one starting the day it is booked, receives only its confirmation, sent minutes earlier. There is no catch-up send on the start day.
+- **Unchanged:** the at-most-once guard per (kind, Reservation) (FR-32); the return reminder on the last day of the RentalPeriod; the single Overdue reminder (D-17). Both payment methods get the same email, which never names a price.
+- **D-17 stands.** A NoShow is still a derived fact (FR-28) that releases nothing by itself. Releasing the rest of a NoShow's RentalPeriod would be the automatic timeout D-17 rejects, and for an online-paid group it is a cancellation whose money is undecided (OQ #1, W11). It needs its own ADR, written together with OQ #1.
+
+**Cut-over:** on the day the change deploys, Reservations starting that day were already reminded by the old run if it ran first; if the deploy lands before the run, they get no reminder. This is a one-day gap at pilot scale, accepted rather than handled.
+
+**Why:** the reminder is the Tenant's strongest lever against a no-show (P1 §4), and it only works if it arrives while the Customer can still act on it.
+
 ## Appendix — Open Questions
 
 The pre-build checklist. Everything still open across Parts 1–4, flattest form, with where the context lives.
@@ -910,7 +931,7 @@ The pre-build checklist. Everything still open across Parts 1–4, flattest form
 |---|---|---|
 | 5 | LostAsset threshold value. Gates a prompt, never a transition. | D-17 · P3 §12(e) |
 | 6 | Pending expiry window value. Platform-scoped; couple it to Stripe's session timeout. | D-18 · P3 §12(e) |
-| 7 | Reminder schedule values. | A-08 · P3 §12(e) |
+| 7 | Reminder schedule values. **Pickup reminder decided 2026-11-18 (D-68): the day before the start.** The return reminder (last day) stays the pilot constant. | A-08 · P3 §12(e) · D-68 |
 | 8 | Verify D-33 implementation under concurrency on the chosen pooler/transaction mode and document retry semantics. | D-33 · D-24 · D-25 |
 | 9 | Is the Netlify account pre- or post-4 September 2025? Legacy pricing retires R-03 entirely. | §14.0 · R-03 |
 | 10 | Confirmation of A-10 — does the EAA micro-enterprise exemption actually apply? | NFR-11 · A-10 |

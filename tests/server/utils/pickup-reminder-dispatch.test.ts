@@ -29,8 +29,9 @@ const tenantA = '11111111-1111-1111-1111-111111111111' as TenantId
 const operatorId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 const HAMMER = 1
 const TODAY = '2026-03-05'
+const TOMORROW = '2026-03-06'
 
-describe('dispatchDuePickupReminders (FR-41, issue #36)', () => {
+describe('dispatchDuePickupReminders (FR-41, D-68, issue #36)', () => {
   let assetRegistry: FakeAssetRegistryRepository
   let availabilityRepo: FakeAvailabilityReservationRepository
   let handoverRepo: FakeHandoverPossessionRepository
@@ -80,8 +81,8 @@ describe('dispatchDuePickupReminders (FR-41, issue #36)', () => {
     return { reservation: reservations[0]!, customer }
   }
 
-  it('sends a pickup reminder for a Confirmed Reservation whose RentalPeriod starts today, not yet handed out', async () => {
-    await confirmedReservationWithCustomer(TODAY, '2026-03-07')
+  it('sends a pickup reminder the day before a Confirmed Reservation starts, not yet handed out (D-68)', async () => {
+    await confirmedReservationWithCustomer(TOMORROW, '2026-03-07')
 
     const dispatched = await dispatchDuePickupReminders(deps(), { tenantId: tenantA, today: TODAY })
 
@@ -92,6 +93,20 @@ describe('dispatchDuePickupReminders (FR-41, issue #36)', () => {
     expect(notificationGateway.sentEmails[0]!.text).toContain('Príklepová vŕtačka')
   })
 
+  it('sends nothing on the start day itself — no catch-up send (D-68)', async () => {
+    await confirmedReservationWithCustomer(TODAY, '2026-03-07')
+
+    const dispatched = await dispatchDuePickupReminders(deps(), { tenantId: tenantA, today: TODAY })
+    expect(dispatched).toHaveLength(0)
+  })
+
+  it('crosses a month boundary through Availability & Reservation day arithmetic', async () => {
+    await confirmedReservationWithCustomer('2026-04-01', '2026-04-02')
+
+    const dispatched = await dispatchDuePickupReminders(deps(), { tenantId: tenantA, today: '2026-03-31' })
+    expect(dispatched).toHaveLength(1)
+  })
+
   it('excludes a Reservation whose RentalPeriod starts on a different day', async () => {
     await confirmedReservationWithCustomer('2026-03-10', '2026-03-12')
 
@@ -100,7 +115,7 @@ describe('dispatchDuePickupReminders (FR-41, issue #36)', () => {
   })
 
   it('excludes a Reservation already handed out (even a day early)', async () => {
-    const { reservation, customer } = await confirmedReservationWithCustomer(TODAY, '2026-03-07')
+    const { reservation, customer } = await confirmedReservationWithCustomer(TOMORROW, '2026-03-07')
     const asset = await assetRegistry.insertAsset(tenantA, { assetTypeId: HAMMER, status: 'in_possession', operatorId })
     const now = new Date()
     await handoverRepo.insertRentalAgreement(tenantA, {
@@ -119,7 +134,7 @@ describe('dispatchDuePickupReminders (FR-41, issue #36)', () => {
   })
 
   it('never sends twice for the same Reservation across two runs on the same day', async () => {
-    await confirmedReservationWithCustomer(TODAY, '2026-03-07')
+    await confirmedReservationWithCustomer(TOMORROW, '2026-03-07')
 
     await dispatchDuePickupReminders(deps(), { tenantId: tenantA, today: TODAY })
     const second = await dispatchDuePickupReminders(deps(), { tenantId: tenantA, today: TODAY })

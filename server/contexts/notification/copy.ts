@@ -119,7 +119,7 @@ export function pickupReminderText(params: {
     subject: 'Pripomienka: vyzdvihnutie náradia',
     body:
       `${greeting(params.customerName)}\n\n` +
-      `pripomíname, že vaša rezervácia sa začína dnes (${params.period}):\n\n` +
+      `pripomíname, že vaša rezervácia sa začína zajtra (${params.period}):\n\n` +
       `- ${params.assetTypeName}\n\n` +
       `${PICKUP_NEEDS} Zálohu zaplatíte v hotovosti.\n\n${signoff}`,
   }

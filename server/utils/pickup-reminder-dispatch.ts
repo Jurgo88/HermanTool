@@ -7,19 +7,25 @@
 // existing listReservationsStartingOn query (already built for #27's
 // "today's pickups" view) instead of listReservationsEndingOn.
 //
-// Sent exactly on the Reservation's own RentalPeriod start day (OQ #7's
-// timing value, pilot-scale pragmatic default — see
-// server/contexts/notification/notification.ts's own comment). A
-// Reservation already handed out — even a day early, D-04 lets the
+// D-68 (answers OQ #7 for FR-41): sent on the day BEFORE the Reservation's
+// RentalPeriod starts, so the Customer can still arrange to come — or say
+// they will not. A Reservation confirmed after the run on that day, or
+// one starting the day it was booked, gets only its confirmation; there
+// is no catch-up send on the start day. A Reservation already handed out — even a day early, D-04 lets the
 // Operator take any Rentable unit whenever the Customer shows up — needs
 // no reminder; there is nothing left to remind them of.
-import type { AvailabilityReservationRepository } from '../contexts/availability-reservation'
+import { addRentalDays, type AvailabilityReservationRepository } from '../contexts/availability-reservation'
 import type { CatalogRepository } from '../contexts/catalog'
 import type { CustomerIdentityComplianceRepository } from '../contexts/customer-identity-compliance'
 import type { HandoverPossessionRepository } from '../contexts/handover-possession'
 import { dispatchPickupReminder, type NotificationDispatch, type NotificationGateway, type NotificationRepository } from '../contexts/notification'
 import type { TenantId } from '../contexts/_shared'
 import { assetTypeNameForEmail } from './customer-email-data'
+
+// D-68: one constant, not a Customer preference (FR-41, A-08) and not yet a
+// Tenant setting (P3 §12(e)) — the day arithmetic stays in Availability &
+// Reservation (D-12).
+export const PICKUP_REMINDER_LEAD_DAYS = 1
 
 export interface DispatchDuePickupRemindersDeps {
   availabilityRepo: AvailabilityReservationRepository
@@ -37,7 +43,7 @@ export async function dispatchDuePickupReminders(
   const { availabilityRepo, handoverRepo, catalogRepo, identityRepo, notificationRepo, notificationGateway } = deps
   const { tenantId, today } = params
 
-  const candidates = await availabilityRepo.listReservationsStartingOn(tenantId, today)
+  const candidates = await availabilityRepo.listReservationsStartingOn(tenantId, addRentalDays(today, PICKUP_REMINDER_LEAD_DAYS))
   const dispatched: NotificationDispatch[] = []
 
   for (const reservation of candidates) {
