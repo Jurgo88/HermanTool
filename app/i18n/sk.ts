@@ -203,6 +203,10 @@ export const sk = {
     },
     privacyPageBody:
       'Toto je dočasný text — konečné znenie zásad ochrany súkromia, vrátane doby uchovávania dokladov totožnosti a údajov zákazníka, ešte čaká na právne schválenie.',
+    // #216: legal text pending with OQ #27 — kept in the draft slot (D-52).
+    privacyMarketingHeading: 'Ponuky a zľavy e-mailom',
+    privacyMarketingBody:
+      'Ak v rezervácii zaškrtnete súhlas, budeme vám posielať ponuky a zľavy na váš e-mail. Súhlas je dobrovoľný, zaznamenáme si jeho čas a znenie textu, ktorému ste ho dali, a môžete ho kedykoľvek odvolať odkazom v e-maile. Doba uchovávania záznamu o súhlase ešte čaká na právne posúdenie.',
   },
   // D-50, UIF-03: domain errors carry a stable `code` (the throwing
   // class's own name, attached server-side by every translate*Error
@@ -304,6 +308,10 @@ export const sk = {
         'Tento odkaz už neplatí alebo bol použitý. Ak ste rezerváciu už potvrdili, potvrdenie máte v e-maile.',
       ReservationGroupReacquireFailedError:
         'Termín sa medzitým obsadil, rezerváciu sa už nedá potvrdiť. Vyberte si, prosím, náradie znova.',
+      // #216.
+      MarketingUnsubscribeLinkInvalidError: 'Tento odkaz na odhlásenie neplatí.',
+      MarketingConsentVersionMismatchError:
+        'Text súhlasu sa medzitým zmenil. Načítajte, prosím, stránku znova.',
     },
   },
   errorPage: {
@@ -481,6 +489,11 @@ export const sk = {
     conflictError: 'Túto akciu momentálne nie je možné dokončiť. Skúste stránku načítať znova.',
     pendingNotice: 'Máte rezerváciu, ktorú ste ešte nezaplatili. Náradie vám držíme do {time}.',
     pendingResumeAction: 'Dokončiť platbu',
+    // #216: change MARKETING_CONSENT_TEXT_VERSION whenever this label changes.
+    marketingConsentLabel: 'Chcem dostávať ponuky a zľavy e-mailom',
+    marketingConsentNote:
+      'Nepovinné. Súhlas môžete kedykoľvek odvolať odkazom v každom takom e-maile.',
+    marketingConsentPrivacyLink: 'Ochrana súkromia',
     // D-65: online now (with the Tenant's discount, when set) or on site.
     paymentMethodLegend: 'Ako zaplatíte nájomné?',
     methodOnline: 'Teraz online kartou',
@@ -986,6 +999,14 @@ export const sk = {
     note: 'Rezervované dni sa touto akciou neuvoľňujú. Kontaktujte zákazníka.',
     empty: 'Žiadne nedostavenia.',
   },
+  // S-28 (#216): withdrawing marketing consent, no login.
+  marketingUnsubscribe: {
+    title: 'Odhlásenie z ponúk',
+    lead: 'Po odhlásení vám už nebudeme posielať ponuky a zľavy. E-maily k vašim rezerváciám budú chodiť ďalej.',
+    action: 'Odhlásiť sa z ponúk',
+    done: 'Hotovo. Ponuky a zľavy vám už posielať nebudeme.',
+    backToCatalogAction: 'Späť do katalógu',
+  },
   // S-27 (D-65): Tenant policy values.
   adminSettings: {
     title: 'Nastavenia',
@@ -1002,6 +1023,11 @@ export const sk = {
     saveAction: 'Uložiť',
     clearAction: 'Zrušiť zľavu',
     saved: 'Uložené.',
+    // #216: a count only, no list until OQ #27.
+    marketingHeading: 'Súhlas s ponukami',
+    marketingCount: 'Kontakty so súhlasom s ponukami e-mailom: {count}',
+    marketingNote:
+      'Zoznam kontaktov sa zobrazí až po rozhodnutí o dobe uchovávania údajov. Marketingové e-maily systém zatiaľ neposiela.',
   },
   // S-25 (D-63): read-only statistics. Derived facts are worded as such.
   adminStatistics: {

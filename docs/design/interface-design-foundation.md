@@ -433,6 +433,9 @@ Opened from the e-mail. Opening the page changes nothing; one button POSTs the c
 **`S-27` Nastavenia** — `/admin/settings` · `D-65`, `FR-34`
 Tenant policy values. First: the discount for paying online, empty (no discount) until the owner sets it (OQ #31). Entered as a percentage, stored in basis points.
 
+**`S-28` Odhlásenie z ponúk** — `/odhlasenie/:token` · #216, `D-14`, `P7`
+The login-free unsubscribe link of every marketing e-mail. Opening it changes nothing; the button records the withdrawal (idempotent). `S-03` carries the unticked opt-in; `S-27` shows a count of consenting contacts, no list until OQ #27.
+
 On-site payment at the counter is a block of `S-10` (`OnSitePaymentAttestation`): amount due from the server, method, PIN per attestation (`C-11`); HandoverOut of an on-site group is refused until it is attested.
 
 ---
