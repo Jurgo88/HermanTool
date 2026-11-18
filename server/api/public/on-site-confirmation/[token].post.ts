@@ -7,14 +7,15 @@ import { dispatchReservationConfirmation } from '../../../contexts/notification'
 import { createAvailabilityReservationDeps } from '../../../utils/availability-reservation-deps'
 import { createCatalogDeps } from '../../../utils/catalog-deps'
 import { createCustomerIdentityComplianceDeps } from '../../../utils/customer-identity-compliance-deps'
-import { buildConfirmationSummary } from '../../../utils/customer-email-data'
+import { buildConfirmationSummary, deliveryLinesForEmail } from '../../../utils/customer-email-data'
 import { createNotificationDeps } from '../../../utils/notification-deps'
 import {
   markOnSiteConfirmationTokenUsed,
   resolveOnSiteConfirmationToken,
 } from '../../../utils/on-site-payment'
 import { getAppBaseUrl } from '../../../utils/payments-deps'
-import { quoteReservationLines } from '../../../utils/reservation-quote'
+import { createPostgresLogisticsDeliveryRepository } from '../../../contexts/logistics-delivery'
+import { computeGroupCharges } from '../../../utils/group-charges'
 import { getSeededTenantId } from '../../../utils/tenant'
 
 // D-65 (#215), S-26: the Customer follows the e-mailed link and presses
@@ -68,10 +69,15 @@ export default defineEventHandler(async (event) => {
           tenantId,
           reservations,
         )
-        const quote = await quoteReservationLines(
-          reservations.map((r) => ({ assetTypeId: r.assetTypeId, period: r.period, quantity: 1 })),
-          (assetTypeId) => catalog.repo.getAssetType(tenantId, assetTypeId),
-        )
+        const charges = await computeGroupCharges({
+          tenantId,
+          reservations,
+          catalogRepo: catalog.repo,
+          deliveries: await createPostgresLogisticsDeliveryRepository(
+            availability.sql,
+          ).listDeliveriesForGroup(tenantId, reservationGroupId),
+          onlineDiscountBasisPoints: null,
+        })
         await dispatchReservationConfirmation(
           { repo: notification.repo, gateway: notification.gateway },
           {
@@ -84,7 +90,12 @@ export default defineEventHandler(async (event) => {
             depositTotal,
             termsVersion: group?.termsVersion ?? null,
             accessLinkUrl: `${getAppBaseUrl(event)}/reservations/access/${accessToken}`,
-            onSiteRentalFee: quote.rentalFeeTotal,
+            onSiteRentalFee: charges.onSiteTotal,
+            deliveries: await deliveryLinesForEmail(
+              createPostgresLogisticsDeliveryRepository(availability.sql),
+              tenantId,
+              reservationGroupId,
+            ),
           },
         )
       }

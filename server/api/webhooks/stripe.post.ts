@@ -3,7 +3,8 @@ import { issueCustomerAccessLink } from '../../contexts/customer-identity-compli
 import { dispatchReservationConfirmation } from '../../contexts/notification'
 import { createAvailabilityReservationDeps } from '../../utils/availability-reservation-deps'
 import { createCatalogDeps } from '../../utils/catalog-deps'
-import { buildConfirmationSummary } from '../../utils/customer-email-data'
+import { createPostgresLogisticsDeliveryRepository } from '../../contexts/logistics-delivery'
+import { buildConfirmationSummary, deliveryLinesForEmail } from '../../utils/customer-email-data'
 import { createCustomerIdentityComplianceDeps } from '../../utils/customer-identity-compliance-deps'
 import { createNotificationDeps } from '../../utils/notification-deps'
 import { applyProviderWebhookEvent } from '../../utils/payment-webhook-flow'
@@ -83,6 +84,11 @@ export default defineEventHandler(async (event) => {
               depositTotal,
               termsVersion: group?.termsVersion ?? null,
               accessLinkUrl,
+              deliveries: await deliveryLinesForEmail(
+                createPostgresLogisticsDeliveryRepository(availability.sql),
+                tenantId,
+                customer.reservationGroupId,
+              ),
             },
           )
         }

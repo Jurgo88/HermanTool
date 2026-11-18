@@ -7,7 +7,8 @@ import {
 import { createCatalogDeps } from '../../../../utils/catalog-deps'
 import { createHandoverPossessionDeps } from '../../../../utils/handover-possession-deps'
 import { requireOperator } from '../../../../utils/operator-session'
-import { quoteReservationLines } from '../../../../utils/reservation-quote'
+import { createPostgresLogisticsDeliveryRepository } from '../../../../contexts/logistics-delivery'
+import { computeGroupCharges } from '../../../../utils/group-charges'
 
 // S-10 (D-65; issue #215): what the counter needs before HandoverOut of a
 // group paid on site — how it is paid, the rental fee due (computed here,
@@ -31,12 +32,19 @@ export default defineEventHandler(async (event) => {
       reservationGroupId,
     )
     const active = reservations.filter((r) => r.state === 'confirmed' || r.state === 'pending')
-    const quote =
+    // D-66: in-zone Delivery/Collection fees are paid with the rental fee.
+    const deliveries = await createPostgresLogisticsDeliveryRepository(
+      availability.sql,
+    ).listDeliveriesForGroup(tenantId, reservationGroupId)
+    const charges =
       active.length > 0
-        ? await quoteReservationLines(
-            active.map((r) => ({ assetTypeId: r.assetTypeId, period: r.period, quantity: 1 })),
-            (assetTypeId) => catalog.repo.getAssetType(tenantId, assetTypeId),
-          )
+        ? await computeGroupCharges({
+            tenantId,
+            reservations: active,
+            catalogRepo: catalog.repo,
+            deliveries,
+            onlineDiscountBasisPoints: null,
+          })
         : null
     const current =
       group.paymentMethod === 'on_site'
@@ -51,7 +59,7 @@ export default defineEventHandler(async (event) => {
     return {
       reservationGroupId,
       paymentMethod: group.paymentMethod,
-      rentalFeeDue: quote?.rentalFeeTotal ?? null,
+      rentalFeeDue: charges?.onSiteTotal ?? null,
       current: current
         ? {
             id: current.id,

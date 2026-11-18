@@ -436,6 +436,9 @@ Tenant policy values. First: the discount for paying online, empty (no discount)
 **`S-28` Odhlásenie z ponúk** — `/odhlasenie/:token` · #216, `D-14`, `P7`
 The login-free unsubscribe link of every marketing e-mail. Opening it changes nothing; the button records the withdrawal (idempotent). `S-03` carries the unticked opt-in; `S-27` shows a count of consenting contacts, no list until OQ #27.
 
+**`S-29` Dovoz a odvoz** — `/admin/delivery` · `D-66`, `FR-34`, `D-48`
+The DeliveryZone (municipalities), the flat fee and per-km rate (empty until set, OQ #32 — no Delivery is offered meanwhile), and the next two weeks of Deliveries and Collections per day with address, window and the Customer's phone. Outside-zone legs: km entered after the call (the server computes the fee), then the driver's fee attested — both PIN-gated. `S-03` gains `DeliveryCollectionChoice`: independent Delivery / Collection, municipality + street inside the zone, „Chcem dovoz mimo zóny — zavolajte mi“ outside it; the fee and totals come from the quote.
+
 On-site payment at the counter is a block of `S-10` (`OnSitePaymentAttestation`): amount due from the server, method, PIN per attestation (`C-11`); HandoverOut of an on-site group is refused until it is attested.
 
 ---

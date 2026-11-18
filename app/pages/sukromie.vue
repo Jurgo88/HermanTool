@@ -14,6 +14,8 @@ definePageMeta({ layout: 'public' })
     <h1>{{ sk.legalPrivacy.title }}</h1>
     <DraftNotice>
       <p>{{ sk.draft.privacyPageBody }}</p>
+      <h2>{{ sk.draft.privacyDeliveryHeading }}</h2>
+      <p>{{ sk.draft.privacyDeliveryBody }}</p>
       <h2>{{ sk.draft.privacyMarketingHeading }}</h2>
       <p>{{ sk.draft.privacyMarketingBody }}</p>
     </DraftNotice>

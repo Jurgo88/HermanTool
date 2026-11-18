@@ -40,6 +40,14 @@ export function reservationConfirmationText(params: {
   // D-65: the rental fee due at pickup when the group is paid on site;
   // absent for a group already paid online.
   onSiteRentalFee?: string | null
+  // D-66: Delivery / Collection legs, values already formatted.
+  deliveries?: {
+    leg: 'delivery' | 'collection'
+    timeWindow: 'morning' | 'afternoon'
+    place: string
+    fee: string | null
+    outsideZone: boolean
+  }[]
 }): EmailText {
   const lines = params.lines
     .map((line) => `- ${line.name}${line.quantity > 1 ? ` × ${line.quantity}` : ''}, ${line.period}`)
@@ -50,6 +58,17 @@ export function reservationConfirmationText(params: {
   const terms = params.termsVersion
     ? `\nPotvrdili ste podmienky prenájmu (verzia ${params.termsVersion}).\n`
     : ''
+  const deliveries = (params.deliveries ?? []).map((d) => {
+    const what = d.leg === 'delivery' ? 'Dovoz v prvý deň prenájmu' : 'Odvoz v posledný deň prenájmu'
+    const when = d.timeWindow === 'morning' ? 'dopoludnia' : 'popoludní'
+    const price = d.outsideZone
+      ? 'cenu vám oznámime telefonicky a zaplatíte ju vodičovi'
+      : `${d.fee ?? ''}`
+    return `- ${what}, ${when}: ${d.place} (${price})`
+  })
+  const logistics = deliveries.length
+    ? `\n${deliveries.join('\n')}\nPresný čas vám dohodne vodič telefonicky. Doklad totožnosti si pripravte aj pri dovoze.\n`
+    : ''
 
   return {
     subject: 'Rezervácia je potvrdená',
@@ -59,7 +78,8 @@ export function reservationConfirmationText(params: {
         ? `vaša rezervácia je potvrdená:\n\n${lines}\n\n` +
           `Nájomné ${params.onSiteRentalFee} zaplatíte pri prevzatí (hotovosť, karta alebo QR kód).\n`
         : `vaša rezervácia je potvrdená a zaplatená:\n\n${lines}\n\n`) +
-      `${PICKUP_NEEDS} ${deposit}\n\n` +
+      `${PICKUP_NEEDS} ${deposit}\n` +
+      `${logistics}\n` +
       `Rezerváciu si môžete kedykoľvek pozrieť tu:\n${params.accessLinkUrl}\n` +
       `${terms}\n` +
       `Tešíme sa na vás.\n\n${signoff}`,

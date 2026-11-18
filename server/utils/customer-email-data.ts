@@ -7,7 +7,33 @@
 import type { MonetaryAmount, TenantId } from '../contexts/_shared'
 import { createMonetaryAmount } from '../contexts/_shared'
 import type { CatalogRepository } from '../contexts/catalog'
+import type { LogisticsDeliveryRepository } from '../contexts/logistics-delivery'
 import { UNNAMED_ASSET_TYPE, type ConfirmationLine } from '../contexts/notification'
+
+// D-66: a group's Delivery / Collection legs in the shape Notification
+// takes — the municipality name resolved here, since Notification may not
+// import Logistics & Delivery.
+export async function deliveryLinesForEmail(
+  logisticsRepo: LogisticsDeliveryRepository,
+  tenantId: TenantId,
+  reservationGroupId: number,
+) {
+  const [deliveries, zone] = await Promise.all([
+    logisticsRepo.listDeliveriesForGroup(tenantId, reservationGroupId),
+    logisticsRepo.listZone(tenantId),
+  ])
+  const names = new Map(zone.map((m) => [m.id, m.name]))
+  return deliveries.map((d) => ({
+    leg: d.leg,
+    timeWindow: d.timeWindow,
+    place:
+      d.municipalityId !== null && names.has(d.municipalityId)
+        ? `${d.address}, ${names.get(d.municipalityId)}`
+        : d.address,
+    fee: d.fee,
+    outsideZone: d.outsideZone,
+  }))
+}
 
 interface ReservedPeriod {
   assetTypeId: number

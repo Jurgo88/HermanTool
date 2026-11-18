@@ -15,7 +15,8 @@ import { buildConfirmationSummary } from '../../../utils/customer-email-data'
 import { createNotificationDeps } from '../../../utils/notification-deps'
 import { issueOnSiteConfirmationToken } from '../../../utils/on-site-payment'
 import { getAppBaseUrl } from '../../../utils/payments-deps'
-import { quoteReservationLines } from '../../../utils/reservation-quote'
+import { createPostgresLogisticsDeliveryRepository } from '../../../contexts/logistics-delivery'
+import { computeGroupCharges } from '../../../utils/group-charges'
 import { getSeededTenantId } from '../../../utils/tenant'
 
 // D-65 (#215): the last checkout step for a group paid on site, in place
@@ -64,10 +65,15 @@ export default defineEventHandler(async (event) => {
       tenantId,
       reservationGroupId,
     )
-    const quote = await quoteReservationLines(
-      reservations.map((r) => ({ assetTypeId: r.assetTypeId, period: r.period, quantity: 1 })),
-      (assetTypeId) => catalog.repo.getAssetType(tenantId, assetTypeId),
-    )
+    const charges = await computeGroupCharges({
+      tenantId,
+      reservations,
+      catalogRepo: catalog.repo,
+      deliveries: await createPostgresLogisticsDeliveryRepository(
+        availability.sql,
+      ).listDeliveriesForGroup(tenantId, reservationGroupId),
+      onlineDiscountBasisPoints: null,
+    })
     const { lines } = await buildConfirmationSummary(catalog.repo, tenantId, reservations)
     await dispatchOnSiteConfirmationRequest(
       { repo: notification.repo, gateway: notification.gateway },
@@ -78,7 +84,7 @@ export default defineEventHandler(async (event) => {
         to: customer.email,
         customerName: customer.name,
         lines,
-        rentalFee: quote.rentalFeeTotal,
+        rentalFee: charges.onSiteTotal,
         confirmUrl: `${getAppBaseUrl(event)}/reservations/confirm/${token}`,
       },
     )
