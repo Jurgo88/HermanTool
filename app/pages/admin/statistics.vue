@@ -20,6 +20,8 @@ interface OverviewView {
   previousMonth: string
   revenueThisMonth: MonetaryAmountView[]
   revenueLastMonth: MonetaryAmountView[]
+  onSiteRevenueThisMonth: MonetaryAmountView[]
+  onSiteRevenueLastMonth: MonetaryAmountView[]
   utilisationThisMonth: number | null
   reservationsThisMonth: number
   outNow: number
@@ -169,6 +171,26 @@ const sortedRows = computed(() => {
             }}
           </p>
           <p class="statistics__note">{{ sk.adminStatistics.revenueNote }}</p>
+        </article>
+        <!-- D-65, P6: attested on-site money, its own tile, never added in. -->
+        <article class="statistics__tile">
+          <h3>
+            {{
+              sk.adminStatistics.onSiteRevenue.replace(
+                '{amount}',
+                moneyList(overview.onSiteRevenueThisMonth),
+              )
+            }}
+          </h3>
+          <p class="statistics__note">
+            {{
+              sk.adminStatistics.onSiteRevenueLastMonth.replace(
+                '{amount}',
+                moneyList(overview.onSiteRevenueLastMonth),
+              )
+            }}
+          </p>
+          <p class="statistics__note">{{ sk.adminStatistics.onSiteRevenueNote }}</p>
         </article>
         <article class="statistics__tile">
           <h3>{{ sk.adminStatistics.utilisation }}</h3>

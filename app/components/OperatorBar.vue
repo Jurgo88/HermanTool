@@ -92,6 +92,13 @@ await load()
           {{ sk.operatorBar.statusLink }}
         </NuxtLink>
         <NuxtLink
+          to="/admin/settings"
+          class="operator-bar__link"
+          active-class="operator-bar__link--active"
+        >
+          {{ sk.operatorBar.settingsLink }}
+        </NuxtLink>
+        <NuxtLink
           to="/admin/pin"
           class="operator-bar__link"
           active-class="operator-bar__link--active"

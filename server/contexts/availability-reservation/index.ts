@@ -76,7 +76,7 @@ export {
   findNearestJointPeriods,
 } from './joint-availability'
 
-export type { Reservation, ReservationGroup, ReservationState } from './types'
+export type { PaymentMethod, Reservation, ReservationGroup, ReservationState } from './types'
 
 // Error classes are exported as values (not `export type`) so callers
 // can use `instanceof` — they are thrown, not just typed, by

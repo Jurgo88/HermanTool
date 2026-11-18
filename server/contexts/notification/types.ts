@@ -11,7 +11,15 @@ import type { TenantId } from '../_shared'
 // "highest-leverage operational lever" P1 names. 'overdue_reminder' is
 // the REACTIVE one, tied to #16's already-derived Overdue state
 // (D-17/W6) — a distinct kind, not a synonym.
-export type NotificationKind = 'confirmation' | 'pickup_reminder' | 'return_reminder' | 'overdue_reminder'
+// D-65 (#215) adds 'on_site_confirmation_request': the link an on-site
+// ReservationGroup's Customer follows to confirm it (referenceId: the
+// ReservationGroup id).
+export type NotificationKind =
+  | 'confirmation'
+  | 'pickup_reminder'
+  | 'return_reminder'
+  | 'overdue_reminder'
+  | 'on_site_confirmation_request'
 
 // FR-32: "records every dispatch... the artefact you point at when a
 // Customer says they were never told." `referenceId` is a generic

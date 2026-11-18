@@ -29,6 +29,7 @@ import type { MonetaryAmount, TenantId } from '../_shared'
 import { resolveScanEvent } from './scan-resolution'
 import type { ConditionReportStorageGateway } from './r2-gateway'
 import type { HandoverPossessionRepository } from './repository'
+import { RentalFeeNotSettledError, assertRentalFeeSettled, type OnSitePaymentRepository } from './on-site-payment'
 import {
   AssetTypeMismatchError,
   BackdateInFutureError,
@@ -49,6 +50,9 @@ export interface PerformHandoverOutDeps {
   availabilityRepo: AvailabilityReservationRepository
   identityRepo: CustomerIdentityComplianceRepository
   conditionsGateway: ConditionReportStorageGateway
+  // D-65: needed only for a group paid on site. Fail-closed: an on-site
+  // group with no repository to check is refused, never waved through.
+  onSitePaymentRepo?: OnSitePaymentRepository
 }
 
 export interface PerformHandoverOutParams {
@@ -114,6 +118,17 @@ export async function performHandoverOut(
   // terms acceptance would mean an earlier invariant already broke.
   const termsVersion = group?.termsVersion
   if (!termsVersion) throw new ReservationNotConfirmedError(reservationId)
+
+  // D-65: same pattern as the terms check — the rental fee is paid online
+  // (Confirmed already implies it for an online group) or attested on site.
+  if (group.paymentMethod === 'on_site') {
+    if (!deps.onSitePaymentRepo) throw new RentalFeeNotSettledError(group.id)
+    await assertRentalFeeSettled(deps.onSitePaymentRepo, {
+      tenantId,
+      reservationGroupId: group.id,
+      paymentMethod: group.paymentMethod,
+    })
+  }
 
   // The presigned upload URLs are generated up front so the object keys
   // they name can be recorded in the same ConditionReport row created

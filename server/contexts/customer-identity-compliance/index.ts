@@ -59,6 +59,14 @@ export type { IdentityEvidenceStorageGateway, ObjectStat } from './r2-gateway'
 export { createR2IdentityEvidenceGateway } from './r2-gateway'
 
 export { createCustomer } from './customer'
+export type { ContactDetails } from './contact'
+export {
+  OnSitePaymentLimitReachedError,
+  assertNoActiveOnSiteGroupForContact,
+  contactsMatch,
+  normaliseEmail,
+  normalisePhone,
+} from './contact'
 export type { ConfirmIdentityEvidenceUploadOutcome } from './identity-evidence'
 export {
   computeRetentionDeadline,

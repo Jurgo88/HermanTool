@@ -37,6 +37,7 @@ import type { NotificationRepository } from './repository'
 import type { NotificationDispatch } from './types'
 import {
   overdueReminderText,
+  onSiteConfirmationRequestText,
   pickupReminderText,
   reservationConfirmationText,
   returnReminderText,
@@ -100,6 +101,8 @@ export async function dispatchReservationConfirmation(
     // The terms version the Customer accepted before paying (D-35).
     termsVersion: string | null
     accessLinkUrl: string
+    // D-65: set when the rental fee is paid at pickup.
+    onSiteRentalFee?: MonetaryAmount | null
   },
 ): Promise<NotificationDispatch | null> {
   const { tenantId, customerId, reservationGroupId, to, customerName, accessLinkUrl } = params
@@ -113,8 +116,44 @@ export async function dispatchReservationConfirmation(
     depositTotal: params.depositTotal ? formatMoney(params.depositTotal) : null,
     termsVersion: params.termsVersion,
     accessLinkUrl,
+    onSiteRentalFee: params.onSiteRentalFee ? formatMoney(params.onSiteRentalFee) : null,
   })
   return sendAndRecord(deps, { tenantId, customerId, kind: 'confirmation', referenceId: reservationGroupId, to, subject, body })
+}
+
+// D-65 (#215): the confirmation link for a ReservationGroup paid on site.
+export async function dispatchOnSiteConfirmationRequest(
+  deps: NotificationDeps,
+  params: {
+    tenantId: TenantId
+    customerId: number
+    reservationGroupId: number
+    to: string
+    customerName: string
+    lines: ConfirmationLine[]
+    rentalFee: MonetaryAmount
+    confirmUrl: string
+  },
+): Promise<NotificationDispatch | null> {
+  const { subject, body } = onSiteConfirmationRequestText({
+    customerName: params.customerName,
+    lines: params.lines.map((line) => ({
+      name: line.assetTypeName,
+      quantity: line.quantity,
+      period: formatDayRange(line.startDay, line.endDay),
+    })),
+    rentalFee: formatMoney(params.rentalFee),
+    confirmUrl: params.confirmUrl,
+  })
+  return sendAndRecord(deps, {
+    tenantId: params.tenantId,
+    customerId: params.customerId,
+    kind: 'on_site_confirmation_request',
+    referenceId: params.reservationGroupId,
+    to: params.to,
+    subject,
+    body,
+  })
 }
 
 export async function dispatchReturnReminder(

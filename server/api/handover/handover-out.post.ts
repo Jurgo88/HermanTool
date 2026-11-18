@@ -62,6 +62,7 @@ export default defineEventHandler(async (event) => {
         availabilityRepo: availability.repo,
         identityRepo: customerIdentity.repo,
         conditionsGateway: handover.conditionsGateway,
+        onSitePaymentRepo: handover.onSitePaymentRepo,
       },
       {
         tenantId: operator.tenantId,

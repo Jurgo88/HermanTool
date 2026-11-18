@@ -11,7 +11,7 @@ import {
 } from '../contexts/availability-reservation'
 import { createMonetaryAmount, type MonetaryAmount } from '../contexts/_shared'
 import { AssetTypeNotFoundError, type AssetType } from '../contexts/catalog'
-import { computeRentalFeeAmount } from '../contexts/payments'
+import { applyOnlinePaymentDiscount, computeRentalFeeAmount } from '../contexts/payments'
 
 export interface QuoteLine {
   assetTypeId: number
@@ -30,7 +30,13 @@ export interface QuotedLine extends QuoteLine {
 
 export interface ReservationQuote {
   lines: QuotedLine[]
+  // The rental fee paid on site, undiscounted (D-65).
   rentalFeeTotal: MonetaryAmount
+  // The rental fee paid online: rentalFeeTotal less the Tenant's discount
+  // for paying online, when one is set (D-65, OQ #31). Equal to
+  // rentalFeeTotal when none is. The deposit is never discounted.
+  onlineRentalFeeTotal: MonetaryAmount
+  onlineDiscount: MonetaryAmount
   depositTotal: MonetaryAmount
 }
 
@@ -39,7 +45,7 @@ export interface ReservationQuote {
 export async function quoteReservationLines(
   lines: QuoteLine[],
   lookupAssetType: (assetTypeId: number) => Promise<AssetType | null>,
-  options: { today?: string } = {},
+  options: { today?: string; onlineDiscountBasisPoints?: number | null } = {},
 ): Promise<ReservationQuote> {
   const quoted: QuotedLine[] = []
   const feeInputs: { dayRate: MonetaryAmount; days: number }[] = []
@@ -64,9 +70,16 @@ export async function quoteReservationLines(
     })
   }
 
+  const rentalFeeTotal = computeRentalFeeAmount(feeInputs)
+  const online = applyOnlinePaymentDiscount(
+    rentalFeeTotal,
+    options.onlineDiscountBasisPoints ?? null,
+  )
   return {
     lines: quoted,
-    rentalFeeTotal: computeRentalFeeAmount(feeInputs),
+    rentalFeeTotal,
+    onlineRentalFeeTotal: online.rentalFee,
+    onlineDiscount: online.discount,
     depositTotal: sumAmounts(quoted.map((line) => line.deposit)),
   }
 }

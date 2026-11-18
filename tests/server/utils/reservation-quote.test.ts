@@ -99,3 +99,23 @@ describe('quoteReservationLines with today (S-03, a stored draft can outlive its
     expect(quote.lines[0]).not.toHaveProperty('startsInPast')
   })
 })
+
+describe('online-payment discount in the quote (D-65)', () => {
+  const lines = [
+    { assetTypeId: 1, period: { startDay: '2026-10-05', endDay: '2026-10-06' }, quantity: 1 },
+  ]
+
+  it('discounts the rental fee paid online and never the deposit', async () => {
+    const quote = await quoteReservationLines(lines, lookup, { onlineDiscountBasisPoints: 1000 })
+    expect(quote.rentalFeeTotal).toEqual(createMonetaryAmount(3000))
+    expect(quote.onlineRentalFeeTotal).toEqual(createMonetaryAmount(2700))
+    expect(quote.onlineDiscount).toEqual(createMonetaryAmount(300))
+    expect(quote.depositTotal).toEqual(createMonetaryAmount(7500))
+  })
+
+  it('charges the same online and on site while no discount is set', async () => {
+    const quote = await quoteReservationLines(lines, lookup)
+    expect(quote.onlineRentalFeeTotal).toEqual(quote.rentalFeeTotal)
+    expect(quote.onlineDiscount).toEqual(createMonetaryAmount(0))
+  })
+})

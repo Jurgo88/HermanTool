@@ -35,6 +35,8 @@ export const checkoutReservationGroupBodySchema = z.object({
     )
     .min(1),
   customer: customerDetailsSchema,
+  // D-65: online now (Stripe) or on site at pickup. Online when absent.
+  paymentMethod: z.enum(['online', 'on_site']).default('online'),
 })
 
 // D-35: termsVersion is an opaque, non-empty identifier — see

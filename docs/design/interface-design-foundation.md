@@ -427,6 +427,14 @@ One screen, Slovak, no stack traces, a route home per surface.
 **`S-25` Štatistiky** — `/admin/statistics` · `D-63`, `FR-28`, `D-38`, `D-21`, `P6` (added 19 November 2026, Part 4 §16.6)
 Read-only. Overview tiles (confirmed online revenue this month vs last, pool-based utilisation, Reservations starting this month, out now with Overdue as a `C-08` derived badge, deposits held as attested cash on their own tile), a single-series revenue-by-month bar chart with a table view, and a per-AssetType table for a month, a year or a custom range, sortable "čo zarába / čo leží", with unmet-demand days and a CSV export. The page formats and sorts; every figure and every period is computed on the server. The admin brand link lands here.
 
+**`S-26` Potvrdenie rezervácie s platbou na mieste** — `/reservations/confirm/:token` · `D-65`, `D-28`
+Opened from the e-mail. Opening the page changes nothing; one button POSTs the confirmation, so a mail scanner prefetching the link confirms nobody. States: idle, pending, confirmed, link invalid or used, days taken in the meantime.
+
+**`S-27` Nastavenia** — `/admin/settings` · `D-65`, `FR-34`
+Tenant policy values. First: the discount for paying online, empty (no discount) until the owner sets it (OQ #31). Entered as a percentage, stored in basis points.
+
+On-site payment at the counter is a block of `S-10` (`OnSitePaymentAttestation`): amount due from the server, method, PIN per attestation (`C-11`); HandoverOut of an on-site group is refused until it is attested.
+
 ---
 
 ## 7. Cross-cutting interaction rules

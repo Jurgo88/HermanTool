@@ -217,6 +217,12 @@ export const sk = {
   // that is fine, that is what the fallback is for.
   errors: {
     operator: {
+      // D-65.
+      RentalFeeNotSettledError:
+        'Nájomné ešte nie je zaplatené. Prijmite platbu na mieste a potvrďte ju, až potom vydajte náradie.',
+      OnSitePaymentAlreadyAttestedError: 'Platba na mieste je už potvrdená.',
+      OnSitePaymentNotExpectedError: 'Táto rezervácia je zaplatená online, na mieste sa nič neplatí.',
+      OnSitePaymentCorrectionError: 'Opravu platby sa nepodarilo uložiť. Uveďte dôvod a skúste to znova.',
       AssetTypeNotFoundError: 'Tento typ náradia neexistuje.',
       AssetNotFoundError: 'Tento kus náradia neexistuje.',
       AssetTypeNameRequiredError: 'Zadajte názov typu náradia.',
@@ -291,6 +297,13 @@ export const sk = {
       InvalidCustomerDetailsError: 'Skontrolujte, prosím, meno, e-mail a telefón.',
       RetentionWindowNotConfiguredError:
         'Nahratie dokladu momentálne nie je možné. Skúste to prosím neskôr.',
+      // D-65.
+      OnSitePaymentLimitReachedError:
+        'Na tento e-mail alebo telefón už máte jednu rezerváciu s platbou na mieste. Zaplaťte, prosím, online alebo nás kontaktujte.',
+      OnSiteConfirmationLinkInvalidError:
+        'Tento odkaz už neplatí alebo bol použitý. Ak ste rezerváciu už potvrdili, potvrdenie máte v e-maile.',
+      ReservationGroupReacquireFailedError:
+        'Termín sa medzitým obsadil, rezerváciu sa už nedá potvrdiť. Vyberte si, prosím, náradie znova.',
     },
   },
   errorPage: {
@@ -317,6 +330,7 @@ export const sk = {
     navLabel: 'Správa',
     catalogLink: 'Katalóg',
     statisticsLink: 'Štatistiky',
+    settingsLink: 'Nastavenia',
     assetRegistryLink: 'Kusy a štítky',
     statusLink: 'Stav systému',
     pinLink: 'Môj PIN',
@@ -363,6 +377,8 @@ export const sk = {
     depositInline: 'záloha {amount} v hotovosti pri prevzatí',
     reserveHeading: 'Kedy ho potrebujete?',
     rateChip: '{amount} / deň',
+    // D-65: shown only when the Tenant has set a discount for paying online.
+    onlineRateChip: 'pri platbe online {amount}',
     depositChip: 'Záloha {amount} v hotovosti',
     paymentNote: 'Zaplatíte kartou, zálohu v hotovosti pri prevzatí.',
     pickStartHint: 'Vyberte v kalendári prvý deň prenájmu.',
@@ -465,6 +481,30 @@ export const sk = {
     conflictError: 'Túto akciu momentálne nie je možné dokončiť. Skúste stránku načítať znova.',
     pendingNotice: 'Máte rezerváciu, ktorú ste ešte nezaplatili. Náradie vám držíme do {time}.',
     pendingResumeAction: 'Dokončiť platbu',
+    // D-65: online now (with the Tenant's discount, when set) or on site.
+    paymentMethodLegend: 'Ako zaplatíte nájomné?',
+    methodOnline: 'Teraz online kartou',
+    methodOnSite: 'Pri prevzatí na mieste',
+    methodOnSiteHint: 'Hotovosť, karta alebo QR kód. Rezerváciu potvrdíte odkazom v e-maile.',
+    methodOnlineSaving: 'ušetríte {amount}',
+    payOnSiteLabel: 'Pri prevzatí za prenájom',
+    reserveOnSiteAction: 'Rezervovať s platbou na mieste',
+    sendingConfirmation: 'Posielam potvrdzovací e-mail…',
+    onSiteSentTitle: 'Skontrolujte si e-mail',
+    onSiteSentBody:
+      'Poslali sme vám odkaz na potvrdenie rezervácie. Kým naň nekliknete, náradie vám držíme len krátko.',
+    onSiteNote: 'Nájomné zaplatíte pri prevzatí, nič sa teraz neplatí.',
+  },
+  // S-26 (D-65): the Customer confirms an on-site ReservationGroup.
+  onSiteConfirmation: {
+    title: 'Potvrdenie rezervácie',
+    lead: 'Rezervácia s platbou na mieste začne platiť, keď ju potvrdíte.',
+    confirmAction: 'Potvrdiť rezerváciu',
+    confirming: 'Potvrdzujem…',
+    confirmedTitle: 'Rezervácia je potvrdená',
+    confirmedBody:
+      'Ďakujeme. Potvrdenie s prehľadom vám príde e-mailom. Nájomné zaplatíte pri prevzatí a prineste si doklad totožnosti.',
+    backToCatalogAction: 'Späť do katalógu',
   },
   checkoutResult: {
     successTitle: 'Platba prijatá',
@@ -495,6 +535,9 @@ export const sk = {
     unknownBody: 'Rezervácia nie je potvrdená. Náradie si môžete vybrať znova.',
   },
   customerAccess: {
+    // D-65: a reservation paid on site.
+    identityAtCounter:
+      'Doklad totožnosti si prineste pri prevzatí, pracovník ho overí na mieste. Nič nemusíte nahrávať.',
     title: 'Vaša rezervácia',
     loading: 'Načítavam…',
     linkNotFound: 'Tento odkaz už nie je platný. Ak potrebujete pomoc, kontaktujte nás.',
@@ -781,6 +824,22 @@ export const sk = {
     reasonLabel: 'Dôvod dodatočného záznamu',
     incomplete: 'Vyplňte, kedy sa to naozaj stalo, a dôvod dodatočného záznamu.',
   },
+  // S-10 (D-65): the counter attests the rental fee taken through eKasa.
+  onSitePayment: {
+    heading: 'Nájomné',
+    loading: 'Zisťujem stav platby…',
+    loadError: 'Stav platby sa nepodarilo načítať.',
+    retryAction: 'Skúsiť znova',
+    paidOnline: 'Zaplatené online kartou.',
+    due: 'Prijmite na mieste {amount}',
+    ekasaHint: 'Platbu zaevidujte v eKase. Systém peniaze nespracúva, iba zaznamená, že ste ich prijali.',
+    methodLegend: 'Forma platby',
+    methods: { cash: 'Hotovosť', card_terminal: 'Karta na termináli', qr: 'QR kód' },
+    attestAction: 'Potvrdiť prijatie platby',
+    submitting: 'Ukladám…',
+    requiredHint: 'Bez potvrdenej platby sa náradie vydať nedá.',
+    attested: 'Prijaté {amount} ({method}), {time}.',
+  },
   adminCounter: {
     title: 'Pult',
     pickupsHeading: 'Dnešné vyzdvihnutia',
@@ -927,6 +986,23 @@ export const sk = {
     note: 'Rezervované dni sa touto akciou neuvoľňujú. Kontaktujte zákazníka.',
     empty: 'Žiadne nedostavenia.',
   },
+  // S-27 (D-65): Tenant policy values.
+  adminSettings: {
+    title: 'Nastavenia',
+    loadError: 'Nastavenia sa nepodarilo načítať.',
+    discountHeading: 'Zľava za platbu online',
+    discountIntro:
+      'Zákazník, ktorý zaplatí nájomné vopred online, dostane túto zľavu. Platí len na nájomné, nikdy na zálohu ani dopravu. Pri platbe na mieste sa neuplatní.',
+    discountOff: 'Zľava nie je nastavená — online aj na mieste sa platí rovnako.',
+    discountOn: 'Aktuálna zľava: {percent}',
+    updatedAt: 'zmenené {time}',
+    discountLabel: 'Zľava v %',
+    discountHint: 'Napríklad 10 alebo 7,5. Prázdne pole = bez zľavy.',
+    discountInvalid: 'Zadajte číslo väčšie ako 0 a menšie ako 100, najviac s dvomi desatinnými miestami.',
+    saveAction: 'Uložiť',
+    clearAction: 'Zrušiť zľavu',
+    saved: 'Uložené.',
+  },
   // S-25 (D-63): read-only statistics. Derived facts are worded as such.
   adminStatistics: {
     title: 'Štatistiky',
@@ -937,6 +1013,9 @@ export const sk = {
     revenueThisMonth: 'Tržby tento mesiac',
     revenueLastMonth: 'Minulý mesiac: {amount}',
     revenueNote: 'Len potvrdené platby kartou online.',
+    onSiteRevenue: 'Nájomné zaplatené na mieste: {amount}',
+    onSiteRevenueLastMonth: 'Na mieste minulý mesiac: {amount}',
+    onSiteRevenueNote: 'Potvrdil pracovník na pulte, systém peniaze iba eviduje.',
     utilisation: 'Vyťaženosť tento mesiac',
     utilisationNote: 'Prenajaté dni z dní, keď mohli byť kusy vonku.',
     reservationsThisMonth: 'Rezervácie začínajúce tento mesiac',

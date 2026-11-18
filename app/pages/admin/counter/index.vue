@@ -38,6 +38,7 @@ const photoStateLabels: Record<PhotoState, string> = {
 
 interface ReservationView {
   id: number
+  reservationGroupId: number
   assetTypeId: number
   period: { startDay: string; endDay: string }
 }
@@ -705,6 +706,11 @@ async function confirmSettlement(pin: string) {
         @back="resetToWorklist"
       />
 
+      <!-- D-65: the rental fee, paid online or taken on site, before anything goes out. -->
+      <OnSitePaymentAttestation
+        v-if="verificationDone"
+        :reservation-group-id="activePickup.reservation.reservationGroupId"
+      />
       <section v-if="!verificationDone">
         <h3>{{ sk.adminCounter.identityVerificationHeading }}</h3>
         <p v-if="evidenceList.length === 0">{{ sk.adminCounter.noEvidence }}</p>

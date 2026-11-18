@@ -1,5 +1,9 @@
 import { checkoutReservationGroup } from '../../contexts/availability-reservation'
-import { createCustomer, CustomerIdentityComplianceError } from '../../contexts/customer-identity-compliance'
+import {
+  assertNoActiveOnSiteGroupForContact,
+  createCustomer,
+  CustomerIdentityComplianceError,
+} from '../../contexts/customer-identity-compliance'
 import {
   createAvailabilityReservationDeps,
   translateAvailabilityReservationError,
@@ -10,6 +14,7 @@ import {
   createCustomerIdentityComplianceDeps,
   translateCustomerIdentityComplianceError,
 } from '../../utils/customer-identity-compliance-deps'
+import { listActiveOnSiteContacts } from '../../utils/on-site-payment'
 import { getSeededTenantId } from '../../utils/tenant'
 
 // W1, FR-06, D-14: entry point of the checkout flow — public, no
@@ -38,7 +43,19 @@ export default defineEventHandler(async (event) => {
 
   try {
     const tenantId = await getSeededTenantId(availability.sql)
-    const { group, reservations } = await checkoutReservationGroup(availability.repo, { tenantId, lines: body.lines })
+    // D-65: at most one active on-site group per contact (normalised e-mail
+    // or phone), checked before anything is held. FR-33: this Tenant only.
+    if (body.paymentMethod === 'on_site') {
+      assertNoActiveOnSiteGroupForContact(
+        body.customer,
+        await listActiveOnSiteContacts(availability.sql, tenantId),
+      )
+    }
+    const { group, reservations } = await checkoutReservationGroup(availability.repo, {
+      tenantId,
+      lines: body.lines,
+      paymentMethod: body.paymentMethod,
+    })
     const customer = await createCustomer(customerIdentity.repo, {
       tenantId,
       reservationGroupId: group.id,

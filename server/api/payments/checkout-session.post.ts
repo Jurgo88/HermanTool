@@ -16,6 +16,7 @@ import { requireCheckoutGroupCookie } from '../../utils/checkout-session'
 import { createPaymentsDeps, getAppBaseUrl } from '../../utils/payments-deps'
 import { quoteReservationLines } from '../../utils/reservation-quote'
 import { getSeededTenantId } from '../../utils/tenant'
+import { getTenantSettings } from '../../utils/tenant-settings'
 
 const bodySchema = z.object({ reservationGroupId: z.number().int().positive() })
 
@@ -39,6 +40,15 @@ export default defineEventHandler(async (event) => {
     const group = await availability.repo.getReservationGroup(tenantId, body.reservationGroupId)
     if (!group) throw new ReservationGroupNotFoundError(body.reservationGroupId)
     assertTermsAccepted(group)
+    // D-65: an on-site group never goes to Stripe.
+    if (group.paymentMethod !== 'online') {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'This ReservationGroup is paid on site.',
+        data: { code: 'OnSitePaymentGroupError' },
+      })
+    }
+    const { onlinePaymentDiscountBasisPoints } = await getTenantSettings(availability.sql, tenantId)
 
     const reservations = await availability.repo.listReservationsForGroup(tenantId, body.reservationGroupId)
     // One Reservation is one unit (FR-06). Same computation as the S-03
@@ -50,8 +60,10 @@ export default defineEventHandler(async (event) => {
         quantity: 1,
       })),
       (assetTypeId) => catalog.repo.getAssetType(tenantId, assetTypeId),
+      { onlineDiscountBasisPoints: onlinePaymentDiscountBasisPoints },
     )
-    const amount = quote.rentalFeeTotal
+    // D-65: paying online is the discounted fee, the same number S-03 showed.
+    const amount = quote.onlineRentalFeeTotal
 
     const appBaseUrl = getAppBaseUrl(event)
     const { redirectUrl } = await startPayment(payments.repo, payments.gateway, {

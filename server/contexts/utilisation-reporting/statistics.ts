@@ -176,15 +176,25 @@ export async function getStatisticsOverview(
   const lastMonth = periodOfMonth(previousMonth)
   const daysInMonth = rentalPeriodLengthInDays(thisMonth)
 
-  const [paymentsNow, paymentsBefore, reservations, assetTypes, openEndDays, deposits] =
-    await Promise.all([
-      source.listConfirmedPayments(tenantId, thisMonth),
-      source.listConfirmedPayments(tenantId, lastMonth),
-      source.listConfirmedReservationsOverlapping(tenantId, thisMonth),
-      source.listAssetTypes(tenantId),
-      source.listOpenPossessionEndDays(tenantId),
-      source.listHeldDeposits(tenantId),
-    ])
+  const [
+    paymentsNow,
+    paymentsBefore,
+    onSiteNow,
+    onSiteBefore,
+    reservations,
+    assetTypes,
+    openEndDays,
+    deposits,
+  ] = await Promise.all([
+    source.listConfirmedPayments(tenantId, thisMonth),
+    source.listConfirmedPayments(tenantId, lastMonth),
+    source.listOnSitePayments(tenantId, thisMonth),
+    source.listOnSitePayments(tenantId, lastMonth),
+    source.listConfirmedReservationsOverlapping(tenantId, thisMonth),
+    source.listAssetTypes(tenantId),
+    source.listOpenPossessionEndDays(tenantId),
+    source.listHeldDeposits(tenantId),
+  ])
 
   const pools = await Promise.all(assetTypes.map((a) => source.readPoolCount(tenantId, a.id)))
   const capacityDays = pools.reduce((sum, pool) => sum + pool * daysInMonth, 0)
@@ -195,6 +205,8 @@ export async function getStatisticsOverview(
     previousMonth,
     revenueThisMonth: sumByCurrency(paymentsNow.map((p) => p.amount)),
     revenueLastMonth: sumByCurrency(paymentsBefore.map((p) => p.amount)),
+    onSiteRevenueThisMonth: sumByCurrency(onSiteNow.map((p) => p.amount)),
+    onSiteRevenueLastMonth: sumByCurrency(onSiteBefore.map((p) => p.amount)),
     utilisationThisMonth: capacityDays > 0 ? rentedDays / capacityDays : null,
     reservationsThisMonth: reservations.filter((r) => monthOfDay(r.period.startDay) === month)
       .length,

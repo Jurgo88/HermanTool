@@ -56,6 +56,10 @@ export interface ReportingSource {
     reservationGroupIds: number[],
   ): Promise<ReportedReservation[]>
   listConfirmedPayments(tenantId: TenantId, period: RentalPeriod): Promise<ReportedPayment[]>
+  // D-65: rental fees attested on site (the attestations in force only),
+  // dated by the Tenant-local day of attestation. Money the platform only
+  // records (P6) — never summed into confirmed revenue.
+  listOnSitePayments(tenantId: TenantId, period: RentalPeriod): Promise<ReportedPayment[]>
   // Open Possessions (handed out, not back, not declared lost): the last
   // day of each one's Reservation. Overdue is derived from it (FR-28).
   listOpenPossessionEndDays(tenantId: TenantId): Promise<string[]>
@@ -85,8 +89,9 @@ export interface StatisticsOverview {
   // Confirmed online revenue only (P6). Sums are per currency (D-21).
   revenueThisMonth: MonetaryAmount[]
   revenueLastMonth: MonetaryAmount[]
-  // D-65 (#215): money attested on site joins here as its own line,
-  // never summed into confirmed revenue (P6).
+  // D-65: rental fees attested on site, their own line (P6).
+  onSiteRevenueThisMonth: MonetaryAmount[]
+  onSiteRevenueLastMonth: MonetaryAmount[]
   utilisationThisMonth: number | null
   reservationsThisMonth: number
   // Derived facts (FR-28): computed now, never read from a stored status.

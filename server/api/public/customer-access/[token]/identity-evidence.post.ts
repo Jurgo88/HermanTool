@@ -33,6 +33,17 @@ export default defineEventHandler(async (event) => {
     // Unreachable via FK integrity — kept as a checked invariant.
     if (!customer) customerAccessLinkNotFoundError()
 
+    // D-65 / D-15 (c): for a group paid on site the Operator captures the
+    // document at the counter; nothing is uploaded online on this path.
+    const group = await availability.repo.getReservationGroup(tenantId, customer.reservationGroupId)
+    if (group?.paymentMethod === 'on_site') {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'The identity document for this reservation is taken at the counter.',
+        data: { code: 'IdentityAtCounterOnlyError' },
+      })
+    }
+
     const reservations = await availability.repo.listReservationsForGroup(tenantId, customer.reservationGroupId)
     const isReservationGroupConfirmed = reservations.length > 0 && reservations.every((r) => r.state === 'confirmed')
 

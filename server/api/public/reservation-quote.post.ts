@@ -3,6 +3,7 @@ import { InvalidRentalPeriodError, todayRentalDay } from '../../contexts/availab
 import { AssetTypeNotFoundError } from '../../contexts/catalog'
 import { createCatalogDeps } from '../../utils/catalog-deps'
 import { quoteReservationLines } from '../../utils/reservation-quote'
+import { getTenantSettings } from '../../utils/tenant-settings'
 import { getSeededTenantId } from '../../utils/tenant'
 
 const dayPattern = /^\d{4}-\d{2}-\d{2}$/
@@ -33,13 +34,15 @@ export default defineEventHandler(async (event) => {
 
   try {
     const tenantId = await getSeededTenantId(sql)
+    // D-65: both prices — on site and online with the Tenant's discount.
+    const { onlinePaymentDiscountBasisPoints } = await getTenantSettings(sql, tenantId)
     return await quoteReservationLines(
       lines,
       async (assetTypeId) => {
         const assetType = await repo.getAssetType(tenantId, assetTypeId)
         return assetType?.published ? assetType : null
       },
-      { today: todayRentalDay() },
+      { today: todayRentalDay(), onlineDiscountBasisPoints: onlinePaymentDiscountBasisPoints },
     )
   } catch (err) {
     if (err instanceof AssetTypeNotFoundError) {
