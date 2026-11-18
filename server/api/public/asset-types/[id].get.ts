@@ -1,4 +1,8 @@
-import { getPublishedAssetType, listPublishedAccessoriesOf } from '../../../contexts/catalog'
+import {
+  getPublishedAssetType,
+  listPublishedAccessoriesOf,
+  listPublishedCompatibleOf,
+} from '../../../contexts/catalog'
 import {
   createCatalogDeps,
   getAssetTypeIdParam,
@@ -7,7 +11,7 @@ import {
 import { getSeededTenantId } from '../../../utils/tenant'
 
 // S-02 (D-58), FR-02: one published AssetType with its D-55 content and
-// its D-57 Accessories, for a Visitor — no session, nothing written, same
+// its D-57 Accessories and D-62 CompatibleAssetTypes, for a Visitor — no session, nothing written, same
 // as ../asset-types.get.ts. Unpublished or an Accessory answers 404,
 // exactly like a missing id.
 export default defineEventHandler(async (event) => {
@@ -17,10 +21,10 @@ export default defineEventHandler(async (event) => {
   try {
     const tenantId = await getSeededTenantId(sql)
     const assetType = await getPublishedAssetType(repo, { tenantId, assetTypeId })
-    const accessories = await listPublishedAccessoriesOf(repo, {
-      tenantId,
-      principalId: assetTypeId,
-    })
+    const [accessories, compatible] = await Promise.all([
+      listPublishedAccessoriesOf(repo, { tenantId, principalId: assetTypeId }),
+      listPublishedCompatibleOf(repo, { tenantId, assetTypeId }),
+    ])
 
     return {
       id: assetType.id,
@@ -40,6 +44,13 @@ export default defineEventHandler(async (event) => {
         dayRate: accessory.dayRate,
         depositAmount: accessory.depositAmount,
         imageFile: accessory.imageFile,
+      })),
+      compatible: compatible.map((other) => ({
+        id: other.id,
+        name: other.name,
+        dayRate: other.dayRate,
+        depositAmount: other.depositAmount,
+        imageFile: other.imageFile,
       })),
     }
   } catch (err) {

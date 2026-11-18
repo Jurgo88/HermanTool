@@ -17,6 +17,9 @@ export interface AssetTypeContent {
   // D-57: replaces the whole set of principals this AssetType is an
   // Accessory of. Empty makes it a normal, listed AssetType again.
   principalIds?: number[]
+  // D-62: replaces every compatibility link this AssetType takes part in,
+  // from either side. Empty removes them all.
+  compatibleIds?: number[]
 }
 
 export interface NewAssetType extends AssetTypeContent {
@@ -121,6 +124,7 @@ interface AssetTypeRow {
   power_source_id: number | null
   use_area_ids: number[]
   principal_ids: number[]
+  compatible_ids: number[]
   specifications: Specification[]
   included_contents: string
   handling_notice: string
@@ -146,6 +150,7 @@ function mapAssetType(row: AssetTypeRow): AssetType {
     handlingNotice: row.handling_notice,
     imageFile: row.image_file,
     principalIds: row.principal_ids,
+    compatibleIds: row.compatible_ids,
     createdByOperatorId: row.created_by_operator_id,
     updatedByOperatorId: row.updated_by_operator_id,
     updatedAt: row.updated_at,
@@ -191,7 +196,17 @@ export function createPostgresCatalogRepository(
          from asset_type_accessories x
          where x.tenant_id = a.tenant_id and x.accessory_asset_type_id = a.id),
         '{}'::integer[]
-      ) as principal_ids
+      ) as principal_ids, coalesce(
+        (select array_agg(c.other_id order by c.other_id)
+         from (
+           select k.asset_type_b_id as other_id from asset_type_compatibilities k
+           where k.tenant_id = a.tenant_id and k.asset_type_a_id = a.id
+           union all
+           select k.asset_type_a_id from asset_type_compatibilities k
+           where k.tenant_id = a.tenant_id and k.asset_type_b_id = a.id
+         ) c),
+        '{}'::integer[]
+      ) as compatible_ids
       from asset_types a
       where ${where}
       order by a.name
@@ -241,6 +256,33 @@ export function createPostgresCatalogRepository(
     `
   }
 
+  // D-62: one row per unordered pair, lower id first, so the link reads
+  // the same from both sides and a reversed duplicate cannot exist.
+  async function replaceCompatibilities(
+    tenantId: TenantId,
+    assetTypeId: number,
+    compatibleIds: number[],
+    operatorId: string,
+  ) {
+    await sql`
+      delete from asset_type_compatibilities
+      where tenant_id = ${tenantId}
+        and (asset_type_a_id = ${assetTypeId} or asset_type_b_id = ${assetTypeId})
+    `
+    if (compatibleIds.length === 0) return
+    await sql`
+      insert into asset_type_compatibilities ${sql(
+        compatibleIds.map((otherId) => ({
+          tenant_id: tenantId,
+          asset_type_a_id: Math.min(assetTypeId, otherId),
+          asset_type_b_id: Math.max(assetTypeId, otherId),
+          created_by_operator_id: operatorId,
+        })),
+      )}
+      on conflict do nothing
+    `
+  }
+
   const repo: CatalogRepository = {
     getAssetType,
 
@@ -276,6 +318,9 @@ export function createPostgresCatalogRepository(
       const id = rows[0]!.id
       if (params.useAreaIds) await replaceUseAreas(tenantId, id, params.useAreaIds)
       if (params.principalIds) await replacePrincipals(tenantId, id, params.principalIds)
+      if (params.compatibleIds) {
+        await replaceCompatibilities(tenantId, id, params.compatibleIds, operatorId)
+      }
       return (await getAssetType(tenantId, id))!
     },
 
@@ -307,6 +352,9 @@ export function createPostgresCatalogRepository(
       `
       if (params.useAreaIds) await replaceUseAreas(tenantId, assetTypeId, params.useAreaIds)
       if (params.principalIds) await replacePrincipals(tenantId, assetTypeId, params.principalIds)
+      if (params.compatibleIds) {
+        await replaceCompatibilities(tenantId, assetTypeId, params.compatibleIds, operatorId)
+      }
       return (await getAssetType(tenantId, assetTypeId))!
     },
 

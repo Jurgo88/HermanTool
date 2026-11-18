@@ -20,6 +20,8 @@ export interface EditableAssetType {
   handlingNotice: string
   imageFile: string | null
   principalIds: number[]
+  // D-62: symmetric links, read from either side.
+  compatibleIds: number[]
 }
 
 const props = defineProps<{
@@ -29,6 +31,9 @@ const props = defineProps<{
   images: readonly string[]
   // AssetTypes that may be a principal: not this one, not an Accessory.
   principalCandidates: { id: number; name: string }[]
+  // D-62: AssetTypes that may be linked as compatible — standalone ones,
+  // not this one. Defaults to principalCandidates, which is the same set.
+  compatibleCandidates?: { id: number; name: string }[]
 }>()
 
 const emit = defineEmits<{
@@ -51,6 +56,7 @@ const initialForm = {
   handlingNotice: props.assetType.handlingNotice,
   imageFile: props.assetType.imageFile,
   principalIds: [...props.assetType.principalIds],
+  compatibleIds: [...(props.assetType.compatibleIds ?? [])],
 }
 
 const form = reactive({
@@ -58,6 +64,7 @@ const form = reactive({
   useAreaIds: [...initialForm.useAreaIds],
   specifications: initialForm.specifications.map((specification) => ({ ...specification })),
   principalIds: [...initialForm.principalIds],
+  compatibleIds: [...initialForm.compatibleIds],
 })
 
 type EditorSection = 'basics' | 'classification' | 'content' | 'image'
@@ -81,6 +88,15 @@ const filteredPrincipalCandidates = computed(() => {
   const query = fold(principalSearch.value.trim())
 
   return props.principalCandidates.filter((candidate) => fold(candidate.name).includes(query))
+})
+
+const compatibleSearch = ref('')
+const compatibleCandidateList = computed(
+  () => props.compatibleCandidates ?? props.principalCandidates,
+)
+const filteredCompatibleCandidates = computed(() => {
+  const query = fold(compatibleSearch.value.trim())
+  return compatibleCandidateList.value.filter((candidate) => fold(candidate.name).includes(query))
 })
 
 function selectSection(section: EditorSection) {
@@ -123,7 +139,9 @@ const isDirty = computed(
     form.includedContents !== initialForm.includedContents ||
     form.handlingNotice !== initialForm.handlingNotice ||
     form.imageFile !== initialForm.imageFile ||
-    JSON.stringify(form.principalIds) !== JSON.stringify(initialForm.principalIds),
+    JSON.stringify(form.principalIds) !== JSON.stringify(initialForm.principalIds) ||
+    JSON.stringify([...form.compatibleIds].sort()) !==
+      JSON.stringify([...initialForm.compatibleIds].sort()),
 )
 
 watch(isDirty, (dirty) => emit('dirty-change', dirty), { immediate: true })
@@ -181,6 +199,9 @@ function save() {
     handlingNotice: form.handlingNotice,
     imageFile: form.imageFile,
     principalIds: form.principalIds,
+    // An Accessory takes part in no compatibility link (D-62), so becoming
+    // one clears them in the same save.
+    compatibleIds: form.principalIds.length > 0 ? [] : form.compatibleIds,
   })
 }
 </script>
@@ -380,6 +401,85 @@ function save() {
           variant="info"
           :message="sk.adminCatalog.accessoryOfHint"
         />
+      </div>
+      <div class="asset-type-editor__card asset-type-editor__accessory">
+        <div class="asset-type-editor__panel-heading">
+          <span class="asset-type-editor__panel-mark" aria-hidden="true">≈</span>
+          <div>
+            <h3>{{ sk.adminCatalog.sectionCompatible }}</h3>
+            <p>{{ sk.adminCatalog.compatibleLabel }}</p>
+          </div>
+        </div>
+
+        <p v-if="form.principalIds.length > 0" class="asset-type-editor__accessory-empty">
+          {{ sk.adminCatalog.compatibleUnavailableForAccessory }}
+        </p>
+        <template v-else>
+          <div
+            v-if="compatibleCandidateList.length > 0"
+            class="asset-type-editor__accessory-toolbar"
+          >
+            <AppField :label="sk.adminCatalog.compatibleSearchLabel">
+              <template #default="slotProps">
+                <input
+                  :id="slotProps.id"
+                  v-model="compatibleSearch"
+                  type="search"
+                  autocomplete="off"
+                />
+              </template>
+            </AppField>
+            <span class="asset-type-editor__selected-count" role="status" aria-live="polite">
+              {{
+                sk.adminCatalog.compatibleSelectedCount.replace(
+                  '{count}',
+                  String(form.compatibleIds.length),
+                )
+              }}
+            </span>
+          </div>
+
+          <p v-if="compatibleCandidateList.length === 0" class="asset-type-editor__accessory-empty">
+            {{ sk.adminCatalog.compatibleCandidatesEmpty }}
+          </p>
+          <p
+            v-else-if="filteredCompatibleCandidates.length === 0"
+            class="asset-type-editor__accessory-empty"
+            role="status"
+          >
+            {{ sk.adminCatalog.compatibleSearchEmpty }}
+          </p>
+          <div
+            v-else
+            class="asset-type-editor__checks asset-type-editor__checks--accessories"
+            role="group"
+            :aria-label="sk.adminCatalog.compatibleLabel"
+          >
+            <label
+              v-for="candidate in filteredCompatibleCandidates"
+              :key="candidate.id"
+              class="asset-type-editor__accessory-option"
+              :class="{
+                'asset-type-editor__accessory-option--selected': form.compatibleIds.includes(
+                  candidate.id,
+                ),
+              }"
+            >
+              <input
+                v-model="form.compatibleIds"
+                class="asset-type-editor__accessory-checkbox"
+                type="checkbox"
+                :value="candidate.id"
+              />
+              <span class="asset-type-editor__accessory-name">{{ candidate.name }}</span>
+            </label>
+          </div>
+          <AppAlert
+            v-if="form.compatibleIds.length > 0"
+            variant="info"
+            :message="sk.adminCatalog.compatibleHint"
+          />
+        </template>
       </div>
     </section>
 

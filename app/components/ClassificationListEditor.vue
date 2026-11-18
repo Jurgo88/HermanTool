@@ -16,7 +16,9 @@ interface Entry {
 const props = defineProps<{ kind: 'power-sources' | 'use-areas'; heading: string }>()
 const emit = defineEmits<{ changed: [] }>()
 
-const base = `/api/catalog/classification/${props.kind}`
+// Plain string, and $fetch<unknown, string> below: letting $fetch infer the
+// route type from these URLs exceeds TypeScript's stack depth (TS2321).
+const base: string = `/api/catalog/classification/${props.kind}`
 const requestFetch = useRequestFetch()
 
 const entries = ref<Entry[]>([])
@@ -52,7 +54,9 @@ async function run(action: () => Promise<unknown>) {
 }
 
 async function add() {
-  const ok = await run(() => $fetch(base, { method: 'POST', body: { label: newLabel.value } }))
+  const ok = await run(() =>
+    $fetch<unknown, string>(base, { method: 'POST', body: { label: newLabel.value } }),
+  )
   if (ok) newLabel.value = ''
 }
 
@@ -65,7 +69,10 @@ async function saveRename() {
   if (renamingId.value === null) return
   const id = renamingId.value
   const ok = await run(() =>
-    $fetch(`${base}/${id}`, { method: 'PATCH', body: { label: renameLabel.value } }),
+    $fetch<unknown, string>(`${base}/${id}`, {
+      method: 'PATCH',
+      body: { label: renameLabel.value },
+    }),
   )
   if (ok) renamingId.value = null
 }
@@ -75,11 +82,13 @@ async function move(index: number, delta: -1 | 1) {
   const target = index + delta
   if (target < 0 || target >= sequence.length) return
   ;[sequence[index], sequence[target]] = [sequence[target]!, sequence[index]!]
-  await run(() => $fetch(`${base}/reorder`, { method: 'POST', body: { sequence } }))
+  await run(() =>
+    $fetch<unknown, string>(`${base}/reorder`, { method: 'POST', body: { sequence } }),
+  )
 }
 
 async function remove(entry: Entry) {
-  await run(() => $fetch(`${base}/${entry.id}`, { method: 'DELETE' }))
+  await run(() => $fetch<unknown, string>(`${base}/${entry.id}`, { method: 'DELETE' }))
 }
 
 await load()

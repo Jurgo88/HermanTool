@@ -232,6 +232,9 @@ export const sk = {
       InvalidImageFileError: 'Neplatný súbor fotky.',
       AccessoryChainError: 'Doplnok nemôže mať vlastné doplnky a nemôže patriť k inému doplnku.',
       AccessoryOfItselfError: 'Náradie nemôže byť doplnkom samého seba.',
+      CompatibleWithAccessoryError:
+        'Doplnok nemôže byť označený ako kompatibilné náradie. Najprv zrušte väzbu na doplnok.',
+      CompatibleWithItselfError: 'Náradie nemôže byť kompatibilné samo so sebou.',
       InvalidBulkRegistrationLineError:
         'Neplatný riadok v zozname — skontrolujte typ náradia a počet kusov.',
       EmptyBulkRegistrationError: 'Zoznam na registráciu je prázdny.',
@@ -382,6 +385,16 @@ export const sk = {
     pickAnotherAction: 'Vybrať iný termín',
     termsLink: 'Podmienky prenájmu',
     perDaySuffix: '/ deň',
+    // D-62: CompatibleAssetType — a suggestion, never a requirement.
+    compatibleHeading: 'Hodí sa k tomu',
+    compatibleLead: 'Samostatné náradie, ktoré sa k tomuto hodí. Ak ho máte, pokojne ho preskočte.',
+    compatibleAddAction: 'Pridať na rovnaký termín',
+    compatibleAdded: 'Pridané na rovnaký termín',
+    compatibleRetry: 'Skúsiť znova',
+    compatibleUnavailable: 'V zvolenom termíne nie je voľné.',
+    compatibleSuggestionsLead: 'Obe náradia sú voľné v týchto najbližších termínoch:',
+    compatibleMoveNote: 'Výberom termínu presuniete celý výber na tento termín.',
+    compatibleNoSuggestions: 'V najbližších týždňoch nie sú voľné obe naraz.',
   },
   quantityStepper: {
     decreaseGlyph: '−',
@@ -634,6 +647,17 @@ export const sk = {
     accessorySearchEmpty: 'Tomuto hľadaniu nezodpovedá žiadne náradie.',
     accessoryOfHint:
       'Doplnok sa v katalógu samostatne nezobrazí — ponúkne sa len na stránke vybraného náradia a rezervuje sa spolu s ním.',
+    // D-62: CompatibleAssetType — symmetric, a suggestion on S-02 only.
+    sectionCompatible: 'Hodí sa k tomu',
+    compatibleLabel: 'Odporúčať na stránke náradia spolu s',
+    compatibleSearchLabel: 'Hľadať náradie',
+    compatibleSelectedCount: 'Vybraných typov náradia: {count}',
+    compatibleSearchEmpty: 'Tomuto hľadaniu nezodpovedá žiadne náradie.',
+    compatibleCandidatesEmpty: 'Momentálne nie je k dispozícii iné samostatné náradie.',
+    compatibleHint:
+      'Väzba platí oboma smermi: ponuka sa zobrazí na stránke tohto aj vybraného náradia. Je to len odporúčanie, zákazník si môže požičať každé samostatne.',
+    compatibleUnavailableForAccessory:
+      'Doplnok sa samostatne nepožičiava, preto nemôže mať kompatibilné náradie.',
     saved: 'Uložené.',
     discardChangesTitle: 'Zahodiť neuložené zmeny?',
     discardChangesBody:

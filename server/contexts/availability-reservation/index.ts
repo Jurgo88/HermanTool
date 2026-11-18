@@ -47,6 +47,8 @@
 // WORKFLOW (W11) stays unbuilt pending OQ #1 (CLAUDE.md KNOWN GAPS).
 export type { RentalPeriod } from './rental-period'
 export {
+  addRentalDays,
+  shiftRentalPeriod,
   InvalidLocalDateTimeError,
   InvalidMonthError,
   InvalidRentalPeriodError,
@@ -60,6 +62,13 @@ export {
 
 export type { AvailabilityDay, AvailabilityLevel, AvailabilityMonth } from './availability-calendar'
 export { availabilityLevel, getAvailabilityMonth } from './availability-calendar'
+
+export type { JointDemand } from './joint-availability'
+export {
+  NEAREST_JOINT_PERIODS_HORIZON_DAYS,
+  NEAREST_JOINT_PERIODS_LIMIT,
+  findNearestJointPeriods,
+} from './joint-availability'
 
 export type { Reservation, ReservationGroup, ReservationState } from './types'
 
