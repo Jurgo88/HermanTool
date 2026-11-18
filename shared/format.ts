@@ -95,6 +95,15 @@ export function formatTime(isoTimestamp: string | Date): string {
   return new Intl.DateTimeFormat(LOCALE, { hour: '2-digit', minute: '2-digit', timeZone: TIME_ZONE }).format(instant)
 }
 
+// S-25 (D-63): a ratio such as utilisation, 0.425 → "42,5 %".
+export function formatPercent(ratio: number): string {
+  return new Intl.NumberFormat(LOCALE, {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(ratio)
+}
+
 // Slovak counts take three forms: 1 deň, 2–4 dni, 0 or 5+ dní. The words
 // come from sk.ts; only the choice and the number are made here.
 export function formatCount(count: number, forms: { one: string; few: string; many: string }): string {

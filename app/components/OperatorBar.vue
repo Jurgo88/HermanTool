@@ -50,7 +50,10 @@ await load()
 <template>
   <header class="operator-bar" :class="{ 'operator-bar--counter': onCounter }">
     <div class="operator-bar__top">
-      <NuxtLink :to="onCounter ? '/admin/counter' : '/admin/catalog'" class="operator-bar__brand">
+      <NuxtLink
+        :to="onCounter ? '/admin/counter' : '/admin/statistics'"
+        class="operator-bar__brand"
+      >
         <span class="operator-bar__wordmark">{{ sk.operatorBar.brandName }}</span>
         <span class="operator-bar__suffix">{{
           onCounter ? sk.operatorBar.counterSuffix : sk.operatorBar.brandSuffix
@@ -60,7 +63,18 @@ await load()
       <!-- On a wide screen the links sit in this row; on a phone they move to
         a row of their own below, which scrolls sideways. -->
       <nav v-if="!onCounter" class="operator-bar__nav" :aria-label="sk.operatorBar.navLabel">
-        <NuxtLink to="/admin/catalog" class="operator-bar__link" active-class="operator-bar__link--active">
+        <NuxtLink
+          to="/admin/statistics"
+          class="operator-bar__link"
+          active-class="operator-bar__link--active"
+        >
+          {{ sk.operatorBar.statisticsLink }}
+        </NuxtLink>
+        <NuxtLink
+          to="/admin/catalog"
+          class="operator-bar__link"
+          active-class="operator-bar__link--active"
+        >
           {{ sk.operatorBar.catalogLink }}
         </NuxtLink>
         <NuxtLink
@@ -70,10 +84,18 @@ await load()
         >
           {{ sk.operatorBar.assetRegistryLink }}
         </NuxtLink>
-        <NuxtLink to="/admin/status" class="operator-bar__link" active-class="operator-bar__link--active">
+        <NuxtLink
+          to="/admin/status"
+          class="operator-bar__link"
+          active-class="operator-bar__link--active"
+        >
           {{ sk.operatorBar.statusLink }}
         </NuxtLink>
-        <NuxtLink to="/admin/pin" class="operator-bar__link" active-class="operator-bar__link--active">
+        <NuxtLink
+          to="/admin/pin"
+          class="operator-bar__link"
+          active-class="operator-bar__link--active"
+        >
           {{ sk.operatorBar.pinLink }}
         </NuxtLink>
       </nav>
@@ -119,7 +141,8 @@ await load()
   grid-template-areas: 'brand nav identity';
   align-items: center;
   gap: var(--ht-space-4);
-  padding: 0 max(var(--ht-space-4), var(--ht-safe-right)) 0 max(var(--ht-space-4), var(--ht-safe-left));
+  padding: 0 max(var(--ht-space-4), var(--ht-safe-right)) 0
+    max(var(--ht-space-4), var(--ht-safe-left));
   min-height: calc(var(--ht-hit-min) + var(--ht-space-4));
 }
 

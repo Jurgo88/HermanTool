@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   formatCount,
+  formatPercent,
   formatDay,
   formatDateTime,
   formatDayOfMonth,
@@ -133,5 +134,12 @@ describe('formatTime', () => {
   it('shows the Bratislava time of day, summer and winter', () => {
     expect(formatTime('2026-10-12T12:35:00Z')).toBe('14:35')
     expect(formatTime('2026-12-12T12:35:00Z')).toBe('13:35')
+  })
+})
+
+describe('formatPercent (S-25, D-63)', () => {
+  it('formats a ratio as a Slovak percentage with one decimal', () => {
+    expect(formatPercent(0.425).replace(/\s/g, ' ')).toBe('42,5 %')
+    expect(formatPercent(0).replace(/\s/g, ' ')).toBe('0,0 %')
   })
 })

@@ -424,6 +424,9 @@ Set / change own PIN. Route exists, surface does not, and `S-10`–`S-12` are un
 **`S-24` Not found / error boundary** — `NFR-11`, `D-20`
 One screen, Slovak, no stack traces, a route home per surface.
 
+**`S-25` Štatistiky** — `/admin/statistics` · `D-63`, `FR-28`, `D-38`, `D-21`, `P6` (added 19 November 2026, Part 4 §16.6)
+Read-only. Overview tiles (confirmed online revenue this month vs last, pool-based utilisation, Reservations starting this month, out now with Overdue as a `C-08` derived badge, deposits held as attested cash on their own tile), a single-series revenue-by-month bar chart with a table view, and a per-AssetType table for a month, a year or a custom range, sortable "čo zarába / čo leží", with unmet-demand days and a CSV export. The page formats and sorts; every figure and every period is computed on the server. The admin brand link lands here.
+
 ---
 
 ## 7. Cross-cutting interaction rules

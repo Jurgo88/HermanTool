@@ -86,7 +86,7 @@ export function shiftRentalPeriod(period: RentalPeriod, days: number): RentalPer
 
 // A-04: one local timezone for the pilot Tenant. RentalDays are its
 // calendar days, so "today" is the local date, never the UTC one.
-const TENANT_TIME_ZONE = 'Europe/Bratislava'
+export const TENANT_TIME_ZONE = 'Europe/Bratislava'
 const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/
 
 export class InvalidMonthError extends Error {
@@ -174,6 +174,29 @@ export function parseTenantLocalDateTime(local: string): Date {
 
 export function monthOfDay(day: string): string {
   return day.slice(0, 7)
+}
+
+// D-63 statistics ask for whole months, whole years and the overlap of a
+// RentalPeriod with a reporting range here, never by slicing dates.
+export function periodOfMonth(month: string): RentalPeriod {
+  const days = eachDayOfMonth(month)
+  return { startDay: days[0]!, endDay: days.at(-1)! }
+}
+
+const YEAR_PATTERN = /^\d{4}$/
+
+export function periodOfYear(year: string): RentalPeriod {
+  if (!YEAR_PATTERN.test(year)) throw new InvalidMonthError(year)
+  return { startDay: `${year}-01-01`, endDay: `${year}-12-31` }
+}
+
+// The RentalDays two periods share, or null when they share none.
+export function intersectRentalPeriods(a: RentalPeriod, b: RentalPeriod): RentalPeriod | null {
+  validateRentalPeriod(a)
+  validateRentalPeriod(b)
+  const startDay = a.startDay > b.startDay ? a.startDay : b.startDay
+  const endDay = a.endDay < b.endDay ? a.endDay : b.endDay
+  return startDay <= endDay ? { startDay, endDay } : null
 }
 
 function parseMonth(month: string): { year: number; monthIndex: number } {
