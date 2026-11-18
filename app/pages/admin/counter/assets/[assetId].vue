@@ -13,6 +13,7 @@ import type { PhotoState } from '~/components/PhotoCapture.vue'
 import type { AttestationHistoryEntryView } from '~/components/AttestationTimeline.vue'
 import { getErrorCode } from '~/utils/error-code'
 import { assetStatusLabel } from '~/utils/asset-status'
+import { returnToPoolCandidate } from '~/utils/return-to-pool'
 
 definePageMeta({ layout: 'counter' })
 
@@ -61,6 +62,11 @@ const openAgreement = computed(() => {
   const ra = last.rentalAgreement
   return !ra.handoverInAt && !ra.declaredLostAt ? ra : null
 })
+
+// D-09 (#235): the settled agreement that left this Asset UnderInspection.
+const returnToPoolAgreement = computed(() =>
+  asset.value ? returnToPoolCandidate(asset.value.status, history.value.map((e) => e.rentalAgreement)) : null,
+)
 
 async function handleFetchError(err: unknown): Promise<boolean> {
   const statusCode = (err as { statusCode?: number })?.statusCode
@@ -129,6 +135,31 @@ async function confirmDeclareLost(pin: string) {
   } finally {
     submittingDeclareLost.value = false
     showDeclareLostPin.value = false
+  }
+}
+
+// ---------------------------------------------------------------------
+// Return to the pool (D-09, W5; #235). The server refuses before X+1 and
+// before Settlement; the page only shows the button and maps the code.
+// ---------------------------------------------------------------------
+const submittingReturnToPool = ref(false)
+
+async function returnToPool() {
+  if (!returnToPoolAgreement.value) return
+  errorCode.value = null
+  errorMessage.value = null
+  info.value = null
+  submittingReturnToPool.value = true
+  try {
+    await $fetch(`/api/handover/rental-agreements/${returnToPoolAgreement.value.id}/return-to-pool`, {
+      method: 'POST',
+    })
+    info.value = sk.assetHistory.returnToPoolSuccess
+    await load()
+  } catch (err: unknown) {
+    await handleFetchError(err)
+  } finally {
+    submittingReturnToPool.value = false
   }
 }
 
@@ -249,6 +280,13 @@ async function confirmLateAttestation(pin: string) {
         </AppButton>
         <AppButton variant="secondary" @click="startLateAttestation">
           {{ sk.assetHistory.lateAttestationAction }}
+        </AppButton>
+      </section>
+
+      <section v-if="returnToPoolAgreement">
+        <p>{{ sk.assetHistory.returnToPoolHint }}</p>
+        <AppButton size="counter" :disabled="submittingReturnToPool" @click="returnToPool">
+          {{ submittingReturnToPool ? sk.assetHistory.returnToPoolSubmitting : sk.assetHistory.returnToPoolAction }}
         </AppButton>
       </section>
     </section>
