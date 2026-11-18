@@ -3,7 +3,7 @@
 // database (Part 4 §14.2), mirroring Asset Registry's repository shape.
 // Every method takes `tenantId` as its first parameter (FR-33).
 import type postgres from 'postgres'
-import type { TenantId } from '../_shared'
+import type { MonetaryAmount, TenantId } from '../_shared'
 import { createPostgresAssetRegistryRepository } from '../asset-registry'
 import { createPostgresCatalogRepository } from '../catalog'
 import { formatRentalDay, type RentalPeriod } from './rental-period'
@@ -23,6 +23,8 @@ export interface NewReservation {
   assetTypeId: number
   period: RentalPeriod
   pendingExpiresAt: Date
+  // #238: recorded as given; null when the caller has none.
+  dayRate: MonetaryAmount | null
 }
 
 export interface AvailabilityReservationRepository {
@@ -191,6 +193,8 @@ interface ReservationRow {
   pending_expires_at: Date
   created_at: Date
   state_changed_at: Date
+  day_rate_cents: number | null
+  day_rate_currency: MonetaryAmount['currency'] | null
 }
 
 function mapReservation(row: ReservationRow): Reservation {
@@ -204,6 +208,10 @@ function mapReservation(row: ReservationRow): Reservation {
     pendingExpiresAt: row.pending_expires_at,
     createdAt: row.created_at,
     stateChangedAt: row.state_changed_at,
+    dayRate:
+      row.day_rate_cents === null || row.day_rate_currency === null
+        ? null
+        : { amount: row.day_rate_cents, currency: row.day_rate_currency },
   }
 }
 
@@ -252,13 +260,15 @@ export function createPostgresAvailabilityReservationRepository(
       return rows[0] ? mapReservation(rows[0]) : null
     },
 
-    async insertReservation(tenantId, { reservationGroupId, assetTypeId, period, pendingExpiresAt }) {
+    async insertReservation(tenantId, { reservationGroupId, assetTypeId, period, pendingExpiresAt, dayRate }) {
       const rows = await sql<ReservationRow[]>`
         insert into reservations (
-          tenant_id, reservation_group_id, asset_type_id, start_day, end_day, pending_expires_at
+          tenant_id, reservation_group_id, asset_type_id, start_day, end_day, pending_expires_at,
+          day_rate_cents, day_rate_currency
         ) values (
           ${tenantId}, ${reservationGroupId}, ${assetTypeId},
-          ${period.startDay}, ${period.endDay}, ${pendingExpiresAt}
+          ${period.startDay}, ${period.endDay}, ${pendingExpiresAt},
+          ${dayRate?.amount ?? null}, ${dayRate?.currency ?? null}
         )
         returning *
       `

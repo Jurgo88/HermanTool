@@ -22,6 +22,9 @@ export interface ReportedReservation {
   reservationGroupId: number
   assetTypeId: number
   period: RentalPeriod
+  // #238: the day rate recorded at checkout. Absent or null for a row
+  // created before it was recorded — the current rate stands in.
+  dayRate?: MonetaryAmount | null
 }
 
 // A confirmed online Payment (Payments' 'succeeded'), dated by the

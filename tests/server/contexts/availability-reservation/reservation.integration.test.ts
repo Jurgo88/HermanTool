@@ -22,7 +22,8 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type postgres from 'postgres'
 import { createDatabaseClient } from '../../../../server/utils/db'
-import type { TenantId } from '../../../../server/contexts/_shared'
+import { createMonetaryAmount, type TenantId } from '../../../../server/contexts/_shared'
+import { createPostgresReportingSource } from '../../../../server/utils/statistics-source'
 import { createPostgresAvailabilityReservationRepository } from '../../../../server/contexts/availability-reservation/repository'
 import {
   cancelReservation,
@@ -520,5 +521,42 @@ describe.skipIf(!databaseUrl)('Availability & Reservation migration (integration
     expect(startedIds).toContain(pastReservations[0]!.id) // started 2026-02-01, well before too
     expect(startedIds).toContain(startedReservations[0]!.id)
     expect(startedIds).toHaveLength(2) // the future-starting one (2026-04-01) must not appear
+  })
+
+  it('#238: records the day rate given at checkout, with its currency, and reads it back', async () => {
+    await seedRentableAssets(hammerTypeId, 1)
+    await seedRentableAssets(scaffoldTypeId, 1)
+    const repo = createPostgresAvailabilityReservationRepository(sql)
+
+    const { group, reservations } = await checkoutReservationGroup(repo, {
+      tenantId,
+      lines: [
+        {
+          assetTypeId: hammerTypeId,
+          period: { startDay: '2026-05-01', endDay: '2026-05-02' },
+          dayRate: createMonetaryAmount(1500),
+        },
+        // A line with no rate given stays null — never invented.
+        { assetTypeId: scaffoldTypeId, period: { startDay: '2026-05-01', endDay: '2026-05-02' } },
+      ],
+    })
+    expect(reservations.map((r) => r.dayRate)).toEqual([createMonetaryAmount(1500), null])
+
+    const stored = await repo.listReservationsForGroup(tenantId, group.id)
+    expect(stored.map((r) => r.dayRate)).toEqual([createMonetaryAmount(1500), null])
+
+    // D-21 at the database level: never an amount without its currency.
+    await expect(
+      sql`update reservations set day_rate_currency = null where id = ${reservations[0]!.id}`,
+    ).rejects.toThrow()
+
+    // S-25's source reads the recorded rate, Tenant-scoped (FR-33).
+    await recordTermsAcceptance(repo, { tenantId, reservationGroupId: group.id, termsVersion: 'v1' })
+    await confirmReservationGroup(repo, { tenantId, reservationGroupId: group.id })
+    const source = createPostgresReportingSource(sql)
+    const reported = await source.listConfirmedReservationsOfGroups(tenantId, [group.id])
+    expect(reported.map((r) => r.dayRate)).toEqual([createMonetaryAmount(1500), null])
+    const otherTenant = '00000000-0000-0000-0000-000000000000' as TenantId
+    expect(await source.listConfirmedReservationsOfGroups(otherTenant, [group.id])).toEqual([])
   })
 })

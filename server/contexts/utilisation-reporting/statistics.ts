@@ -111,8 +111,14 @@ async function revenueByAssetType(
 
   for (const payment of payments) {
     const lines = reservations.filter((r) => r.reservationGroupId === payment.reservationGroupId)
+    // #238: a line's own day rate from checkout when recorded, so a later
+    // rate change (OQ #29) does not re-split history; the current rate
+    // only for rows from before it was recorded. Proportional, so an
+    // online discount (D-65) spreads evenly over the lines.
     const weights = lines.map(
-      (line) => (dayRates.get(line.assetTypeId) ?? 0) * rentalPeriodLengthInDays(line.period),
+      (line) =>
+        (line.dayRate?.amount ?? dayRates.get(line.assetTypeId) ?? 0) *
+        rentalPeriodLengthInDays(line.period),
     )
     allocateByWeight(payment.amount.amount, weights).forEach((share, i) => {
       const assetTypeId = lines[i]!.assetTypeId
