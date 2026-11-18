@@ -38,4 +38,4 @@ jobs:
 
       - name: Apply pending migrations
         run: |
-          npx --yes supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}" --include-all
+          npx --yes supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}" --include-all --yes
