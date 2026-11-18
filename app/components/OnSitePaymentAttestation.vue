@@ -10,8 +10,9 @@
 import { sk } from '~/i18n/sk'
 import { formatDateTime, formatMoney, type MonetaryAmountView } from '~/utils/format'
 import { getErrorCode } from '~/utils/error-code'
+import { onSitePaymentRequest, type OnSitePaymentMethod } from '~/utils/on-site-payment'
 
-type Method = 'cash' | 'card_terminal' | 'qr'
+type Method = OnSitePaymentMethod
 
 interface StatusView {
   paymentMethod: 'online' | 'on_site'
@@ -70,16 +71,15 @@ async function attest(pin: string) {
   try {
     await $fetch(`/api/handover/reservation-groups/${props.reservationGroupId}/on-site-payment`, {
       method: 'POST',
-      body: {
-        amount: status.value.rentalFeeDue,
+      body: onSitePaymentRequest({
+        due: status.value.rentalFeeDue,
         method: method.value,
         pin,
-        ...(correcting.value && status.value.current
-          ? {
-              correction: { supersedesId: status.value.current.id, reason: correctionReason.value },
-            }
-          : {}),
-      },
+        correction:
+          correcting.value && status.value.current
+            ? { supersedesId: status.value.current.id, reason: correctionReason.value }
+            : undefined,
+      }),
     })
     showPin.value = false
     correcting.value = false
