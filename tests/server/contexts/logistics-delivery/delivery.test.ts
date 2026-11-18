@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createMonetaryAmount, type TenantId } from '../../../../server/contexts/_shared'
 import {
   attestDeliveryFeePayment,
+  currentDeliveryFeePayment,
   inZoneFeeTotal,
   priceOutsideZone,
   priceOutsideZoneDelivery,
@@ -12,6 +13,8 @@ import type { LogisticsDeliveryRepository } from '../../../../server/contexts/lo
 import {
   DeliveryAddressRequiredError,
   DeliveryFeeAlreadyAttestedError,
+  DeliveryFeeCorrectionError,
+  DeliveryNotFoundError,
   DeliveryNotOfferedError,
   DuplicateDeliveryLegError,
   MunicipalityNotInZoneError,
@@ -32,7 +35,10 @@ function fakeRepo(): LogisticsDeliveryRepository {
   const zone: DeliveryZoneMunicipality[] = []
   const deliveries: Delivery[] = []
   const payments: DeliveryFeePayment[] = []
-  return {
+  const self: LogisticsDeliveryRepository = {
+    async transaction(fn) {
+      return fn(self)
+    },
     async listZone(tenantId) {
       return zone.filter((m) => m.tenantId === tenantId)
     },
@@ -81,6 +87,7 @@ function fakeRepo(): LogisticsDeliveryRepository {
       return payments.filter((p) => p.tenantId === tenantId && p.deliveryId === deliveryId)
     },
   }
+  return self
 }
 
 let repo: LogisticsDeliveryRepository
@@ -272,6 +279,189 @@ describe('outside-zone pricing and the driver fee (D-66, D-21, FR-34)', () => {
         operatorId,
       }),
     ).rejects.toThrow(OutsideZonePricingError)
+  })
+})
+
+describe('correcting the driver fee attestation (#237, P1, D-10, FR-33)', () => {
+  const otherOperator = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+
+  async function attestedLeg() {
+    const quoted = await quoteDeliveryRequests(repo, {
+      tenantId: tenantA,
+      settings,
+      requests: [request({ outsideZone: true, municipalityId: null, address: 'Senec' })],
+    })
+    const [leg] = await recordDeliveries(repo, { tenantId: tenantA, reservationGroupId: 9, quoted })
+    await priceOutsideZoneDelivery(repo, {
+      tenantId: tenantA,
+      deliveryId: leg!.id,
+      distanceKm: 20,
+      settings,
+      operatorId,
+    })
+    const original = await attestDeliveryFeePayment(repo, {
+      tenantId: tenantA,
+      deliveryId: leg!.id,
+      method: 'cash',
+      operatorId,
+    })
+    return { leg: leg!, original }
+  }
+
+  it('supersedes the attestation in force with a reason; the original stays', async () => {
+    const { leg, original } = await attestedLeg()
+    const corrected = await attestDeliveryFeePayment(repo, {
+      tenantId: tenantA,
+      deliveryId: leg.id,
+      method: 'qr',
+      operatorId: otherOperator,
+      correction: { supersedesId: original.id, reason: '  Zákazník platil QR kódom ' },
+    })
+    expect(corrected).toMatchObject({
+      method: 'qr',
+      amount: createMonetaryAmount(3100),
+      operatorId: otherOperator,
+      supersedesId: original.id,
+      correctionReason: 'Zákazník platil QR kódom',
+    })
+
+    const all = await repo.listFeePayments(tenantA, leg.id)
+    expect(all).toHaveLength(2)
+    expect(all[0]).toMatchObject({ id: original.id, method: 'cash', supersedesId: null })
+    expect(currentDeliveryFeePayment(all)?.id).toBe(corrected.id)
+  })
+
+  it('re-prices a corrected km on the server and attests the new price', async () => {
+    const { leg, original } = await attestedLeg()
+    const corrected = await attestDeliveryFeePayment(repo, {
+      tenantId: tenantA,
+      deliveryId: leg.id,
+      method: 'cash',
+      operatorId,
+      correction: { supersedesId: original.id, reason: 'Zlé km', distanceKm: 10 },
+      settings,
+    })
+    expect(corrected.amount).toEqual(createMonetaryAmount(1500 + 10 * 80))
+    expect(await repo.getDelivery(tenantA, leg.id)).toMatchObject({
+      distanceKm: 10,
+      fee: createMonetaryAmount(2300),
+    })
+    // The original attestation still records what was taken then.
+    expect((await repo.listFeePayments(tenantA, leg.id))[0]!.amount).toEqual(
+      createMonetaryAmount(3100),
+    )
+  })
+
+  it('keeps the price when the km is unchanged and needs no settings for it', async () => {
+    const { leg, original } = await attestedLeg()
+    const corrected = await attestDeliveryFeePayment(repo, {
+      tenantId: tenantA,
+      deliveryId: leg.id,
+      method: 'card_terminal',
+      operatorId,
+      correction: { supersedesId: original.id, reason: 'Terminál', distanceKm: 20 },
+    })
+    expect(corrected.amount).toEqual(createMonetaryAmount(3100))
+  })
+
+  it('refuses a correction without a reason, of a superseded row, or a second original', async () => {
+    const { leg, original } = await attestedLeg()
+    await expect(
+      attestDeliveryFeePayment(repo, {
+        tenantId: tenantA,
+        deliveryId: leg.id,
+        method: 'qr',
+        operatorId,
+        correction: { supersedesId: original.id, reason: '   ' },
+      }),
+    ).rejects.toThrow(DeliveryFeeCorrectionError)
+
+    await attestDeliveryFeePayment(repo, {
+      tenantId: tenantA,
+      deliveryId: leg.id,
+      method: 'qr',
+      operatorId,
+      correction: { supersedesId: original.id, reason: 'QR' },
+    })
+    await expect(
+      attestDeliveryFeePayment(repo, {
+        tenantId: tenantA,
+        deliveryId: leg.id,
+        method: 'cash',
+        operatorId,
+        correction: { supersedesId: original.id, reason: 'znova' },
+      }),
+    ).rejects.toThrow(DeliveryFeeCorrectionError)
+    await expect(
+      attestDeliveryFeePayment(repo, {
+        tenantId: tenantA,
+        deliveryId: leg.id,
+        method: 'cash',
+        operatorId,
+      }),
+    ).rejects.toThrow(DeliveryFeeAlreadyAttestedError)
+  })
+
+  it('refuses a correction with nothing to correct, or a km change without settings', async () => {
+    const { leg, original } = await attestedLeg()
+    await expect(
+      attestDeliveryFeePayment(repo, {
+        tenantId: tenantA,
+        deliveryId: leg.id,
+        method: 'cash',
+        operatorId,
+        correction: { supersedesId: original.id, reason: 'km', distanceKm: 5 },
+      }),
+    ).rejects.toThrow(DeliveryFeeCorrectionError)
+
+    const quoted = await quoteDeliveryRequests(repo, {
+      tenantId: tenantA,
+      settings,
+      requests: [
+        request({ leg: 'collection', outsideZone: true, municipalityId: null, address: 'Pezinok' }),
+      ],
+    })
+    const [unpaid] = await recordDeliveries(repo, {
+      tenantId: tenantA,
+      reservationGroupId: 9,
+      quoted,
+    })
+    await priceOutsideZoneDelivery(repo, {
+      tenantId: tenantA,
+      deliveryId: unpaid!.id,
+      distanceKm: 4,
+      settings,
+      operatorId,
+    })
+    await expect(
+      attestDeliveryFeePayment(repo, {
+        tenantId: tenantA,
+        deliveryId: unpaid!.id,
+        method: 'cash',
+        operatorId,
+        correction: { supersedesId: original.id, reason: 'cudzí záznam' },
+      }),
+    ).rejects.toThrow(DeliveryFeeCorrectionError)
+  })
+
+  it("cannot correct another Tenant's attestation (FR-33)", async () => {
+    const { leg, original } = await attestedLeg()
+    await expect(
+      attestDeliveryFeePayment(repo, {
+        tenantId: tenantB,
+        deliveryId: leg.id,
+        method: 'qr',
+        operatorId,
+        correction: { supersedesId: original.id, reason: 'pokus' },
+      }),
+    ).rejects.toThrow(DeliveryNotFoundError)
+    expect(await repo.listFeePayments(tenantA, leg.id)).toHaveLength(1)
+  })
+})
+
+describe('currentDeliveryFeePayment', () => {
+  it('is null with no attestation', () => {
+    expect(currentDeliveryFeePayment([])).toBeNull()
   })
 })
 

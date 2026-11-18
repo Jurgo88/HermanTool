@@ -17,6 +17,7 @@ import type { LogisticsDeliveryRepository } from './repository'
 import {
   DeliveryAddressRequiredError,
   DeliveryFeeAlreadyAttestedError,
+  DeliveryFeeCorrectionError,
   DeliveryNotFoundError,
   DeliveryNotOfferedError,
   DuplicateDeliveryLegError,
@@ -25,6 +26,7 @@ import {
   MunicipalityNotInZoneError,
   OutsideZonePricingError,
   type Delivery,
+  type DeliveryFeeCorrection,
   type DeliveryFeePayment,
   type DeliveryFeePaymentMethod,
   type DeliveryRequest,
@@ -162,8 +164,25 @@ export async function priceOutsideZoneDelivery(
   })
 }
 
+// The attestation in force: the one no later attestation supersedes.
+export function currentDeliveryFeePayment(
+  payments: DeliveryFeePayment[],
+): DeliveryFeePayment | null {
+  const superseded = new Set(
+    payments.map((p) => p.supersedesId).filter((id): id is number => id !== null),
+  )
+  const current = payments.filter((p) => !superseded.has(p.id))
+  return current.sort((a, b) => b.id - a.id)[0] ?? null
+}
+
 // The driver attests the outside-zone fee received on site (PIN-resolved
 // Operator, D-48). Amount is the server's price, never typed in.
+//
+// #237 (P1, D-10, D-65 pattern): a mistake is corrected by a new
+// attestation that supersedes the one in force and says why. A wrong km
+// is corrected in the same act — the leg is re-priced and the new
+// attestation carries the new price, atomically. Only a correction may
+// re-price an attested leg; priceOutsideZoneDelivery still refuses.
 export async function attestDeliveryFeePayment(
   repo: LogisticsDeliveryRepository,
   params: {
@@ -171,21 +190,48 @@ export async function attestDeliveryFeePayment(
     deliveryId: number
     method: DeliveryFeePaymentMethod
     operatorId: string
+    correction?: DeliveryFeeCorrection
+    // Needed only to re-price a corrected km.
+    settings?: DeliverySettings
   },
 ): Promise<DeliveryFeePayment> {
-  const delivery = await repo.getDelivery(params.tenantId, params.deliveryId)
-  if (!delivery) throw new DeliveryNotFoundError(params.deliveryId)
-  if (!delivery.outsideZone || !delivery.fee) {
-    throw new OutsideZonePricingError('only a priced outside-zone leg is paid to the driver')
-  }
-  if ((await repo.listFeePayments(params.tenantId, delivery.id)).length > 0) {
-    throw new DeliveryFeeAlreadyAttestedError(delivery.id)
-  }
-  return repo.insertFeePayment(params.tenantId, {
-    deliveryId: delivery.id,
-    amount: delivery.fee,
-    method: params.method,
-    operatorId: params.operatorId,
+  const { tenantId, correction } = params
+  return repo.transaction(async (tx) => {
+    const delivery = await tx.getDelivery(tenantId, params.deliveryId)
+    if (!delivery) throw new DeliveryNotFoundError(params.deliveryId)
+    if (!delivery.outsideZone || !delivery.fee) {
+      throw new OutsideZonePricingError('only a priced outside-zone leg is paid to the driver')
+    }
+
+    const current = currentDeliveryFeePayment(await tx.listFeePayments(tenantId, delivery.id))
+    let amount = delivery.fee
+    if (!correction) {
+      if (current) throw new DeliveryFeeAlreadyAttestedError(delivery.id)
+    } else {
+      if (!correction.reason.trim()) throw new DeliveryFeeCorrectionError('a reason is required')
+      if (!current || current.id !== correction.supersedesId) {
+        throw new DeliveryFeeCorrectionError('only the attestation in force can be corrected')
+      }
+      if (correction.distanceKm !== undefined && correction.distanceKm !== delivery.distanceKm) {
+        if (!params.settings) throw new DeliveryFeeCorrectionError('re-pricing needs the fee settings')
+        const fee = priceOutsideZone(params.settings, correction.distanceKm)
+        const repriced = await tx.setOutsideZonePrice(tenantId, delivery.id, {
+          distanceKm: correction.distanceKm,
+          fee,
+          operatorId: params.operatorId,
+        })
+        amount = repriced.fee ?? fee
+      }
+    }
+
+    return tx.insertFeePayment(tenantId, {
+      deliveryId: delivery.id,
+      amount,
+      method: params.method,
+      operatorId: params.operatorId,
+      supersedesId: correction?.supersedesId ?? null,
+      correctionReason: correction ? correction.reason.trim() : null,
+    })
   })
 }
 

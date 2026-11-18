@@ -6,7 +6,7 @@
 // fee) and their fee attested when the driver is paid — both PIN-gated.
 // Days, fees and totals all come from the server.
 import { sk } from '~/i18n/sk'
-import { formatDay, formatMoney, type MonetaryAmountView } from '~/utils/format'
+import { formatDateTime, formatDay, formatMoney, type MonetaryAmountView } from '~/utils/format'
 import { getErrorCode } from '~/utils/error-code'
 import { phoneHref } from '~/utils/phone'
 
@@ -17,6 +17,8 @@ interface ZoneView {
   flatFee: MonetaryAmountView | null
   perKmRate: MonetaryAmountView | null
 }
+
+type PaymentMethod = 'cash' | 'card_terminal' | 'qr'
 
 interface LegView {
   deliveryId: number
@@ -30,6 +32,13 @@ interface LegView {
   fee: MonetaryAmountView | null
   distanceKm: number | null
   feeAttested: boolean
+  feePayment: {
+    id: number
+    amount: MonetaryAmountView
+    method: PaymentMethod
+    attestedAt: string
+    corrected: boolean
+  } | null
   customerName: string | null
   customerPhone: string | null
 }
@@ -125,29 +134,61 @@ const removeMunicipality = (id: number) =>
     $fetch<unknown, string>(`/api/admin/delivery/zone/${id}`, { method: 'DELETE' }),
   )
 
-// Outside-zone pricing and fee attestation share one PIN prompt.
+// Outside-zone pricing, fee attestation and its correction share one PIN prompt.
 const kmInput = ref<Record<number, string>>({})
-const methodInput = ref<Record<number, 'cash' | 'card_terminal' | 'qr'>>({})
-const pinFor = ref<{ kind: 'price' | 'fee'; deliveryId: number } | null>(null)
+const methodInput = ref<Record<number, PaymentMethod>>({})
+const pinFor = ref<{ kind: 'price' | 'fee' | 'correct'; deliveryId: number } | null>(null)
+
+// #237 (P1): correcting the attestation in force — a new one supersedes it.
+const correcting = ref<number | null>(null)
+const correctionReason = ref('')
+
+function startCorrection(leg: LegView) {
+  if (!leg.feePayment) return
+  actionError.value = null
+  methodInput.value[leg.deliveryId] = leg.feePayment.method
+  kmInput.value[leg.deliveryId] = leg.distanceKm === null ? '' : String(leg.distanceKm)
+  correctionReason.value = ''
+  correcting.value = leg.deliveryId
+}
+
+function feeRequest(deliveryId: number, pin: string, correct: boolean) {
+  const method = methodInput.value[deliveryId] ?? 'cash'
+  const leg = legs.value.find((l) => l.deliveryId === deliveryId)
+  if (!correct || !leg?.feePayment) return { method, pin }
+  return {
+    method,
+    pin,
+    correction: {
+      supersedesId: leg.feePayment.id,
+      reason: correctionReason.value,
+      distanceKm: Number(kmInput.value[deliveryId] ?? ''),
+    },
+  }
+}
 
 async function confirmPin(pin: string) {
   const target = pinFor.value
   if (!target) return
-  await run(`${target.kind}-${target.deliveryId}`, () =>
-    target.kind === 'price'
-      ? $fetch<unknown, string>(`/api/admin/delivery/${target.deliveryId}/price`, {
-          method: 'POST',
-          body: { distanceKm: Number(kmInput.value[target.deliveryId] ?? ''), pin },
-        })
-      : $fetch<unknown, string>(`/api/admin/delivery/${target.deliveryId}/fee-payment`, {
-          method: 'POST',
-          body: { method: methodInput.value[target.deliveryId] ?? 'cash', pin },
-        }),
-  )
+  await run(`${target.kind}-${target.deliveryId}`, async () => {
+    if (target.kind === 'price') {
+      await $fetch<unknown, string>(`/api/admin/delivery/${target.deliveryId}/price`, {
+        method: 'POST',
+        body: { distanceKm: Number(kmInput.value[target.deliveryId] ?? ''), pin },
+      })
+      return
+    }
+    await $fetch<unknown, string>(`/api/admin/delivery/${target.deliveryId}/fee-payment`, {
+      method: 'POST',
+      body: feeRequest(target.deliveryId, pin, target.kind === 'correct'),
+    })
+    if (target.kind === 'correct') correcting.value = null
+  })
   pinFor.value = null
 }
 
 const kmValid = (id: number) => /^\d{1,4}$/.test(kmInput.value[id] ?? '')
+const correctionValid = (id: number) => kmValid(id) && correctionReason.value.trim() !== ''
 </script>
 
 <template>
@@ -241,9 +282,79 @@ const kmValid = (id: number) => /^\d{1,4}$/.test(kmInput.value[id] ?? '')
                   : sk.adminDelivery.outsideUnpriced
               }}
             </p>
-            <p v-if="leg.feeAttested" class="delivery-admin__done">
-              {{ sk.adminDelivery.feeAttested }}
-            </p>
+            <template v-if="leg.feePayment">
+              <p class="delivery-admin__done">
+                {{
+                  sk.adminDelivery.feePaid
+                    .replace('{amount}', formatMoney(leg.feePayment.amount))
+                    .replace('{method}', sk.onSitePayment.methods[leg.feePayment.method])
+                    .replace('{time}', formatDateTime(leg.feePayment.attestedAt))
+                }}
+              </p>
+              <p v-if="leg.feePayment.corrected" class="delivery-admin__note">
+                {{ sk.adminDelivery.feeCorrectedNote }}
+              </p>
+              <AppButton
+                v-if="correcting !== leg.deliveryId"
+                variant="quiet"
+                @click="startCorrection(leg)"
+              >
+                {{ sk.adminDelivery.correctAction }}
+              </AppButton>
+              <form
+                v-else
+                class="delivery-admin__correction"
+                @submit.prevent="pinFor = { kind: 'correct', deliveryId: leg.deliveryId }"
+              >
+                <p class="delivery-admin__note">{{ sk.adminDelivery.correctionHint }}</p>
+                <div class="delivery-admin__row">
+                  <AppField :label="sk.adminDelivery.methodLabel">
+                    <template #default="slotProps">
+                      <select :id="slotProps.id" v-model="methodInput[leg.deliveryId]">
+                        <option value="cash">{{ sk.onSitePayment.methods.cash }}</option>
+                        <option value="card_terminal">
+                          {{ sk.onSitePayment.methods.card_terminal }}
+                        </option>
+                        <option value="qr">{{ sk.onSitePayment.methods.qr }}</option>
+                      </select>
+                    </template>
+                  </AppField>
+                  <AppField :label="sk.adminDelivery.kmLabel">
+                    <template #default="slotProps">
+                      <input
+                        :id="slotProps.id"
+                        v-model="kmInput[leg.deliveryId]"
+                        type="text"
+                        inputmode="numeric"
+                      />
+                    </template>
+                  </AppField>
+                </div>
+                <AppField :label="sk.adminDelivery.correctionReasonLabel">
+                  <template #default="slotProps">
+                    <input
+                      :id="slotProps.id"
+                      v-model="correctionReason"
+                      type="text"
+                      maxlength="300"
+                      required
+                    />
+                  </template>
+                </AppField>
+                <div class="delivery-admin__row">
+                  <AppButton
+                    type="submit"
+                    :disabled="!correctionValid(leg.deliveryId)"
+                    :pending="pending === `correct-${leg.deliveryId}`"
+                  >
+                    {{ sk.adminDelivery.correctionSubmitAction }}
+                  </AppButton>
+                  <AppButton variant="quiet" @click="correcting = null">
+                    {{ sk.adminDelivery.correctionCancelAction }}
+                  </AppButton>
+                </div>
+              </form>
+            </template>
             <template v-else>
               <form
                 class="delivery-admin__row"
@@ -364,6 +475,12 @@ const kmValid = (id: number) => /^\d{1,4}$/.test(kmInput.value[id] ?? '')
 
 .delivery-admin__leg p {
   margin: 0;
+}
+
+.delivery-admin__correction {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
 }
 
 .delivery-admin__done {

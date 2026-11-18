@@ -2,13 +2,15 @@
 // first (FR-33), as in every other context.
 import type postgres from 'postgres'
 import type { MonetaryAmount, TenantId } from '../_shared'
-import type {
-  Delivery,
-  DeliveryFeePayment,
-  DeliveryFeePaymentMethod,
-  DeliveryLeg,
-  DeliveryZoneMunicipality,
-  TimeWindow,
+import {
+  DeliveryFeeAlreadyAttestedError,
+  DeliveryFeeCorrectionError,
+  type Delivery,
+  type DeliveryFeePayment,
+  type DeliveryFeePaymentMethod,
+  type DeliveryLeg,
+  type DeliveryZoneMunicipality,
+  type TimeWindow,
 } from './types'
 
 export interface NewDelivery {
@@ -46,9 +48,14 @@ export interface LogisticsDeliveryRepository {
       amount: MonetaryAmount
       method: DeliveryFeePaymentMethod
       operatorId: string
+      supersedesId: number | null
+      correctionReason: string | null
     },
   ): Promise<DeliveryFeePayment>
   listFeePayments(tenantId: TenantId, deliveryId: number): Promise<DeliveryFeePayment[]>
+
+  // #237: a corrected km re-prices the leg and attests in one transaction.
+  transaction<T>(fn: (repo: LogisticsDeliveryRepository) => Promise<T>): Promise<T>
 }
 
 interface DeliveryRow {
@@ -91,6 +98,8 @@ interface PaymentRow {
   method: DeliveryFeePaymentMethod
   operator_id: string
   attested_at: Date
+  supersedes_id: number | null
+  correction_reason: string | null
 }
 
 const mapPayment = (row: PaymentRow): DeliveryFeePayment => ({
@@ -101,10 +110,15 @@ const mapPayment = (row: PaymentRow): DeliveryFeePayment => ({
   method: row.method,
   operatorId: row.operator_id,
   attestedAt: row.attested_at,
+  supersedesId: row.supersedes_id,
+  correctionReason: row.correction_reason,
 })
 
+// Postgres unique_violation: the one-original index or supersedes-once.
+const isUniqueViolation = (err: unknown) => (err as { code?: string })?.code === '23505'
+
 export function createPostgresLogisticsDeliveryRepository(
-  sql: postgres.Sql,
+  sql: postgres.Sql | postgres.TransactionSql,
 ): LogisticsDeliveryRepository {
   return {
     async listZone(tenantId) {
@@ -177,12 +191,27 @@ export function createPostgresLogisticsDeliveryRepository(
       return mapDelivery(rows[0]!)
     },
     async insertFeePayment(tenantId, p) {
-      const rows = await sql<PaymentRow[]>`
-        insert into delivery_fee_payments (tenant_id, delivery_id, amount_cents, currency, method, operator_id)
-        values (${tenantId}, ${p.deliveryId}, ${p.amount.amount}, ${p.amount.currency}, ${p.method}, ${p.operatorId})
-        returning *
-      `
-      return mapPayment(rows[0]!)
+      try {
+        const rows = await sql<PaymentRow[]>`
+          insert into delivery_fee_payments (
+            tenant_id, delivery_id, amount_cents, currency, method, operator_id,
+            supersedes_id, correction_reason
+          ) values (
+            ${tenantId}, ${p.deliveryId}, ${p.amount.amount}, ${p.amount.currency}, ${p.method},
+            ${p.operatorId}, ${p.supersedesId}, ${p.correctionReason}
+          )
+          returning *
+        `
+        return mapPayment(rows[0]!)
+      } catch (err) {
+        // A concurrent attestation won the race the domain's read could not see.
+        if (isUniqueViolation(err)) {
+          throw p.supersedesId === null
+            ? new DeliveryFeeAlreadyAttestedError(p.deliveryId)
+            : new DeliveryFeeCorrectionError('only the attestation in force can be corrected')
+        }
+        throw err
+      }
     },
     async listFeePayments(tenantId, deliveryId) {
       const rows = await sql<PaymentRow[]>`
@@ -191,6 +220,12 @@ export function createPostgresLogisticsDeliveryRepository(
         order by id
       `
       return rows.map(mapPayment)
+    },
+    async transaction<T>(fn: (repo: LogisticsDeliveryRepository) => Promise<T>) {
+      // Already bound to a transaction: run inline (no nested begin).
+      if (!('begin' in sql)) return fn(createPostgresLogisticsDeliveryRepository(sql))
+      // begin<T> returns UnwrapPromiseArray<T>, which is T for a non-array T.
+      return sql.begin((trx) => fn(createPostgresLogisticsDeliveryRepository(trx))) as Promise<T>
     },
   }
 }
