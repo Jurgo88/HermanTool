@@ -375,6 +375,8 @@ Deposit held, amount returned, deduction reason. **Paired-evidence status is sho
 **`S-13` Asset view & attestation history** — `/admin/counter/assets/:assetId` · `FR-43`, `FR-45`, `P4`, `D-10`
 The artefact `P4` exists to produce: append-only timeline (`C-18`) of ScanEvents, HandoverOut/In, ConditionReports, deposits, corrections — each with Operator attribution and both clocks. This is what gets read out in a dispute; it should be printable. The header names the AssetType; the status is its Slovak label, never the stored value.
 
+*Built 18 November 2026 (#235):* "Vrátiť do dostupných" returns an UnderInspection Asset to the pool once its latest RentalAgreement is handed in and settled; the server refuses before X+1 (`D-09`). It is attributed to the session Operator (`FR-34`) and is **not** PIN-confirmed, because `FR-36`'s list does not include it. **Possible feature, deferred:** PIN-confirm it so that, on the shared counter phone (`F8`), the history names the person who actually released the Asset (#243).
+
 **`S-14` Overdue worklist** — `/admin/counter/overdue` · `FR-29`, `D-17`
 **Ranked by the earliest day the absence causes demand to exceed supply — not by days late.** The ranking is the requirement, so the screen must show the reason for the rank: which Reservation is threatened and on which day. Days late is secondary information.
 
