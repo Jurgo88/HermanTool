@@ -382,6 +382,9 @@ const sortedRows = computed(() => {
         <p class="statistics__note">{{ sk.adminStatistics.poolNote }}</p>
       </template>
     </section>
+
+    <!-- D-64 (#214): what Visitors asked the AI recommendation. -->
+    <VisitorQuestions />
   </main>
 </template>
 

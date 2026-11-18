@@ -1,0 +1,32 @@
+# Tool recommendation purge (D-64, D-41, FR-40; issue #214). Deletes stored
+# Visitor questions after 90 days, visitor calls after 24 hours and every
+# earlier UTC day's HMAC secret. Same mechanism as the other scheduled jobs:
+# GitHub Actions calling an authenticated Nitro endpoint.
+#
+# Reuses the SAME two repo-level configuration values as every other
+# scheduled job in this repo — no new secret to provision:
+#   - vars.SWEEP_SITE_URL      — the deployed site origin
+#   - secrets.SWEEP_JOB_SECRET — must match NUXT_INTERNAL_JOB_SECRET set
+#                                 in Netlify's environment variables (D-31)
+name: Purge tool recommendation records
+
+on:
+  schedule:
+    - cron: '30 3 * * *' # daily, 03:30 UTC — after the evidence erasure
+  workflow_dispatch: {}
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the tool-recommendation purge endpoint
+        run: |
+          http_status=$(curl -sS -o /tmp/purge-response.json -w "%{http_code}" \
+            -X POST "${{ vars.SWEEP_SITE_URL }}/api/internal/tool-recommendation/purge" \
+            -H "Authorization: Bearer ${{ secrets.SWEEP_JOB_SECRET }}")
+          echo "HTTP status: $http_status"
+          cat /tmp/purge-response.json
+          if [ "$http_status" -ge 400 ]; then
+            echo "::error::Tool-recommendation purge endpoint returned HTTP $http_status"
+            exit 1
+          fi

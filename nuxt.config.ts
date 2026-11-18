@@ -141,6 +141,15 @@ export default defineNuxtConfig({
     r2BucketEvidence: '',
     r2BucketConditions: '',
 
+    // AI tool recommendation (D-64; #214) — see
+    // server/contexts/tool-recommendation/model-gateway.ts, the one file
+    // permitted to use these. Empty key = the feature is off and S-01
+    // shows only the filters. The model id is configuration (D-64);
+    // claude-haiku-5-5 is the proposal, to be validated on the sample
+    // questions (scripts/evaluate-tool-recommendation.ts) before launch.
+    anthropicApiKey: '',
+    toolRecommendationModel: 'claude-haiku-5-5',
+
     public: {
       // Used only to build Stripe Checkout's success_url/cancel_url
       // server-side (server/api/payments/checkout-session.post.ts) —

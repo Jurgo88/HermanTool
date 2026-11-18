@@ -55,6 +55,8 @@ const CONTEXT_ALLOWED_IMPORTS = {
   'utilisation-reporting': ['availability-reservation'],
   // D-66: downstream of A&R; imports no context today.
   'logistics-delivery': [],
+  // D-64: imports no context; the composition root passes the catalog in.
+  'tool-recommendation': [],
 }
 
 const CONTEXT_NAMES = Object.keys(CONTEXT_ALLOWED_IMPORTS)

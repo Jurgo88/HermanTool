@@ -439,6 +439,9 @@ The login-free unsubscribe link of every marketing e-mail. Opening it changes no
 **`S-29` Dovoz a odvoz** — `/admin/delivery` · `D-66`, `FR-34`, `D-48`
 The DeliveryZone (municipalities), the flat fee and per-km rate (empty until set, OQ #32 — no Delivery is offered meanwhile), and the next two weeks of Deliveries and Collections per day with address, window and the Customer's phone. Outside-zone legs: km entered after the call (the server computes the fee), then the driver's fee attested — both PIN-gated. `S-03` gains `DeliveryCollectionChoice`: independent Delivery / Collection, municipality + street inside the zone, „Chcem dovoz mimo zóny — zavolajte mi“ outside it; the fee and totals come from the quote.
 
+**AI tool recommendation on `S-01`** — #214, `D-64`, `D-58`, `D-25`
+`ToolRecommendation` sits above the filters and appears only when `/api/public/tool-recommendation/status` says so (key configured, model priced, cap above 0 and not reached). Four states: idle (submit disabled until text, live character counter to 500), pending, result (`C-23` cards linking to `S-02`, one reason under each, an optional safety note, a disclaimer, no availability), error. No match shows „S týmto vám poradíme osobne“ with the Tenant's contact (draft slot until supplied). A visitor-limit refusal keeps the input with its own message; a 503 (cap reached, provider down) hides the input for the visit and the filters remain. `S-25` gains „Čo ľudia hľadali“ (`VisitorQuestions`: the stored questions, newest first, those that found nothing outlined and filterable). `S-27` gains the monthly cap in € (empty → the owner's 10 € default, 0 → off) and this month's spend in USD, with the 1 USD = 1 € note (OQ #34).
+
 On-site payment at the counter is a block of `S-10` (`OnSitePaymentAttestation`): amount due from the server, method, PIN per attestation (`C-11`); HandoverOut of an on-site group is refused until it is attested.
 
 ---

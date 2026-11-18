@@ -211,6 +211,13 @@ export const sk = {
     privacyMarketingHeading: 'Ponuky a zľavy e-mailom',
     privacyMarketingBody:
       'Ak v rezervácii zaškrtnete súhlas, budeme vám posielať ponuky a zľavy na váš e-mail. Súhlas je dobrovoľný, zaznamenáme si jeho čas a znenie textu, ktorému ste ho dali, a môžete ho kedykoľvek odvolať odkazom v e-maile. Doba uchovávania záznamu o súhlase ešte čaká na právne posúdenie.',
+    // D-64 (#214): the AI recommendation — new processor (OQ #4), 90-day
+    // question log on legitimate interest. Legal wording pending (D-52).
+    privacyRecommendationHeading: 'Odporúčanie náradia',
+    privacyRecommendationBody:
+      'Ak v katalógu opíšete, čo potrebujete urobiť, váš text pošleme spoločnosti Anthropic (sprostredkovateľ), ktorej model z našej ponuky vyberie vhodné náradie. Text si uložíme na 90 dní, aby sme vedeli, čo zákazníci hľadajú a čo v ponuke chýba (oprávnený záujem). Pred uložením z neho automaticky odstránime e-mailové adresy a telefónne čísla. Neukladáme vašu IP adresu ani ho nespájame s vašou rezerváciou; na obmedzenie počtu otázok používame len jej jednosmerný odtlačok, ktorý po 24 hodinách zahodíme.',
+    // D-64 (#214): the Tenant's contact for "we will advise you in person".
+    recommendationContact: 'Kontakt: e-mail [doplniť], telefón [doplniť].',
   },
   // D-50, UIF-03: domain errors carry a stable `code` (the throwing
   // class's own name, attached server-side by every translate*Error
@@ -238,6 +245,8 @@ export const sk = {
       MunicipalityNameTakenError: 'Táto obec už v zóne je.',
       MunicipalityNameRequiredError: 'Zadajte názov obce.',
       MunicipalityNotInZoneError: 'Táto obec v zóne nie je.',
+      // D-64.
+      InvalidRecommendationCapError: 'Strop musí byť od 0 do 1 000 €, najviac s dvomi desatinnými miestami.',
       DeliveryNotFoundError: 'Tento dovoz sa nenašiel.',
       AssetTypeNotFoundError: 'Tento typ náradia neexistuje.',
       AssetNotFoundError: 'Tento kus náradia neexistuje.',
@@ -391,6 +400,26 @@ export const sk = {
     noMatch: 'Zvoleným filtrom nezodpovedá žiadne náradie.',
     imagePlaceholder: 'Fotku pripravujeme',
     perDaySuffix: '/ deň',
+  },
+  // S-01 AI recommendation (D-64; #214). No how-to, no availability.
+  toolRecommendation: {
+    heading: 'Neviete, aké náradie potrebujete?',
+    label: 'Opíšte, čo potrebujete urobiť',
+    hint: 'Napríklad: vyvŕtať dieru do betónu na poličku. Nepíšte meno, e-mail ani telefón.',
+    counter: '{count} / {max}',
+    tooLong: 'Text je príliš dlhý — skráťte ho, prosím.',
+    submitAction: 'Poradiť',
+    pending: 'Hľadám vhodné náradie…',
+    resultHeading: 'Mohlo by sa vám hodiť',
+    safetyLabel: 'Bezpečnosť:',
+    noMatch: 'S týmto vám poradíme osobne.',
+    disclaimer:
+      'Výber pripravuje umelá inteligencia z našej ponuky. Pred rezerváciou si pozrite popis náradia; postup práce neradíme.',
+    askAgainAction: 'Opýtať sa inak',
+    error: 'Poradiť sa teraz nepodarilo. Skúste to znova alebo použite filtre nižšie.',
+    limitHour: 'Za poslednú hodinu ste sa pýtali už veľakrát. Skúste to neskôr alebo použite filtre nižšie.',
+    limitDay: 'Dnes ste sa pýtali už veľakrát. Skúste to zajtra alebo použite filtre nižšie.',
+    unavailable: 'Poradenstvo teraz nie je k dispozícii. Použite, prosím, filtre nižšie.',
   },
   // S-02 (D-55, D-57, D-58).
   assetTypeDetail: {
@@ -1094,6 +1123,20 @@ export const sk = {
     marketingCount: 'Kontakty so súhlasom s ponukami e-mailom: {count}',
     marketingNote:
       'Zoznam kontaktov sa zobrazí až po rozhodnutí o dobe uchovávania údajov. Marketingové e-maily systém zatiaľ neposiela.',
+    // D-64 (#214): the monthly cap for AI recommendations.
+    recommendationHeading: 'Odporúčanie náradia (AI)',
+    recommendationIntro:
+      'Návštevník opíše prácu a dostane 1–3 typy náradia z ponuky. Keď sa dosiahne mesačný strop, pole sa do konca mesiaca skryje a ostanú filtre.',
+    recommendationNotConfigured: 'Odporúčanie je vypnuté — na serveri nie je nastavený kľúč.',
+    recommendationSpent: 'Tento mesiac minuté: {spent} zo stropu {cap}',
+    recommendationCurrencyNote:
+      'Poskytovateľ účtuje v amerických dolároch. Pri porovnaní so stropom počítame 1 USD ako 1 €, takže strop sa dosiahne skôr, nie neskôr.',
+    recommendationCapDefault: '(predvolený strop)',
+    recommendationOff: 'Strop je 0 — odporúčanie je vypnuté.',
+    recommendationCapLabel: 'Mesačný strop v €',
+    recommendationCapHint: 'Napríklad 10. Zadajte 0, ak chcete odporúčanie vypnúť.',
+    recommendationCapInvalid: 'Zadajte sumu od 0 do 1 000 €, najviac s dvomi desatinnými miestami.',
+    recommendationResetAction: 'Vrátiť predvolený strop',
   },
   // S-25 (D-63): read-only statistics. Derived facts are worded as such.
   adminStatistics: {
@@ -1143,6 +1186,17 @@ export const sk = {
       'Vyťaženosť počíta s dnešným počtom kusov (vrátane tých, ktoré sú práve vonku alebo na kontrole).',
     empty: 'V katalógu zatiaľ nie je žiadne náradie.',
     rangeError: 'Zvolené obdobie nie je platné (najviac 366 dní).',
+    // D-64 (#214): „Čo ľudia hľadali“ — stored Visitor questions, 90 days.
+    questionsHeading: 'Čo ľudia hľadali',
+    questionsIntro:
+      'Otázky z odporúčania náradia za posledných 90 dní, bez e-mailov a telefónov. Otázka bez nájdeného náradia môže ukazovať, čo v ponuke chýba.',
+    questionsOnlyUnmatched: 'Len otázky bez nájdeného náradia',
+    questionsUnmatched: 'Nič sa nenašlo',
+    questionsRecommended: 'Odporučené: {names}',
+    questionsUnpublished: 'náradie už nie je v ponuke',
+    questionsEmpty: 'Zatiaľ žiadne otázky.',
+    questionsLoading: 'Načítavam otázky…',
+    questionsLoadError: 'Otázky sa nepodarilo načítať.',
   },
   adminStatus: {
     title: 'Stav systému',

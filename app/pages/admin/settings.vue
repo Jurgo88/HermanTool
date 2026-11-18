@@ -5,7 +5,7 @@
 // value. Entered as a percentage, sent in basis points like prices are
 // entered in euros and sent in cents (S-19).
 import { sk } from '~/i18n/sk'
-import { formatDateTime, formatPercent } from '~/utils/format'
+import { formatDateTime, formatMoney, formatPercent, formatProviderCost, type MonetaryAmountView } from '~/utils/format'
 import { getErrorCode } from '~/utils/error-code'
 
 definePageMeta({ layout: 'admin' })
@@ -21,6 +21,17 @@ const requestFetch = useRequestFetch()
 const settings = ref<SettingsView | null>(null)
 // #216: a count only.
 const marketingCount = ref<number | null>(null)
+// D-64 (#214): the AI recommendation's monthly cap and this month's spend.
+interface RecommendationUsageView {
+  configured: boolean
+  spent: { microUnits: number; currency: string }
+  cap: MonetaryAmountView
+  capIsDefault: boolean
+}
+const recommendation = ref<RecommendationUsageView | null>(null)
+const capEuros = ref('')
+const capState = ref<'idle' | 'pending' | 'saved' | 'error'>('idle')
+const capError = ref<string | null>(null)
 const loadError = ref(false)
 const percent = ref('')
 const saveState = ref<'idle' | 'pending' | 'saved' | 'error'>('idle')
@@ -29,12 +40,15 @@ const saveError = ref<string | null>(null)
 async function load() {
   loadError.value = false
   try {
-    const [loaded, consents] = await Promise.all([
+    const [loaded, consents, usage] = await Promise.all([
       requestFetch<SettingsView>('/api/admin/settings'),
       requestFetch<{ count: number }>('/api/admin/marketing-consents/count'),
+      requestFetch<RecommendationUsageView>('/api/admin/tool-recommendation/usage'),
     ])
     settings.value = loaded
     marketingCount.value = consents.count
+    recommendation.value = usage
+    capEuros.value = String(usage.cap.amount / 100)
     const bp = settings.value.onlinePaymentDiscountBasisPoints
     percent.value = bp === null ? '' : String(bp / 100)
   } catch (err) {
@@ -55,6 +69,32 @@ const percentValid = computed(() => {
     Number.isFinite(value) && value > 0 && value < 100 && Number.isInteger(Math.round(value * 100))
   )
 })
+
+const capValid = computed(() => {
+  const value = Number(capEuros.value.replace(',', '.'))
+  return capEuros.value.trim() !== '' && Number.isFinite(value) && value >= 0 && value <= 1000 &&
+    Math.abs(Math.round(value * 100) - value * 100) < 1e-6
+})
+
+async function saveCap(reset = false) {
+  if (!reset && !capValid.value) return
+  capState.value = 'pending'
+  capError.value = null
+  const cents = reset ? null : Math.round(Number(capEuros.value.replace(',', '.')) * 100)
+  try {
+    await $fetch('/api/admin/settings/recommendation-cap', { method: 'PUT', body: { cents } })
+    const usage = await $fetch<RecommendationUsageView>('/api/admin/tool-recommendation/usage')
+    recommendation.value = usage
+    capEuros.value = String(usage.cap.amount / 100)
+    capState.value = 'saved'
+  } catch (err) {
+    const code = getErrorCode(err)
+    capError.value =
+      (code ? (sk.errors.operator as Record<string, string>)[code] : undefined) ??
+      sk.common.somethingWentWrong
+    capState.value = 'error'
+  }
+}
 
 async function save(clear = false) {
   if (!clear && !percentValid.value) return
@@ -146,6 +186,64 @@ async function save(clear = false) {
         {{ sk.adminSettings.marketingCount.replace('{count}', String(marketingCount)) }}
       </p>
       <p class="settings__note">{{ sk.adminSettings.marketingNote }}</p>
+    </section>
+
+    <section
+      v-if="recommendation"
+      class="settings__card"
+      aria-labelledby="settings-recommendation-heading"
+    >
+      <h2 id="settings-recommendation-heading">{{ sk.adminSettings.recommendationHeading }}</h2>
+      <p class="settings__note">{{ sk.adminSettings.recommendationIntro }}</p>
+      <p v-if="!recommendation.configured" class="settings__current">
+        {{ sk.adminSettings.recommendationNotConfigured }}
+      </p>
+      <p v-else-if="recommendation.cap.amount === 0" class="settings__current">
+        {{ sk.adminSettings.recommendationOff }}
+      </p>
+      <p v-else class="settings__current" role="status">
+        {{
+          sk.adminSettings.recommendationSpent
+            .replace('{spent}', formatProviderCost(recommendation.spent))
+            .replace('{cap}', formatMoney(recommendation.cap))
+        }}
+        <template v-if="recommendation.capIsDefault"> {{ sk.adminSettings.recommendationCapDefault }}</template>
+      </p>
+      <p class="settings__note">{{ sk.adminSettings.recommendationCurrencyNote }}</p>
+      <form class="settings__form" @submit.prevent="saveCap()">
+        <AppField
+          :label="sk.adminSettings.recommendationCapLabel"
+          :hint="sk.adminSettings.recommendationCapHint"
+          :error="capValid ? null : sk.adminSettings.recommendationCapInvalid"
+        >
+          <template #default="slotProps">
+            <input
+              :id="slotProps.id"
+              v-model="capEuros"
+              type="text"
+              inputmode="decimal"
+              :aria-describedby="slotProps.ariaDescribedby"
+            />
+          </template>
+        </AppField>
+        <div class="settings__actions">
+          <AppButton type="submit" :pending="capState === 'pending'" :disabled="!capValid">
+            {{ sk.adminSettings.saveAction }}
+          </AppButton>
+          <AppButton
+            v-if="!recommendation.capIsDefault"
+            variant="quiet"
+            :disabled="capState === 'pending'"
+            @click="saveCap(true)"
+          >
+            {{ sk.adminSettings.recommendationResetAction }}
+          </AppButton>
+        </div>
+        <p v-if="capState === 'saved'" class="settings__saved" role="status">
+          {{ sk.adminSettings.saved }}
+        </p>
+        <AppAlert v-if="capState === 'error'" :message="capError" />
+      </form>
     </section>
   </main>
 </template>
