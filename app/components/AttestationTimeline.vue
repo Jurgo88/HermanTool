@@ -19,6 +19,7 @@ export interface RentalAgreementHistoryView {
   handoverInAt: string | null
   handoverInRecordedAt: string | null
   handoverInBackdateReason: string | null
+  settlementCompletedAt: string | null
   returnedToPoolAt: string | null
   declaredLostAt: string | null
   declaredLostReason: string | null

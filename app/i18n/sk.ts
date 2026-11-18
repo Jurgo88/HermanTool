@@ -295,7 +295,8 @@ export const sk = {
       DeductionRequiresPairedConditionReportsError:
         'Zrážku nie je možné zapísať, kým nie sú potvrdené fotografie z oboch strán.',
       SettlementNotCompleteError: 'Vyrovnanie ešte nie je dokončené.',
-      AssetNotYetReturnableError: 'Tento kus zatiaľ nie je možné vrátiť do dostupných.',
+      AssetNotYetReturnableError:
+        'Tento kus sa dá vrátiť do dostupných až deň po poslednom dni prenájmu.',
       RentalAgreementAlreadyHandedInError: 'Toto náradie už bolo vrátené.',
       RentalAgreementAlreadyDeclaredLostError: 'Tento kus je už nahlásený ako stratený.',
       CustomerNotFoundError: 'Tento zákazník neexistuje.',
@@ -1029,6 +1030,13 @@ export const sk = {
     lateAttestationSubmitAction: 'Zaznamenať vrátenie',
     lateAttestationSubmitting: 'Zaznamenávam…',
     lateAttestationSuccess: 'Oneskorené vrátenie zaznamenané.',
+
+    // D-09 (#235): UnderInspection → the pool, from X+1, an explicit act.
+    returnToPoolHint:
+      'Vrátenie a vyrovnanie zálohy sú zaznamenané. Keď je kus skontrolovaný a pripravený na ďalší prenájom, vráťte ho do dostupných.',
+    returnToPoolAction: 'Vrátiť do dostupných',
+    returnToPoolSubmitting: 'Vraciam…',
+    returnToPoolSuccess: 'Kus je znova dostupný na prenájom.',
   },
   adminCounterOverdue: {
     title: 'Omeškané',
