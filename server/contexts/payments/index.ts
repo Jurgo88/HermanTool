@@ -46,6 +46,13 @@ export { createStripePaymentGateway } from './gateway'
 export type { NewPayment, PaymentsRepository } from './repository'
 export { createPostgresPaymentsRepository } from './repository'
 
+export {
+  InvalidOnlineDiscountError,
+  MAX_ONLINE_DISCOUNT_BASIS_POINTS,
+  applyOnlinePaymentDiscount,
+  assertValidOnlineDiscount,
+} from './online-discount'
+
 export type { ApplyPaymentSucceededOutcome } from './payment'
 export {
   applyPaymentSucceeded,

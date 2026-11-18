@@ -30,6 +30,7 @@ export { createResendNotificationGateway } from './resend-gateway'
 export type { ConfirmationLine, NotificationDeps } from './notification'
 export { UNNAMED_ASSET_TYPE } from './copy'
 export {
+  dispatchOnSiteConfirmationRequest,
   dispatchOverdueReminder,
   dispatchPickupReminder,
   dispatchReservationConfirmation,

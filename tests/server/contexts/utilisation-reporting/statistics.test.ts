@@ -40,6 +40,7 @@ const SAW = 2
 interface TenantData {
   pools: Map<number, number>
   payments: ReportedPayment[]
+  onSite?: ReportedPayment[]
   openEndDays: string[]
   deposits: MonetaryAmount[]
 }
@@ -86,6 +87,9 @@ function fakeSource(): ReportingSource {
     },
     async listConfirmedPayments(tenantId, period) {
       return of(tenantId).payments.filter((p) => p.day >= period.startDay && p.day <= period.endDay)
+    },
+    async listOnSitePayments(tenantId, period) {
+      return (of(tenantId).onSite ?? []).filter((p) => p.day >= period.startDay && p.day <= period.endDay)
     },
     listOpenPossessionEndDays: async (tenantId) => of(tenantId).openEndDays,
     listHeldDeposits: async (tenantId) => of(tenantId).deposits,
@@ -292,6 +296,21 @@ describe('getStatisticsOverview (S-25 overview)', () => {
     expect(overview.revenueThisMonth).toEqual([createMonetaryAmount(3500)])
     expect(overview.revenueLastMonth).toEqual([createMonetaryAmount(900)])
     expect(overview.depositsHeld).toEqual([createMonetaryAmount(10000)])
+  })
+
+  it('reports on-site rental fees on their own line, never in confirmed revenue (P6, D-65)', async () => {
+    const a = data.get(tenantA)!
+    a.payments.push({ reservationGroupId: 1, amount: createMonetaryAmount(2000), day: '2026-10-02' })
+    a.onSite = [
+      { reservationGroupId: 2, amount: createMonetaryAmount(2500), day: '2026-10-03' },
+      { reservationGroupId: 3, amount: createMonetaryAmount(1000), day: '2026-09-12' },
+    ]
+
+    const overview = await getStatisticsOverview(fakeSource(), { tenantId: tenantA, today: '2026-10-21' })
+
+    expect(overview.revenueThisMonth).toEqual([createMonetaryAmount(2000)])
+    expect(overview.onSiteRevenueThisMonth).toEqual([createMonetaryAmount(2500)])
+    expect(overview.onSiteRevenueLastMonth).toEqual([createMonetaryAmount(1000)])
   })
 
   it('counts Reservations starting this month and pool-based utilisation', async () => {

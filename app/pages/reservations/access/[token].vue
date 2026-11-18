@@ -43,6 +43,8 @@ const token = route.params.token as string
 
 const loadState = ref<'loading' | 'loaded' | 'not_found' | 'error'>('loading')
 const customerName = ref('')
+// D-65 / D-15 (c): paid on site, the document is shown at the counter.
+const identityAtCounterOnly = ref(false)
 const reservations = ref<ReservationView[]>([])
 const assetTypes = ref<AssetTypeOption[]>([])
 
@@ -58,13 +60,18 @@ async function load() {
   loadState.value = 'loading'
   try {
     const [booking, publishedAssetTypes] = await Promise.all([
-      $fetch<{ customer: { name: string }; reservations: ReservationView[] }>(
+      $fetch<{
+        customer: { name: string }
+        reservations: ReservationView[]
+        identityAtCounterOnly?: boolean
+      }>(
         `/api/public/customer-access/${token}`,
       ),
       $fetch<AssetTypeOption[]>('/api/public/asset-types'),
     ])
     customerName.value = booking.customer.name
     reservations.value = booking.reservations
+    identityAtCounterOnly.value = booking.identityAtCounterOnly === true
     assetTypes.value = publishedAssetTypes
     loadState.value = 'loaded'
   } catch (err: unknown) {
@@ -137,7 +144,11 @@ await load()
         </ul>
       </section>
 
-      <section class="customer-access__section">
+      <section v-if="identityAtCounterOnly" class="customer-access__section">
+        <h2>{{ sk.customerAccess.uploadHeading }}</h2>
+        <p>{{ sk.customerAccess.identityAtCounter }}</p>
+      </section>
+      <section v-else class="customer-access__section">
         <h2>{{ sk.customerAccess.uploadHeading }}</h2>
         <p>{{ sk.customerAccess.uploadIntro }}</p>
         <p class="customer-access__why">{{ sk.customerAccess.uploadWhySentence }}</p>

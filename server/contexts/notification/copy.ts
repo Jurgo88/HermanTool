@@ -37,6 +37,9 @@ export function reservationConfirmationText(params: {
   depositTotal: string | null
   termsVersion: string | null
   accessLinkUrl: string
+  // D-65: the rental fee due at pickup when the group is paid on site;
+  // absent for a group already paid online.
+  onSiteRentalFee?: string | null
 }): EmailText {
   const lines = params.lines
     .map((line) => `- ${line.name}${line.quantity > 1 ? ` × ${line.quantity}` : ''}, ${line.period}`)
@@ -52,11 +55,38 @@ export function reservationConfirmationText(params: {
     subject: 'Rezervácia je potvrdená',
     body:
       `${greeting(params.customerName)}\n\n` +
-      `vaša rezervácia je potvrdená a zaplatená:\n\n${lines}\n\n` +
+      (params.onSiteRentalFee
+        ? `vaša rezervácia je potvrdená:\n\n${lines}\n\n` +
+          `Nájomné ${params.onSiteRentalFee} zaplatíte pri prevzatí (hotovosť, karta alebo QR kód).\n`
+        : `vaša rezervácia je potvrdená a zaplatená:\n\n${lines}\n\n`) +
       `${PICKUP_NEEDS} ${deposit}\n\n` +
       `Rezerváciu si môžete kedykoľvek pozrieť tu:\n${params.accessLinkUrl}\n` +
       `${terms}\n` +
       `Tešíme sa na vás.\n\n${signoff}`,
+  }
+}
+
+// D-65: an on-site ReservationGroup is confirmed only when the Customer
+// follows this link. Until then the days are held only briefly, exactly
+// like an unpaid online checkout.
+export function onSiteConfirmationRequestText(params: {
+  customerName: string
+  lines: { name: string; quantity: number; period: string }[]
+  rentalFee: string
+  confirmUrl: string
+}): EmailText {
+  const lines = params.lines
+    .map((line) => `- ${line.name}${line.quantity > 1 ? ` × ${line.quantity}` : ''}, ${line.period}`)
+    .join('\n')
+  return {
+    subject: 'Potvrďte svoju rezerváciu',
+    body:
+      `${greeting(params.customerName)}\n\n` +
+      `ďakujeme za rezerváciu s platbou na mieste:\n\n${lines}\n\n` +
+      `Rezerváciu potvrdíte kliknutím na tento odkaz:\n${params.confirmUrl}\n\n` +
+      `Kým ju nepotvrdíte, termín vám držíme len krátko. ` +
+      `Nájomné ${params.rentalFee} zaplatíte pri prevzatí. ${PICKUP_NEEDS}\n\n` +
+      `Ak ste rezerváciu nerobili vy, tento e-mail môžete ignorovať.\n\n${signoff}`,
   }
 }
 

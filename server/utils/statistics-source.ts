@@ -92,6 +92,30 @@ export function createPostgresReportingSource(sql: postgres.Sql): ReportingSourc
       }))
     },
 
+    // D-65: only the attestations in force — a superseded one is not money.
+    async listOnSitePayments(tenantId, period) {
+      const rows = await sql<
+        { reservation_group_id: number; amount_cents: number; currency: string; day: Date }[]
+      >`
+        select p.reservation_group_id, p.amount_cents, p.currency,
+          (p.attested_at at time zone ${TENANT_TIME_ZONE})::date as day
+        from on_site_payments p
+        where p.tenant_id = ${tenantId}
+          and not exists (
+            select 1 from on_site_payments s
+            where s.tenant_id = p.tenant_id and s.supersedes_id = p.id
+          )
+          and (p.attested_at at time zone ${TENANT_TIME_ZONE})::date
+            between ${period.startDay}::date and ${period.endDay}::date
+        order by p.id
+      `
+      return rows.map((row) => ({
+        reservationGroupId: row.reservation_group_id,
+        amount: createMonetaryAmount(row.amount_cents, row.currency as MonetaryAmount['currency']),
+        day: formatDay(row.day),
+      }))
+    },
+
     async listOpenPossessionEndDays(tenantId: TenantId) {
       const rows = await sql<{ end_day: Date }[]>`
         select r.end_day from rental_agreements ra

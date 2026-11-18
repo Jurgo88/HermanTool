@@ -29,6 +29,7 @@ import {
   ReservationNotActiveError,
   ReservationNotFoundError,
   TermsNotAcceptedError,
+  type PaymentMethod,
   type Reservation,
   type ReservationGroup,
 } from './types'
@@ -140,9 +141,17 @@ export function assertAccessoriesAccompanied(
 // not forbid checkout-level transaction atomicity.
 export async function checkoutReservationGroup(
   repo: AvailabilityReservationRepository,
-  params: { tenantId: TenantId; lines: ReservationLine[]; now?: Date; hooks?: AcquisitionHooks },
+  params: {
+    tenantId: TenantId
+    lines: ReservationLine[]
+    now?: Date
+    hooks?: AcquisitionHooks
+    // D-65: an on-site group holds capacity exactly like an online one —
+    // Pending until confirmed, released by the same expiry (D-08, D-33).
+    paymentMethod?: PaymentMethod
+  },
 ): Promise<{ group: ReservationGroup; reservations: Reservation[] }> {
-  const { tenantId, lines, now = new Date(), hooks } = params
+  const { tenantId, lines, now = new Date(), hooks, paymentMethod = 'online' } = params
   if (lines.length === 0) throw new EmptyReservationGroupError()
   for (const line of lines) validateRentalPeriod(line.period)
   const assetTypeIds = [...new Set(lines.map((line) => line.assetTypeId))]
@@ -151,7 +160,7 @@ export async function checkoutReservationGroup(
   const pendingExpiresAt = new Date(now.getTime() + PENDING_EXPIRY_MINUTES * 60_000)
 
   return repo.transaction(async (trx, getRentablePoolCount) => {
-    const group = await trx.insertReservationGroup(tenantId)
+    const group = await trx.insertReservationGroup(tenantId, paymentMethod)
     const reservations: Reservation[] = []
 
     for (const line of lines) {

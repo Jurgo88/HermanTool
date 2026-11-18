@@ -32,6 +32,9 @@ const customerName = ref('')
 const customerEmail = ref('')
 const customerPhone = ref('')
 const termsAccepted = ref(false)
+// D-65: how the rental fee is paid.
+const paymentMethod = ref<'online' | 'on_site'>('online')
+const onSiteSent = ref(false)
 
 interface Money {
   amount: number
@@ -40,7 +43,11 @@ interface Money {
 
 interface ReservationQuote {
   lines: { days: number; rentalFee: Money; deposit: Money; startsInPast?: boolean }[]
+  // On site, undiscounted; online less the Tenant's discount (D-65). Both
+  // come from the server — this page subtracts nothing.
   rentalFeeTotal: Money
+  onlineRentalFeeTotal: Money
+  onlineDiscount: Money
   depositTotal: Money
 }
 
@@ -145,14 +152,23 @@ const error = ref<string | null>(null)
 const paying = ref(false)
 const reservationGroupId = ref<number | null>(null)
 
-watch([draftLines, customerName, customerEmail, customerPhone], () => {
+watch([draftLines, customerName, customerEmail, customerPhone, paymentMethod], () => {
   if (!paying.value) reservationGroupId.value = null
 }, { deep: true })
 
-const payLabel = computed(() =>
+const payLabel = computed(() => {
+  if (paymentMethod.value === 'on_site') return sk.checkout.reserveOnSiteAction
+  return quote.value
+    ? sk.checkout.payAction.replace('{amount}', formatMoney(quote.value.onlineRentalFeeTotal))
+    : sk.checkout.payActionNoAmount
+})
+
+const dueNow = computed(() =>
   quote.value
-    ? sk.checkout.payAction.replace('{amount}', formatMoney(quote.value.rentalFeeTotal))
-    : sk.checkout.payActionNoAmount,
+    ? paymentMethod.value === 'online'
+      ? quote.value.onlineRentalFeeTotal
+      : quote.value.rentalFeeTotal
+    : null,
 )
 
 // Customer register only (UI-D-08): a known code gets its own sentence,
@@ -189,6 +205,7 @@ async function pay() {
             email: customerEmail.value.trim(),
             phone: customerPhone.value.trim(),
           },
+          paymentMethod: paymentMethod.value,
         },
       })
       reservationGroupId.value = result.reservationGroupId
@@ -201,6 +218,16 @@ async function pay() {
       method: 'POST',
       body: { termsVersion: TERMS_VERSION },
     })
+    // D-65: on site, the e-mailed link confirms the group — no Stripe.
+    if (paymentMethod.value === 'on_site') {
+      await $fetch(`/api/reservations/${reservationGroupId.value}/on-site-confirmation-request`, {
+        method: 'POST',
+      })
+      onSiteSent.value = true
+      paying.value = false
+      finishCheckout()
+      return
+    }
     const { redirectUrl } = await $fetch<{ redirectUrl: string }>('/api/payments/checkout-session', {
       method: 'POST',
       body: { reservationGroupId: reservationGroupId.value },
@@ -226,7 +253,15 @@ async function pay() {
 
     <div class="checkout">
 
-    <p v-if="!restored" class="checkout__empty" aria-busy="true">{{ sk.checkout.restoring }}</p>
+    <section v-if="onSiteSent" class="checkout__empty" role="status">
+      <h2>{{ sk.checkout.onSiteSentTitle }}</h2>
+      <p>{{ sk.checkout.onSiteSentBody }}</p>
+      <NuxtLink to="/" class="checkout__empty-link">
+        <AppButton variant="secondary">{{ sk.checkout.backToCatalogAction }}</AppButton>
+      </NuxtLink>
+    </section>
+
+    <p v-else-if="!restored" class="checkout__empty" aria-busy="true">{{ sk.checkout.restoring }}</p>
 
     <div v-else-if="draftLines.length === 0" class="checkout__empty">
       <p>{{ sk.checkout.emptyDraft }}</p>
@@ -378,10 +413,42 @@ async function pay() {
 
         <!-- D-07/FR-21: two separate sums. The card pays the rental only; the
           deposit is cash at the counter and is as prominent as the card sum. -->
-        <dl v-if="quote" class="checkout__amounts">
+        <fieldset v-if="quote" class="checkout__methods" :disabled="paying">
+          <legend class="checkout__methods-legend">{{ sk.checkout.paymentMethodLegend }}</legend>
+          <label class="checkout__method">
+            <input v-model="paymentMethod" type="radio" value="online" />
+            <span class="checkout__method-text">
+              <span>{{ sk.checkout.methodOnline }}</span>
+              <span class="checkout__method-price">
+                <MoneyAmount :amount="quote.onlineRentalFeeTotal" />
+                <template v-if="quote.onlineDiscount.amount > 0">
+                  ·
+                  {{
+                    sk.checkout.methodOnlineSaving.replace(
+                      '{amount}',
+                      formatMoney(quote.onlineDiscount),
+                    )
+                  }}
+                </template>
+              </span>
+            </span>
+          </label>
+          <label class="checkout__method">
+            <input v-model="paymentMethod" type="radio" value="on_site" />
+            <span class="checkout__method-text">
+              <span>{{ sk.checkout.methodOnSite }}</span>
+              <span class="checkout__method-price"><MoneyAmount :amount="quote.rentalFeeTotal" /></span>
+              <small>{{ sk.checkout.methodOnSiteHint }}</small>
+            </span>
+          </label>
+        </fieldset>
+
+        <dl v-if="quote && dueNow" class="checkout__amounts">
           <div class="checkout__amount">
-            <dt>{{ sk.checkout.payNowLabel }}</dt>
-            <dd><MoneyAmount :amount="quote.rentalFeeTotal" size="large" /></dd>
+            <dt>
+              {{ paymentMethod === 'online' ? sk.checkout.payNowLabel : sk.checkout.payOnSiteLabel }}
+            </dt>
+            <dd><MoneyAmount :amount="dueNow" size="large" /></dd>
           </div>
           <div class="checkout__amount checkout__amount--cash">
             <dt>
@@ -426,9 +493,17 @@ async function pay() {
           :pending="paying"
           :disabled="quoteStatus !== 'loaded'"
         >
-          {{ paying ? sk.checkout.startingPayment : payLabel }}
+          {{
+            paying
+              ? paymentMethod === 'on_site'
+                ? sk.checkout.sendingConfirmation
+                : sk.checkout.startingPayment
+              : payLabel
+          }}
         </AppButton>
-        <p class="checkout__note">{{ sk.checkout.paymentNote }}</p>
+        <p class="checkout__note">
+          {{ paymentMethod === 'on_site' ? sk.checkout.onSiteNote : sk.checkout.paymentNote }}
+        </p>
       </div>
       </div>
     </form>
@@ -439,6 +514,51 @@ async function pay() {
 <style scoped>
 .checkout-page {
   width: 100%;
+}
+
+.checkout__methods {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-2);
+  margin: 0 0 var(--ht-space-3);
+  padding: 0;
+  border: 0;
+}
+
+.checkout__methods-legend {
+  font-weight: 600;
+  margin-bottom: var(--ht-space-2);
+}
+
+.checkout__method {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ht-space-2);
+  padding: var(--ht-space-3);
+  border: var(--ht-line-width) solid var(--ht-line);
+  border-radius: var(--ht-radius-tile);
+  cursor: pointer;
+}
+
+.checkout__method:has(input:checked) {
+  border-color: var(--ht-brand);
+  background: var(--ht-brand-tint);
+}
+
+.checkout__method:focus-within {
+  outline: var(--ht-focus-ring-width) solid var(--ht-brand);
+  outline-offset: var(--ht-focus-ring-offset);
+}
+
+.checkout__method-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ht-space-1);
+}
+
+.checkout__method-price {
+  color: var(--ht-ink-muted);
+  font-size: var(--ht-text-2);
 }
 
 /* Rises into the hero band. */

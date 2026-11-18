@@ -27,6 +27,9 @@ interface AssetTypeDetailView {
   name: string
   description: string
   dayRate: MonetaryAmountView
+  // D-65: the day rate when paying online, from the server; null when the
+  // Tenant has set no discount.
+  onlineDayRate: MonetaryAmountView | null
   depositAmount: MonetaryAmountView
   specifications: { label: string; value: string }[]
   includedContents: string
@@ -277,6 +280,15 @@ const hint = computed(() => {
         <div class="detail__chips">
           <span class="detail__chip detail__chip--rate">
             {{ sk.assetTypeDetail.rateChip.replace('{amount}', formatMoney(assetType.dayRate)) }}
+            <template v-if="assetType.onlineDayRate">
+              ·
+              {{
+                sk.assetTypeDetail.onlineRateChip.replace(
+                  '{amount}',
+                  formatMoney(assetType.onlineDayRate),
+                )
+              }}
+            </template>
           </span>
           <span class="detail__chip">
             {{ sk.assetTypeDetail.depositChip.replace('{amount}', formatMoney(assetType.depositAmount)) }}

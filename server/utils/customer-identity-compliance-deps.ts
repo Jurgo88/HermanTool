@@ -18,6 +18,7 @@ import {
   IdentityEvidenceNotFoundError,
   IdentityVerificationReasonRequiredError,
   InvalidCustomerDetailsError,
+  OnSitePaymentLimitReachedError,
   ReservationGroupNotConfirmedError,
   RetentionWindowNotConfiguredError,
   type CustomerIdentityComplianceRepository,
@@ -95,7 +96,8 @@ export function translateCustomerIdentityComplianceError(err: unknown): never {
     err instanceof CustomerAlreadyExistsForGroupError ||
     err instanceof ReservationGroupNotConfirmedError ||
     err instanceof RetentionWindowNotConfiguredError ||
-    err instanceof IdentityEvidenceCustomerMismatchError
+    err instanceof IdentityEvidenceCustomerMismatchError ||
+    err instanceof OnSitePaymentLimitReachedError
   ) {
     throw createError({ statusCode: 409, statusMessage: err.message, data: { code: err.constructor.name } })
   }

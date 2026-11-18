@@ -91,6 +91,23 @@ export { resolveScanEvent } from './scan-resolution'
 export type { ConfirmConditionReportUploadOutcome } from './condition-report-confirmation'
 export { confirmConditionReportUpload, sweepUnconfirmedConditionReports } from './condition-report-confirmation'
 
+export type {
+  NewOnSitePayment,
+  OnSitePayment,
+  OnSitePaymentMethod,
+  OnSitePaymentRepository,
+} from './on-site-payment'
+export {
+  OnSitePaymentAlreadyAttestedError,
+  OnSitePaymentCorrectionError,
+  OnSitePaymentNotExpectedError,
+  RentalFeeNotSettledError,
+  assertRentalFeeSettled,
+  attestOnSitePayment,
+  createPostgresOnSitePaymentRepository,
+  currentOnSitePayment,
+} from './on-site-payment'
+
 export type { PerformHandoverOutDeps, PerformHandoverOutParams, PerformHandoverOutResult } from './handover-out'
 export { performHandoverOut } from './handover-out'
 

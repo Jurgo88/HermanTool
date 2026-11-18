@@ -23,9 +23,15 @@ export type ReservationState = 'pending' | 'confirmed' | 'cancelled' | 'expired'
 // or the pre-contractual information catalogue yet). Both null until
 // recordTermsAcceptance is called; both set together, never one without
 // the other (see the migration's paired-presence check).
+// D-65: how the group's rental fee is paid — online (Stripe, D-26) or on
+// site through the Tenant's eKasa, attested by an Operator. A property of
+// the group because the group carries the one rental fee (D-13).
+export type PaymentMethod = 'online' | 'on_site'
+
 export interface ReservationGroup {
   id: number
   tenantId: TenantId
+  paymentMethod: PaymentMethod
   createdAt: Date
   termsVersion: string | null
   termsAcceptedAt: Date | null

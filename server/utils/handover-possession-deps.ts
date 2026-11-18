@@ -45,12 +45,18 @@ import {
   ScanEventTagNotBoundError,
   SettlementNotCompleteError,
   UnexpectedScanResolutionError,
+  OnSitePaymentAlreadyAttestedError,
+  OnSitePaymentNotExpectedError,
+  RentalFeeNotSettledError,
+  createPostgresOnSitePaymentRepository,
   type ConditionReportStorageGateway,
   type HandoverPossessionRepository,
+  type OnSitePaymentRepository,
 } from '../contexts/handover-possession'
 
 export function createHandoverPossessionDeps(event: H3Event): {
   repo: HandoverPossessionRepository
+  onSitePaymentRepo: OnSitePaymentRepository
   assetRegistryRepo: AssetRegistryRepository
   conditionsGateway: ConditionReportStorageGateway
   sql: postgres.Sql
@@ -60,6 +66,7 @@ export function createHandoverPossessionDeps(event: H3Event): {
   const sql = getSharedDatabaseClient(config.databaseUrl)
   return {
     repo: createPostgresHandoverPossessionRepository(sql),
+    onSitePaymentRepo: createPostgresOnSitePaymentRepository(sql),
     assetRegistryRepo: createPostgresAssetRegistryRepository(sql),
     conditionsGateway: createR2ConditionReportGateway({
       accessKeyId: config.r2AccessKeyId,
@@ -138,7 +145,10 @@ export function translateHandoverPossessionError(err: unknown): never {
     err instanceof AssetNotYetReturnableError ||
     err instanceof RentalAgreementAlreadyHandedInError ||
     err instanceof RentalAgreementAlreadyDeclaredLostError ||
-    err instanceof AssetRetiredError
+    err instanceof AssetRetiredError ||
+    err instanceof RentalFeeNotSettledError ||
+    err instanceof OnSitePaymentAlreadyAttestedError ||
+    err instanceof OnSitePaymentNotExpectedError
   ) {
     throw createError({ statusCode: 409, statusMessage: err.message, data: { code: err.constructor.name } })
   }

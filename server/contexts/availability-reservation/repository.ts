@@ -7,7 +7,7 @@ import type { TenantId } from '../_shared'
 import { createPostgresAssetRegistryRepository } from '../asset-registry'
 import { createPostgresCatalogRepository } from '../catalog'
 import { formatRentalDay, type RentalPeriod } from './rental-period'
-import type { Reservation, ReservationGroup, ReservationState } from './types'
+import type { PaymentMethod, Reservation, ReservationGroup, ReservationState } from './types'
 
 // Bound to the SAME transaction as every other call made through the
 // `repo` handed to the same `transaction()` callback — never a second
@@ -26,7 +26,7 @@ export interface NewReservation {
 }
 
 export interface AvailabilityReservationRepository {
-  insertReservationGroup(tenantId: TenantId): Promise<ReservationGroup>
+  insertReservationGroup(tenantId: TenantId, paymentMethod?: PaymentMethod): Promise<ReservationGroup>
   getReservationGroup(tenantId: TenantId, id: number): Promise<ReservationGroup | null>
   listReservationsForGroup(tenantId: TenantId, reservationGroupId: number): Promise<Reservation[]>
 
@@ -163,6 +163,7 @@ export interface AvailabilityReservationRepository {
 interface ReservationGroupRow {
   id: number
   tenant_id: string
+  payment_method: PaymentMethod
   created_at: Date
   terms_version: string | null
   terms_accepted_at: Date | null
@@ -172,6 +173,7 @@ function mapReservationGroup(row: ReservationGroupRow): ReservationGroup {
   return {
     id: row.id,
     tenantId: row.tenant_id as TenantId,
+    paymentMethod: row.payment_method,
     createdAt: row.created_at,
     termsVersion: row.terms_version,
     termsAcceptedAt: row.terms_accepted_at,
@@ -209,9 +211,10 @@ export function createPostgresAvailabilityReservationRepository(
   sql: postgres.Sql | postgres.TransactionSql,
 ): AvailabilityReservationRepository {
   return {
-    async insertReservationGroup(tenantId) {
+    async insertReservationGroup(tenantId, paymentMethod = 'online') {
       const rows = await sql<ReservationGroupRow[]>`
-        insert into reservation_groups (tenant_id) values (${tenantId}) returning *
+        insert into reservation_groups (tenant_id, payment_method)
+        values (${tenantId}, ${paymentMethod}) returning *
       `
       return mapReservationGroup(rows[0]!)
     },

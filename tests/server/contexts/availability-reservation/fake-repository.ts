@@ -94,10 +94,11 @@ export function createFakeAvailabilityReservationRepository(): FakeAvailabilityR
         return target.reservations.map((r) => ({ ...r }))
       },
 
-      async insertReservationGroup(tenantId) {
+      async insertReservationGroup(tenantId, paymentMethod = 'online') {
         const group: ReservationGroup = {
           id: target.nextGroupId++,
           tenantId,
+          paymentMethod,
           createdAt: new Date(),
           termsVersion: null,
           termsAcceptedAt: null,

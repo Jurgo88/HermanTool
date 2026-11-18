@@ -31,12 +31,15 @@ export default defineEventHandler(async (event) => {
     if (!customer) customerAccessLinkNotFoundError()
 
     const reservations = await availability.repo.listReservationsForGroup(tenantId, customer.reservationGroupId)
+    const group = await availability.repo.getReservationGroup(tenantId, customer.reservationGroupId)
 
     // FR-39's own scope: "view the booking" — never internal fields, and
     // never anything from IdentityEvidence (NFR-06: this token cannot
     // read evidence back).
     return {
       customer: { name: customer.name },
+      // D-65 / D-15 (c): an on-site group's document is taken at the counter.
+      identityAtCounterOnly: group?.paymentMethod === 'on_site',
       reservations: reservations.map((r) => ({
         id: r.id,
         assetTypeId: r.assetTypeId,
