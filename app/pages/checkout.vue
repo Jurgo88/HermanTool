@@ -17,6 +17,7 @@ import { sk } from '~/i18n/sk'
 import { formatCount, formatMoney, formatTime } from '~/utils/format'
 import { orderForDisplay, toCheckoutLines, toQuoteLines } from '~/utils/reservation-draft'
 import { getErrorCode } from '~/utils/error-code'
+import { MARKETING_CONSENT_TEXT_VERSION } from '#shared/marketing-consent'
 
 definePageMeta({ layout: 'public', hero: true })
 
@@ -32,6 +33,8 @@ const customerName = ref('')
 const customerEmail = ref('')
 const customerPhone = ref('')
 const termsAccepted = ref(false)
+// #216: unticked by default; sent with the version of the text shown.
+const marketingConsent = ref(false)
 // D-65: how the rental fee is paid.
 const paymentMethod = ref<'online' | 'on_site'>('online')
 const onSiteSent = ref(false)
@@ -206,6 +209,8 @@ async function pay() {
             phone: customerPhone.value.trim(),
           },
           paymentMethod: paymentMethod.value,
+          marketingConsent: marketingConsent.value,
+          marketingConsentVersion: MARKETING_CONSENT_TEXT_VERSION,
         },
       })
       reservationGroupId.value = result.reservationGroupId
@@ -478,6 +483,15 @@ async function pay() {
         </DraftNotice>
         <p>
           <NuxtLink to="/podmienky" target="_blank">{{ sk.checkout.termsPageLinkAction }}</NuxtLink>
+        </p>
+        <!-- #216: optional, never pre-ticked, never required to reserve. -->
+        <label class="checkout__terms">
+          <input v-model="marketingConsent" type="checkbox" :disabled="paying" />
+          <span>{{ sk.checkout.marketingConsentLabel }}</span>
+        </label>
+        <p class="checkout__note">
+          {{ sk.checkout.marketingConsentNote }}
+          <NuxtLink to="/sukromie" target="_blank">{{ sk.checkout.marketingConsentPrivacyLink }}</NuxtLink>
         </p>
       </section>
 

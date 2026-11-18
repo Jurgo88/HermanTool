@@ -37,6 +37,10 @@ export const checkoutReservationGroupBodySchema = z.object({
   customer: customerDetailsSchema,
   // D-65: online now (Stripe) or on site at pickup. Online when absent.
   paymentMethod: z.enum(['online', 'on_site']).default('online'),
+  // #216: the unticked-by-default opt-in and the version of its text. A
+  // missing field records nothing (never consent).
+  marketingConsent: z.boolean().optional(),
+  marketingConsentVersion: z.string().max(100).optional(),
 })
 
 // D-35: termsVersion is an opaque, non-empty identifier — see

@@ -2,6 +2,8 @@ import { checkoutReservationGroup } from '../../contexts/availability-reservatio
 import {
   assertNoActiveOnSiteGroupForContact,
   createCustomer,
+  createPostgresMarketingConsentRepository,
+  recordCheckoutMarketingConsent,
   CustomerIdentityComplianceError,
 } from '../../contexts/customer-identity-compliance'
 import {
@@ -14,6 +16,7 @@ import {
   createCustomerIdentityComplianceDeps,
   translateCustomerIdentityComplianceError,
 } from '../../utils/customer-identity-compliance-deps'
+import { MARKETING_CONSENT_TEXT_VERSION } from '#shared/marketing-consent'
 import { listActiveOnSiteContacts } from '../../utils/on-site-payment'
 import { getSeededTenantId } from '../../utils/tenant'
 
@@ -60,6 +63,17 @@ export default defineEventHandler(async (event) => {
       tenantId,
       reservationGroupId: group.id,
       ...body.customer,
+    })
+
+    // #216: recorded with the Customer, only on an explicit yes, with the
+    // version of the text shown — refused if the page showed another one.
+    await recordCheckoutMarketingConsent(createPostgresMarketingConsentRepository(availability.sql), {
+      tenantId,
+      customerId: customer.id,
+      email: body.customer.email,
+      consent: body.marketingConsent,
+      shownVersion: body.marketingConsentVersion,
+      currentVersion: MARKETING_CONSENT_TEXT_VERSION,
     })
 
     issueCheckoutGroupCookie(event, group.id)

@@ -19,6 +19,8 @@ const nuxtApp = useNuxtApp()
 const requestFetch = useRequestFetch()
 
 const settings = ref<SettingsView | null>(null)
+// #216: a count only.
+const marketingCount = ref<number | null>(null)
 const loadError = ref(false)
 const percent = ref('')
 const saveState = ref<'idle' | 'pending' | 'saved' | 'error'>('idle')
@@ -27,7 +29,12 @@ const saveError = ref<string | null>(null)
 async function load() {
   loadError.value = false
   try {
-    settings.value = await requestFetch<SettingsView>('/api/admin/settings')
+    const [loaded, consents] = await Promise.all([
+      requestFetch<SettingsView>('/api/admin/settings'),
+      requestFetch<{ count: number }>('/api/admin/marketing-consents/count'),
+    ])
+    settings.value = loaded
+    marketingCount.value = consents.count
     const bp = settings.value.onlinePaymentDiscountBasisPoints
     percent.value = bp === null ? '' : String(bp / 100)
   } catch (err) {
@@ -127,6 +134,18 @@ async function save(clear = false) {
         </p>
         <AppAlert v-if="saveState === 'error'" :message="saveError" />
       </form>
+    </section>
+
+    <section
+      v-if="marketingCount !== null"
+      class="settings__card"
+      aria-labelledby="settings-marketing-heading"
+    >
+      <h2 id="settings-marketing-heading">{{ sk.adminSettings.marketingHeading }}</h2>
+      <p class="settings__current">
+        {{ sk.adminSettings.marketingCount.replace('{count}', String(marketingCount)) }}
+      </p>
+      <p class="settings__note">{{ sk.adminSettings.marketingNote }}</p>
     </section>
   </main>
 </template>

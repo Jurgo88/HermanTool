@@ -60,6 +60,16 @@ export { createR2IdentityEvidenceGateway } from './r2-gateway'
 
 export { createCustomer } from './customer'
 export type { ContactDetails } from './contact'
+export type { MarketingConsentEvent, MarketingConsentRepository } from './marketing-consent'
+export {
+  MarketingConsentVersionMismatchError,
+  countActiveMarketingConsents,
+  createPostgresMarketingConsentRepository,
+  isConsentActive,
+  issueMarketingUnsubscribeToken,
+  recordCheckoutMarketingConsent,
+  withdrawMarketingConsent,
+} from './marketing-consent'
 export {
   OnSitePaymentLimitReachedError,
   assertNoActiveOnSiteGroupForContact,
