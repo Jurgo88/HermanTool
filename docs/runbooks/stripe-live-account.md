@@ -42,10 +42,13 @@ Mimo rozsahu: storno a refundy z iniciatívy zákazníka čakajú na OQ #1. Tu s
 4. **Settings → Business → Statement descriptor:** text na výpise
    zákazníka, najviac 22 znakov (napr. `RENT STAR`). Zákazník podľa neho
    platbu spozná. Ak ju nespozná, rastie riziko sporu (chargeback).
-5. **Settings → Payments → Payment methods:** pre pilot nechajte zapnuté
-   **len Cards, Apple Pay a Google Pay**. Ostatné metódy vypnite, hlavne
-   tie s oneskoreným potvrdením (SEPA Direct Debit, bankový prevod a pod.).
-   Dôvod je v časti [Známe obmedzenia](#známe-obmedzenia).
+5. **Settings → Payments → Payment methods:** pre pilot odporúčame nechať
+   zapnuté **len Cards, Apple Pay a Google Pay**. Metódy s oneskoreným
+   potvrdením (SEPA Direct Debit, bankový prevod a pod.) systém zvládne,
+   potvrdí rezerváciu až po pripísaní peňazí (#244). Platba však trvá dni,
+   rezervácia medzitým vyprší a pri pripísaní ju systém buď znova získa,
+   alebo peniaze automaticky vráti (D-37). Pre zákazníka je to mätúce.
+   Viac v časti [Známe obmedzenia](#známe-obmedzenia).
 6. **Settings → Team:** pozvite správcu s rolou **Developer**, nie
    Administrator.
 
@@ -69,9 +72,15 @@ pustí kapacitu (D-37).
 1. V **živom režime** (prepínač *Test mode* vypnutý) otvorte
    **Developers → Webhooks → Add endpoint**.
 2. Endpoint URL: `https://<doména>/api/webhooks/stripe`
-3. Events: **iba `checkout.session.completed`**. Na nič iné kód nereaguje
+3. Events: **iba tieto tri**. Na nič iné kód nereaguje
    (`server/contexts/payments/gateway.ts`), ostatné udalosti by iba
    pribúdali v logu.
+   - `checkout.session.completed`: zaplatené kartou. Za zaplatenie sa
+     berie, len ak Stripe hlási `payment_status: paid`.
+   - `checkout.session.async_payment_succeeded`: oneskorená platba prišla.
+   - `checkout.session.async_payment_failed`: oneskorená platba zlyhala.
+     Kód ju ignoruje a rezervácia sama vyprší. Odber sa hodí kvôli logu
+     v Stripe.
 4. API version: `2026-08-26.dahlia`, teda verzia, ktorú používa SDK
    `stripe@22.x` v projekte. Ak ju formulár neponúkne, nechajte predvolenú
    verziu účtu a skontrolujte prvé doručenie v kroku 6.
@@ -150,7 +159,8 @@ Zoznam z 15. 11. obsahuje aj „testovaciu platbu a refund v live režime“.
 Systém zatiaľ nemá cestu na storno (OQ #1), preto:
 
 - Refund cez **Stripe dashboard** vráti peniaze, ale aplikácia sa o ňom
-  nedozvie. Počúva iba `checkout.session.completed`. Platba ostane v
+  nedozvie. Počúva iba udalosti o zaplatení checkoutu (krok 3), nie
+  o refundoch. Platba ostane v
   databáze `succeeded`, rezervácia `confirmed` a v Štatistikách (S-25) sa
   suma ráta ako tržba.
 - Preto odporúčame testovaciu rezerváciu naozaj uskutočniť (vydať a
@@ -176,14 +186,12 @@ Ak živé platby treba zastaviť:
 
 ## Známe obmedzenia
 
-- **Oneskorené platobné metódy.** Kód považuje `checkout.session.completed`
-  za zaplatenie a nekontroluje `payment_status`. Pri kartách, Apple Pay a
-  Google Pay je to v poriadku, platba je pri tejto udalosti hotová. Pri
-  metódach ako SEPA Direct Debit prichádza táto udalosť ešte pred
-  pripísaním peňazí (`payment_status: unpaid`). Rezervácia by sa potvrdila
-  bez zaplatenia. Preto krok 1.5. Ak ich niekedy treba zapnúť, najprv sa
-  musí zmeniť kód (kontrola `payment_status` a udalosti
-  `checkout.session.async_payment_succeeded` / `_failed`).
+- **Oneskorené platobné metódy.** Od #244 sa rezervácia potvrdí až pri
+  `payment_status: paid` alebo pri `checkout.session.async_payment_succeeded`,
+  takže nezaplatená rezervácia sa už nepotvrdí. Rezervácia (Pending) však
+  vyprší po 30 minútach (D-18) a oneskorená platba príde až o dni. Pri
+  pripísaní systém kapacitu znova získa, alebo peniaze automaticky vráti
+  (D-37). Preto pre pilot odporúčame len okamžité metódy (krok 1.5).
 - **Názov položky na platobnej stránke** je anglický a technický:
   `Rental fee — ReservationGroup <id>` (`gateway.ts`). Zákazník ho vidí
   na Checkout a v potvrdení zo Stripe. Je to kandidát na samostatnú

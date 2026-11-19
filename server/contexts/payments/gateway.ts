@@ -52,6 +52,27 @@ export interface PaymentGateway {
   expireHostedCheckoutSession(providerReference: string): Promise<boolean>
 }
 
+// FR-10, #244: "completed" is not "paid". For a delayed-notification method
+// (SEPA Direct Debit, bank transfer, …) Stripe sends
+// checkout.session.completed with payment_status 'unpaid' before any money
+// moves, and later async_payment_succeeded or async_payment_failed. Only a
+// paid checkout becomes `checkout_completed`; anything else is
+// `unrecognized`, so the group stays Pending and its holds expire as usual —
+// and a late success re-acquires or refunds through D-37 like any other
+// payment after expiry.
+function toProviderWebhookEvent(event: Stripe.Event): ProviderWebhookEvent {
+  const paid =
+    (event.type === 'checkout.session.completed' && event.data.object.payment_status === 'paid') ||
+    event.type === 'checkout.session.async_payment_succeeded'
+  if (!paid) return { type: 'unrecognized' }
+
+  // eslint-disable-next-line id-denylist -- Stripe's own SDK type name (D-34); not this codebase's domain "Session"
+  const session = event.data.object as Stripe.Checkout.Session
+  const providerPaymentReference =
+    typeof session.payment_intent === 'string' ? session.payment_intent : (session.payment_intent?.id ?? null)
+  return { type: 'checkout_completed', providerReference: session.id, providerPaymentReference }
+}
+
 export function createStripePaymentGateway(params: { secretKey: string; webhookSecret: string }): PaymentGateway {
   // The SDK throws at construction when the key is empty; built lazily so
   // that surfaces inside each call's try as the typed error, not a raw 500.
@@ -105,15 +126,7 @@ export function createStripePaymentGateway(params: { secretKey: string; webhookS
         throw new ProviderWebhookSignatureInvalidError()
       }
 
-      if (event.type === 'checkout.session.completed') {
-        // eslint-disable-next-line id-denylist -- Stripe's own SDK type name (D-34); not this codebase's domain "Session"
-        const session = event.data.object as Stripe.Checkout.Session
-        const providerPaymentReference =
-          typeof session.payment_intent === 'string' ? session.payment_intent : (session.payment_intent?.id ?? null)
-        return { type: 'checkout_completed', providerReference: session.id, providerPaymentReference }
-      }
-
-      return { type: 'unrecognized' }
+      return toProviderWebhookEvent(event)
     },
 
     async expireHostedCheckoutSession(providerReference) {
