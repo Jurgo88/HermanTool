@@ -2,13 +2,19 @@
 // S-07, FR-38, D-52, D-35. The owner's draft of the rental terms (OQ #1),
 // shown in the `draft.` slot until legal review approves it. Its version
 // is what checkout records on acceptance (D-35). Referenced from checkout
-// (S-03) and the site footer.
+// (S-03) and the site footer. A body part is a paragraph (string), a list
+// (array) or an emphasised paragraph ({ emphasis }, #248).
 import { sk } from '~/i18n/sk'
 
 definePageMeta({ layout: 'public' })
 
 const terms = sk.draft.terms
 const sectionId = (index: number) => `clanok-${index + 1}`
+
+type TermsPart = string | readonly string[] | { readonly emphasis: string }
+function isEmphasis(part: TermsPart): part is { readonly emphasis: string } {
+  return typeof part === 'object' && 'emphasis' in part
+}
 
 function print() {
   window.print()
@@ -46,7 +52,10 @@ function print() {
     >
       <h2>{{ section.heading }}</h2>
       <template v-for="(part, partIndex) in section.body" :key="partIndex">
-        <ul v-if="Array.isArray(part)">
+        <p v-if="isEmphasis(part)" class="legal-page__emphasis">
+          <strong>{{ part.emphasis }}</strong>
+        </p>
+        <ul v-else-if="Array.isArray(part)">
           <li v-for="entry in part" :key="entry">{{ entry }}</li>
         </ul>
         <p v-else>{{ part }}</p>
@@ -147,6 +156,15 @@ function print() {
 
 .legal-page__section ul {
   padding-left: var(--ht-space-5);
+}
+
+/* #248: the owner's "treat it as your own" line, in the danger tone as
+ * asked. The rule and bold weight carry it too, so it does not rely on
+ * colour alone, and it stays legible on a black-and-white print. */
+.legal-page__section .legal-page__emphasis {
+  padding-left: var(--ht-space-3);
+  border-left: calc(var(--ht-line-width) * 3) solid var(--ht-danger);
+  color: var(--ht-danger);
 }
 
 .legal-page__actions {

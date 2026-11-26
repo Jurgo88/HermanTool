@@ -43,10 +43,11 @@ export const sk = {
     // (docs/legal/lawyer-brief-2026-10.md asks the questions section by
     // section). `version` is what D-35 records on the ReservationGroup
     // when a Customer accepts; change it with every change of the text.
-    // A string is a paragraph, an array of strings a list.
+    // A string is a paragraph, an array of strings a list, and
+    // `{ emphasis }` a paragraph the owner wants to stand out (#248).
     terms: {
-      version: '2026-10-navrh-1',
-      dateLabel: 'Návrh zo dňa 11. 10. 2026',
+      version: '2026-11-navrh-2',
+      dateLabel: 'Návrh zo dňa 27. 11. 2026',
       contentsHeading: 'Obsah',
       sections: [
         {
@@ -68,7 +69,16 @@ export const sk = {
           ],
         },
         {
-          heading: '3. Cena a platba',
+          heading: '3. Zodpovednosť a práva prenajímateľa',
+          body: [
+            'Náradie vám odovzdáme v riadnom, bezpečnom a funkčnom stave, pripravené na obvyklé používanie. Zodpovedáme za to, že pri odovzdaní nemá nám známe technické závady, ktoré by bránili jeho riadnemu používaniu.',
+            'Prenájom môžeme zrušiť alebo odmietnuť z prevádzkových, technických alebo iných závažných dôvodov, a to aj pred dohodnutým začiatkom prenájmu.',
+            'Ak zrušíme potvrdený prenájom, vrátime vám celú sumu, ktorú ste zaň zaplatili, bez zbytočného odkladu, najneskôr do 14 dní, na kartu, ktorou ste platili. Ako prejav ústretovosti vám môžeme poskytnúť zľavu alebo inú výhodu pri budúcom prenájme.',
+            'Nezodpovedáme za to, že sa prenájom nemohol uskutočniť pre okolnosti, ktoré sme nemohli primerane predvídať ani ovplyvniť, v rozsahu, ktorý dovoľujú právne predpisy. Zaplatenú sumu vám vrátime aj v takom prípade.',
+          ],
+        },
+        {
+          heading: '4. Cena a platba',
           body: [
             'Cena prenájmu sa počíta ako denná sadzba náradia × počet dní prenájmu × počet kusov. Za deň prenájmu sa považuje každý kalendárny deň od prvého do posledného dňa vrátane.',
             'Všetky ceny sú konečné a vrátane DPH.',
@@ -77,16 +87,16 @@ export const sk = {
           ],
         },
         {
-          heading: '4. Záloha',
+          heading: '5. Záloha',
           body: [
             'Pri prevzatí náradia zložíte zálohu v hotovosti. Jej výšku uvidíte pri rezervácii a v potvrdzujúcom e-maile. Záloha nie je súčasťou platby kartou.',
-            'Ak náradie vrátite včas, kompletné a nepoškodené, zálohu vám vrátime v hotovosti hneď pri vrátení.',
+            'Ak náradie vrátite kompletné a nepoškodené, zálohu vám vrátime v hotovosti hneď pri vrátení.',
             'Ak treba poškodenie alebo chýbajúce časti posúdiť alebo opraviť, zálohu môžeme podržať a jej zvyšok vám vrátime najneskôr do 14 dní od vrátenia náradia spolu s písomným vyúčtovaním.',
-            'Zo zálohy môžeme započítať len nároky podľa článkov 7 a 8 (omeškanie, poškodenie, strata, čistenie), a to len na základe záznamu o stave náradia pri vydaní a pri vrátení.',
+            'Zo zálohy môžeme započítať len náhradu za poškodenie, stratu alebo chýbajúce časti podľa článku 9, a to len vtedy, ak sú zaznamenané na fotografiách pri vrátení a nie sú zaznamenané na fotografiách pri vydaní. Iné sumy, napríklad za omeškanie, zo zálohy nezapočítavame.',
           ],
         },
         {
-          heading: '5. Prevzatie náradia',
+          heading: '6. Prevzatie náradia',
           body: [
             'Náradie si preberáte na prevádzke v prvý deň prenájmu počas otváracích hodín. Ak neprídete v prvý deň, náradie vám držíme počas celého zaplateného obdobia; koniec prenájmu sa tým neposúva a za nevyužité dni sa cena nevracia.',
             'Pri prevzatí je potrebné:',
@@ -95,13 +105,18 @@ export const sk = {
               'predložiť platný doklad totožnosti; overíme, že náradie preberá osoba, ktorá ho rezervovala,',
               'zložiť zálohu v hotovosti.',
             ],
+            'Ak ste fotografiu dokladu totožnosti nenahrali vopred cez odkaz z e-mailu, pri prevzatí ju odfotíme alebo naskenujeme. Ako dlho fotografiu dokladu uchovávame a kedy ju vymažeme, sa dozviete na stránke Ochrana súkromia. Zálohu vám vrátime pri vrátení náradia podľa článku 5.',
             'Pri vydaní spolu skontrolujeme stav a úplnosť náradia a odfotíme ho. Fotografie slúžia ako záznam o stave náradia pri vydaní. Na požiadanie vám ukážeme, ako sa náradie bezpečne používa.',
             'Ak niektorú z podmienok prevzatia nesplníte, náradie vám nemôžeme vydať.',
           ],
         },
         {
-          heading: '6. Používanie náradia',
+          heading: '7. Používanie náradia',
           body: [
+            {
+              emphasis:
+                'S náradím zaobchádzajte tak, ako keby bolo vaše vlastné: šetrne, podľa návodu a s ohľadom na bezpečnosť svoju aj ľudí okolo vás. Vráťte ho v takom stave, v akom by ste si ho chceli požičať vy.',
+            },
             'Náradie používajte len na účel, na ktorý je určené, podľa návodu a pokynov k obsluhe a s príslušnými ochrannými pomôckami.',
             'Počas prenájmu:',
             [
@@ -115,17 +130,17 @@ export const sk = {
           ],
         },
         {
-          heading: '7. Vrátenie náradia a omeškanie',
+          heading: '8. Vrátenie náradia a omeškanie',
           body: [
             'Náradie vrátite na prevádzke v posledný deň prenájmu počas otváracích hodín, kompletné, s príslušenstvom a primerane očistené.',
             'Pri vrátení spolu skontrolujeme stav náradia a odfotíme ho. Fotografie pri vydaní a pri vrátení sú podkladom na posúdenie prípadného poškodenia.',
-            'Ak náradie vrátite neskôr, za každý začatý deň omeškania zaplatíte dennú sadzbu náradia. Sumu môžeme započítať so zálohou.',
-            'Ak náradie nevrátite do [3] dní po poslednom dni prenájmu a nekontaktujete nás, považujeme ho za nevrátené. V takom prípade si uplatníme náhradu jeho hodnoty podľa článku 8 a môžeme podať trestné oznámenie.',
-            'Ak je náradie pri vrátení výrazne znečistené, môžeme si účtovať skutočné náklady na jeho vyčistenie.',
+            'Ak náradie vrátite neskôr, za každý začatý deň omeškania zaplatíte dennú sadzbu náradia. Túto sumu zaplatíte pri vrátení náradia; so zálohou ju nezapočítavame.',
+            'Ak náradie nevrátite do [3] dní po poslednom dni prenájmu a nekontaktujete nás, považujeme ho za nevrátené. V takom prípade si uplatníme náhradu jeho hodnoty podľa článku 9 a môžeme podať trestné oznámenie.',
+            'Ak je náradie pri vrátení výrazne znečistené, môžeme si účtovať skutočné náklady na jeho vyčistenie. [doplniť: či sa táto suma platí pri vrátení, alebo sa započíta so zálohou]',
           ],
         },
         {
-          heading: '8. Poškodenie a strata',
+          heading: '9. Poškodenie a strata',
           body: [
             'Bežné opotrebenie pri správnom používaní neplatíte.',
             'Ak je náradie poškodené, zaplatíte skutočné náklady na jeho opravu. Ak je náradie stratené, ukradnuté alebo zničené tak, že sa nedá opraviť, zaplatíte jeho časovú hodnotu ku dňu vzniku škody.',
@@ -134,29 +149,29 @@ export const sk = {
           ],
         },
         {
-          heading: '9. Zrušenie rezervácie',
+          heading: '10. Zrušenie rezervácie',
           body: [
             'Zaplatenú rezerváciu môžete zrušiť e-mailom alebo telefonicky. Podľa toho, kedy nám zrušenie oznámite pred začiatkom prvého dňa prenájmu, vám vrátime:',
             [
               'viac ako 48 hodín vopred: 100 % ceny prenájmu,',
-              '24 až 48 hodín vopred: 50 % ceny prenájmu,',
+              '24 až 48 hodín vopred: 70 % ceny prenájmu,',
               'menej ako 24 hodín vopred alebo neskôr: cena sa nevracia.',
             ],
             'Začiatkom prvého dňa prenájmu sa rozumie [doplniť: 00:00 / otvorenie prevádzky] v prvý deň prenájmu.',
-            'Ak rezerváciu zrušíme my, napríklad pre poruchu náradia, vrátime vám celú zaplatenú cenu.',
+            'Ak rezerváciu zrušíme my, napríklad pre poruchu náradia, postupujeme podľa článku 3.',
             'Peniaze vrátime na kartu, ktorou ste platili, do 14 dní od zrušenia.',
-            'Tým nie je dotknuté vaše zákonné právo odstúpiť od zmluvy podľa článku 10.',
+            'Tým nie je dotknuté vaše zákonné právo odstúpiť od zmluvy podľa článku 11.',
           ],
         },
         {
-          heading: '10. Odstúpenie od zmluvy uzavretej na diaľku',
+          heading: '11. Odstúpenie od zmluvy uzavretej na diaľku',
           body: [
             '[Znenie tohto článku závisí od posúdenia, či sa na krátkodobý nájom náradia vzťahuje právo spotrebiteľa odstúpiť od zmluvy uzavretej na diaľku do 14 dní, alebo niektorá zo zákonných výnimiek. Doplní sa po právnom posúdení.]',
             'Ak právo na odstúpenie máte, môžete od zmluvy odstúpiť bez uvedenia dôvodu do 14 dní odo dňa jej uzavretia, a to oznámením na e-mail [doplniť] alebo poštou na adresu sídla. Môžete použiť vzorový formulár v prílohe. Zaplatenú cenu vám vrátime do 14 dní od doručenia oznámenia.',
           ],
         },
         {
-          heading: '11. Reklamácia',
+          heading: '12. Reklamácia',
           body: [
             'Ak má náradie pri prevzatí alebo počas prenájmu vadu, ktorú ste nespôsobili, oznámte nám to bez zbytočného odkladu e-mailom, telefonicky alebo na prevádzke.',
             'Ak je to možné, náradie vám vymeníme za iné rovnakého alebo podobného typu. Ak to možné nie je, vrátime vám pomernú časť ceny za dni, keď ste náradie nemohli používať.',
@@ -164,20 +179,20 @@ export const sk = {
           ],
         },
         {
-          heading: '12. Riešenie sporov',
+          heading: '13. Riešenie sporov',
           body: [
             'Ak nie ste spokojní so spôsobom, ktorým sme vybavili vašu reklamáciu, alebo ak sa domnievate, že sme porušili vaše práva, môžete sa na nás obrátiť so žiadosťou o nápravu. Ak vašu žiadosť zamietneme alebo na ňu neodpovieme do 30 dní, môžete podať návrh na alternatívne riešenie sporu subjektu alternatívneho riešenia spotrebiteľských sporov, ktorým je napríklad Slovenská obchodná inšpekcia (www.soi.sk).',
             'Dozorným orgánom je Slovenská obchodná inšpekcia, Inšpektorát SOI pre [doplniť: kraj].',
           ],
         },
         {
-          heading: '13. Osobné údaje',
+          heading: '14. Osobné údaje',
           body: [
             'Ako spracúvame vaše osobné údaje vrátane údajov z dokladu totožnosti a fotografií náradia, sa dozviete na stránke Ochrana súkromia.',
           ],
         },
         {
-          heading: '14. Záverečné ustanovenia',
+          heading: '15. Záverečné ustanovenia',
           body: [
             'Vzťahy, ktoré tieto podmienky neupravujú, sa riadia právnym poriadkom Slovenskej republiky, najmä Občianskym zákonníkom a predpismi na ochranu spotrebiteľa.',
             'Podmienky môžeme meniť. Na vašu rezerváciu sa vždy vzťahuje znenie, s ktorým ste súhlasili pri platbe; jeho verzia je uvedená v potvrdzujúcom e-maile.',
