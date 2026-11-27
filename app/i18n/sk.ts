@@ -202,20 +202,142 @@ export const sk = {
       ],
     },
     privacyPageBody:
-      'Toto je dočasný text — konečné znenie zásad ochrany súkromia, vrátane doby uchovávania dokladov totožnosti a údajov zákazníka, ešte čaká na právne schválenie.',
-    // #216: legal text pending with OQ #27 — kept in the draft slot (D-52).
-    // D-66: address processing for Delivery/Collection — retention under OQ #27.
-    privacyDeliveryHeading: 'Adresa pri dovoze a odvoze',
-    privacyDeliveryBody:
-      'Ak si objednáte dovoz alebo odvoz, adresu použijeme len na doručenie a vyzdvihnutie náradia. Neposielame ju žiadnej mapovej ani inej službe tretej strany. Doba jej uchovávania ešte čaká na právne posúdenie.',
-    privacyMarketingHeading: 'Ponuky a zľavy e-mailom',
-    privacyMarketingBody:
-      'Ak v rezervácii zaškrtnete súhlas, budeme vám posielať ponuky a zľavy na váš e-mail. Súhlas je dobrovoľný, zaznamenáme si jeho čas a znenie textu, ktorému ste ho dali, a môžete ho kedykoľvek odvolať odkazom v e-maile. Doba uchovávania záznamu o súhlase ešte čaká na právne posúdenie.',
-    // D-64 (#214): the AI recommendation — new processor (OQ #4), 90-day
-    // question log on legitimate interest. Legal wording pending (D-52).
-    privacyRecommendationHeading: 'Odporúčanie náradia',
-    privacyRecommendationBody:
-      'Ak v katalógu opíšete, čo potrebujete urobiť, váš text pošleme spoločnosti Anthropic (sprostredkovateľ), ktorej model z našej ponuky vyberie vhodné náradie. Text si uložíme na 90 dní, aby sme vedeli, čo zákazníci hľadajú a čo v ponuke chýba (oprávnený záujem). Pred uložením z neho automaticky odstránime e-mailové adresy a telefónne čísla. Neukladáme vašu IP adresu ani ho nespájame s vašou rezerváciou; na obmedzenie počtu otázok používame len jej jednosmerný odtlačok, ktorý po 24 hodinách zahodíme.',
+      'Toto je návrh zásad ochrany súkromia. Kým ho neschváli právnik, nie je konečný a údaje v hranatých zátvorkách sa ešte doplnia.',
+    // #247: the full privacy notice (GDPR Art. 13), drafted for counsel.
+    // Every retention period that is still open stays `[doplniť]` — never
+    // invent one: Customer records (OQ #27, IR-07), ConditionReport photos,
+    // Delivery address (D-66), marketing consent (#216). IdentityEvidence
+    // states D-61 as decided; the client's "7 days" request is #246 and
+    // must not appear here until it supersedes D-61. Processors are OQ #4;
+    // the cookie list is D-42's inventory. Change `version` with the text.
+    // A string is a paragraph, an array of strings a list.
+    privacy: {
+      version: '2026-11-navrh-1',
+      dateLabel: 'Návrh zo dňa 27. 11. 2026',
+      contentsHeading: 'Obsah',
+      sections: [
+        {
+          heading: '1. Kto spracúva vaše údaje',
+          body: [
+            'Prevádzkovateľom vašich osobných údajov je [doplniť: obchodné meno] s. r. o., so sídlom [doplniť: adresa sídla], IČO: [doplniť], ktorá podniká pod označením Rent Star (ďalej „my“).',
+            'S otázkami o vašich údajoch nám píšte na e-mail [doplniť] alebo nás kontaktujte na adrese sídla. [doplniť: či je určená zodpovedná osoba; ak áno, jej kontakt]',
+          ],
+        },
+        {
+          heading: '2. Rezervácia a zmluva o nájme',
+          body: [
+            'Pri rezervácii od vás potrebujeme meno a priezvisko, e-mail a telefónne číslo. K nim si zaznamenáme rezervované náradie, termín prenájmu, zaplatené sumy, zálohu, verziu podmienok, s ktorými ste súhlasili, a čas súhlasu.',
+            'Tieto údaje potrebujeme na uzavretie a plnenie zmluvy o nájme (čl. 6 ods. 1 písm. b) GDPR): aby sme vám náradie mohli rezervovať, vydať, prijať späť a poslať vám potvrdenie a pripomienky e-mailom. Bez nich rezerváciu nemôžeme prijať.',
+            'Účtovné doklady uchovávame tak dlho, ako nám to ukladá zákon o účtovníctve (čl. 6 ods. 1 písm. c) GDPR), [overiť: 10 rokov]. Ostatné údaje o rezervácii uchovávame [doplniť: doba uchovávania a jej dôvod].',
+          ],
+        },
+        {
+          heading: '3. Doklad totožnosti',
+          body: [
+            'Pred vydaním náradia potrebujeme overiť, že ho preberá osoba, ktorá ho rezervovala. Fotografiu vášho dokladu totožnosti nahráte vopred cez odkaz z e-mailu, alebo ju odfotíme pri prevzatí.',
+            'Fotografiu uchovávame na základe nášho oprávneného záujmu (čl. 6 ods. 1 písm. f) GDPR) vedieť, komu sme náradie prenajali, kým nie sú vyrovnané nároky z prenájmu: nevrátené alebo poškodené náradie, spor o zrážku zo zálohy alebo spor o platbu kartou.',
+            'Fotografiu vymažeme automaticky 365 dní po vyúčtovaní zálohy. Ak sa prenájom neuskutoční, plynie lehota od nahratia fotografie.',
+            'Fotografia dokladu je uložená oddelene od ostatných údajov, nezálohuje sa a pozrieť si ju môžu len naši prihlásení pracovníci.',
+          ],
+        },
+        {
+          heading: '4. Fotografie stavu náradia',
+          body: [
+            'Pri vydaní a pri vrátení náradie odfotíme. Fotografie sú záznamom o stave náradia a podkladom na posúdenie prípadného poškodenia (čl. 6 ods. 1 písm. b) a f) GDPR). Fotíme náradie, nie vás.',
+            'Fotografie uchovávame [doplniť: doba uchovávania a jej dôvod].',
+          ],
+        },
+        {
+          heading: '5. Platba',
+          body: [
+            'Platbu kartou spracúva spoločnosť Stripe. Údaje vašej karty zadávate priamo na jej stránke; my ich nevidíme ani neukladáme. Od spoločnosti Stripe dostaneme len informáciu, či a koľko ste zaplatili.',
+            'Ak platíte na prevádzke, zaznamenáme si sumu, spôsob platby a pracovníka, ktorý platbu prijal.',
+          ],
+        },
+        {
+          heading: '6. Adresa pri dovoze a odvoze',
+          body: [
+            'Ak si objednáte dovoz alebo odvoz, adresu použijeme len na doručenie a vyzdvihnutie náradia (čl. 6 ods. 1 písm. b) GDPR). Neposielame ju žiadnej mapovej ani inej službe tretej strany.',
+            'Adresu uchovávame [doplniť: doba uchovávania a jej dôvod].',
+          ],
+        },
+        {
+          heading: '7. Ponuky a zľavy e-mailom',
+          body: [
+            'Ak v rezervácii zaškrtnete súhlas, budeme vám posielať ponuky a zľavy na váš e-mail (čl. 6 ods. 1 písm. a) GDPR). Súhlas je dobrovoľný a rezervácia od neho nezávisí. Zaznamenáme si jeho čas a znenie textu, ktorému ste ho dali.',
+            'Súhlas môžete kedykoľvek odvolať odkazom v každom takom e-maile. Odvolanie nemá vplyv na zákonnosť spracúvania pred ním.',
+            'Záznam o súhlase uchovávame [doplniť: doba uchovávania a jej dôvod].',
+          ],
+        },
+        {
+          heading: '8. Odporúčanie náradia',
+          body: [
+            'Ak v katalógu opíšete, čo potrebujete urobiť, váš text pošleme spoločnosti Anthropic (sprostredkovateľ), ktorej model z našej ponuky vyberie vhodné náradie.',
+            'Text si uložíme na 90 dní, aby sme vedeli, čo zákazníci hľadajú a čo v ponuke chýba (oprávnený záujem, čl. 6 ods. 1 písm. f) GDPR). Pred uložením z neho automaticky odstránime e-mailové adresy a telefónne čísla.',
+            'Neukladáme vašu IP adresu ani text nespájame s vašou rezerváciou. Na obmedzenie počtu otázok používame len jednosmerný odtlačok IP adresy, ktorý po 24 hodinách zahodíme.',
+            'Odporúčanie je len návrh. Nerobíme o vás žiadne automatizované rozhodnutia s právnymi alebo podobne závažnými účinkami.',
+          ],
+        },
+        {
+          heading: '9. Prevádzka a bezpečnosť stránky',
+          body: [
+            'Pri návšteve stránky náš poskytovateľ hostingu zaznamenáva technické údaje, napríklad IP adresu a čas požiadavky, na zabezpečenie a prevádzku stránky (oprávnený záujem, čl. 6 ods. 1 písm. f) GDPR).',
+            'Chyby aplikácie posielame službe na sledovanie chýb. Osobné údaje z nich pred odoslaním odstránime. Záznamy o chybách sa mažú po 30 dňoch.',
+          ],
+        },
+        {
+          heading: '10. Cookies',
+          body: [
+            'Používame len cookies nevyhnutné na službu, ktorú ste si sami vyžiadali, preto na ne nepotrebujeme váš súhlas:',
+            [
+              'ht_checkout_group: prepája kroky jednej rezervácie (výber, súhlas s podmienkami, platba) vo vašom prehliadači,',
+              'ht_operator_at a ht_operator_rt: prihlásenie našich pracovníkov; zákazníkov sa netýkajú.',
+            ],
+            'Nepoužívame analytické ani reklamné cookies a na stránke nie sú vložené prvky tretích strán, ktoré by cookies nastavovali.',
+          ],
+        },
+        {
+          heading: '11. Komu údaje poskytujeme',
+          body: [
+            'Vaše údaje nepredávame. Spracúvajú ich za nás títo sprostredkovatelia, každý len v rozsahu svojej služby:',
+            [
+              'Supabase: databáza a prihlásenie pracovníkov, dáta uložené v EÚ (Frankfurt),',
+              'Cloudflare: úložisko fotografií dokladov a stavu náradia, [doplniť: jurisdikcia úložiska EÚ],',
+              'Stripe: spracovanie platieb kartou,',
+              'Resend: odosielanie e-mailov,',
+              'Netlify: hosting webovej stránky,',
+              'Sentry: sledovanie chýb aplikácie, bez osobných údajov,',
+              'Anthropic: odporúčanie náradia podľa článku 8.',
+            ],
+            'Ak nám to ukladá zákon, poskytneme údaje orgánom verejnej moci, napríklad polícii pri trestnom oznámení o nevrátenom náradí.',
+            'Niektorí sprostredkovatelia majú sídlo v USA. Prenos údajov mimo EÚ je zabezpečený [doplniť: pri každom sprostredkovateľovi rámec EÚ – USA na ochranu údajov alebo štandardné zmluvné doložky].',
+          ],
+        },
+        {
+          heading: '12. Vaše práva',
+          body: [
+            'Máte právo:',
+            [
+              'požiadať o prístup k svojim údajom a ich kópiu,',
+              'požiadať o opravu nesprávnych údajov,',
+              'požiadať o vymazanie údajov, ak ich už nepotrebujeme alebo ich nesmieme spracúvať,',
+              'požiadať o obmedzenie spracúvania,',
+              'na prenosnosť údajov, ktoré ste nám poskytli na základe zmluvy alebo súhlasu,',
+              'namietať proti spracúvaniu na základe oprávneného záujmu,',
+              'kedykoľvek odvolať súhlas.',
+            ],
+            'Žiadosť nám pošlite na e-mail podľa článku 1. Odpovieme bez zbytočného odkladu, najneskôr do jedného mesiaca.',
+            'Ak sa domnievate, že s vašimi údajmi zaobchádzame nezákonne, môžete podať návrh na začatie konania Úradu na ochranu osobných údajov Slovenskej republiky (www.dataprotection.gov.sk).',
+          ],
+        },
+        {
+          heading: '13. Zmeny',
+          body: [
+            'Tieto zásady môžeme meniť, napríklad keď pridáme novú službu. Aktuálne znenie a jeho verzia sú vždy na tejto stránke.',
+          ],
+        },
+      ],
+    },
     // D-64 (#214): the Tenant's contact for "we will advise you in person".
     recommendationContact: 'Kontakt: e-mail [doplniť], telefón [doplniť].',
   },
