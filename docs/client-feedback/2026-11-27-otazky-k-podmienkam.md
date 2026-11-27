@@ -49,6 +49,9 @@ ktoré odpoveď odblokuje.
    IČ DPH) potrebuje aj čl. 1 podmienok.
 9. **Formulár na odstúpenie** (#250). Stačí PDF (otvorí sa na každom
    telefóne), alebo chcete Word?
+Pri bodoch 10–12 sú možnosti s odporúčaním rozpísané v
+[návrhoch rozhodnutí](2026-11-27-navrhy-rozhodnuti.md). Stačí vybrať.
+
 10. **Otázka k náradiu** (#252). Má otázka prísť len vám na e-mail, alebo ju
     chcete vidieť aj v administrácii? Budete odpovedať zo svojho e-mailu?
 11. **Newsletter** (#253). Má byť prihlásenie na webe aj bez rezervácie? Kto
@@ -70,9 +73,7 @@ Nadväzuje na [podklad z októbra](../legal/lawyer-brief-2026-10.md).
    kópiu dokladu na tomto základe?
 3. **Údaje zákazníka** (OQ #27, #75). Ako dlho možno uchovávať meno, e-mail,
    telefón, adresu pri dovoze a záznam o marketingovom súhlase?
-4. **Ochrana súkromia** (#247). Schválenie úplného textu.
-5. **eKasa** (overiť). Hotovostná záloha a platby na mieste možno podliehajú
-   evidencii v eKase. Platba kartou online cez Stripe zrejme nie.
-6. **Nový čl. 3, zodpovednosť prenajímateľa** (#248). Je obmedzenie
+4. **Ochrana súkromia** (#247, návrh v #256). Schválenie úplného textu.
+5. **Nový čl. 3, zodpovednosť prenajímateľa** (#248). Je obmedzenie
    zodpovednosti pri okolnostiach, ktoré prenajímateľ nemohol ovplyvniť,
    voči spotrebiteľovi platné v tomto znení?
