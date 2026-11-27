@@ -130,6 +130,39 @@ alebo anonymizáciu po jej uplynutí.
 - **Cookies:** používame len nevyhnutné cookies (prihlásenie personálu,
   rozpracovaná platba), preto nemáme lištu so súhlasom. Prosím potvrdiť.
 
+## 6. Doplnenie — 27. 11. 2026
+
+Prevádzkovateľ poslal pripomienky k podmienkam. Nová verzia návrhu je
+`2026-11-navrh-2` (`/podmienky`). Pribudol návrh zásad ochrany súkromia
+(`/sukromie`, verzia `2026-11-navrh-1`). Zmeny, ktoré sa vás týkajú:
+
+1. **Storno (čl. 10, nadväzuje na bod 1):** prevádzkovateľ navrhuje
+   vrátiť 100 % ceny pri zrušení viac ako 48 h vopred, **70 %** pri
+   24–48 h a nič pri menej ako 24 h. Platí to len vtedy, ak zákonné právo
+   odstúpiť do 14 dní nemá prednosť. Preto je odpoveď na bod 1 stále
+   kľúčová.
+2. **Doklad totožnosti (nadväzuje na bod 3):** prevádzkovateľ chce
+   zákazníkom sľúbiť, že **všetky osobné údaje vymaže do 7 dní po
+   vrátení**. To je v rozpore s rozhodnutím o 365 dňoch. Pri 7 dňoch
+   zanikne možnosť identifikovať zákazníka pri neskôr zistenej škode, pri
+   spore o platbu kartou a pri nevrátenom náradí. Záloha sa navyše dá
+   podržať až 14 dní. Ktorá lehota je obhájiteľná? Kým neodpoviete,
+   v texte nie je žiadny počet dní.
+3. **Nový čl. 3, zodpovednosť prenajímateľa:** prenajímateľ si vyhradzuje
+   právo zrušiť prenájom z prevádzkových dôvodov (s vrátením celej sumy) a
+   nezodpovedá za okolnosti, ktoré nemohol ovplyvniť. Je to voči
+   spotrebiteľovi platné v tomto znení?
+4. **Záloha (čl. 5 a 8):** text sme zosúladili s aplikáciou. Zo zálohy sa
+   strhne len škoda doložená fotkami pri vydaní a vrátení. Poplatok za
+   omeškanie sa platí zvlášť pri vrátení.
+5. **Zásady ochrany súkromia:** prosím o pripomienky k celému textu.
+   Lehoty, ktoré sú v bode 4 ešte otvorené, sú vyznačené `[doplniť]`.
+6. **Formulár na odstúpenie:** prevádzkovateľ ho chce posielať ako prílohu
+   potvrdzujúceho e-mailu. Pošleme ho, len ak právo na odstúpenie platí.
+
+Všetky otvorené otázky (aj pre prevádzkovateľa) sú v
+`docs/client-feedback/2026-11-27-otazky-k-podmienkam.md`.
+
 ## Čo potrebujeme od vás na výstupe
 
 1. Odpoveď k odstúpeniu (bod 1) a schválené alebo upravené znenie čl. 9 a 10.
